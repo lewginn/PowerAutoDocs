@@ -1,11 +1,10 @@
 {
-  "name": "powerautodoc",
+  "name": "powerautodocs",
   "version": "1.0.1",
   "description": "Automated as-built documentation generator for Power Platform solutions",
   "type": "module",
-  "postbuild": "sed -i '1s|^|#!/usr/bin/env node\\n|' dist/index.js && chmod +x dist/index.js",
   "bin": {
-    "powerautodoc": "dist/index.js"
+    "powerautodocs": "dist/index.js"
   },
   "files": [
     "dist"
