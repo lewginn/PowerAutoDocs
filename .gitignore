@@ -1,0 +1,38 @@
+doc-gen.config.yml
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Runtime output — never commit generated docs or unpacked solutions
+output/
+unpacked/
+
+# Logs
+dev.log
+*.log
+
+# TypeScript cache
+*.tsbuildinfo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Environment / secrets — for when we add ADO tokens later
+.env
+.env.*
+
+# Solution ZIPs — build artifacts, not source
+*.zip
+
+# notes
+*.txt
+
+#yml config file, required for client project, but should not be committed to source control as it may contain environment-specific settings
+*doc-gen.config.yml

@@ -1,0 +1,52 @@
+{
+  "name": "powerautodoc",
+  "version": "1.0.1",
+  "description": "Automated as-built documentation generator for Power Platform solutions",
+  "type": "module",
+  "postbuild": "sed -i '1s|^|#!/usr/bin/env node\\n|' dist/index.js && chmod +x dist/index.js",
+  "bin": {
+    "powerautodoc": "dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lewginn/PowerAutoDocs.git"
+  },
+  "keywords": [
+    "power-platform",
+    "dataverse",
+    "dynamics-365",
+    "documentation",
+    "azure-devops",
+    "wiki"
+  ],
+  "author": "Lewis Ginn",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^25.3.3",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.16",
+    "commander": "^14.0.3",
+    "fast-xml-parser": "^5.4.2",
+    "glob": "^13.0.6",
+    "handlebars": "^4.7.8",
+    "js-yaml": "^4.1.1",
+    "zod": "^4.3.6"
+  },
+  "scripts": {
+    "dev": "tsx src/index.ts > dev.log 2>&1",
+    "build": "tsc",
+    "postbuild": "node scripts/addShebang.mjs && chmod +x dist/index.js",
+    "prepublishOnly": "npm run build",
+    "docs": "cd docs-viewer && npm run build && npx serve dist"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
