@@ -144,9 +144,11 @@ const layers = [
     bg: "#ecfeff",
     description: "Azure DevOps YAML + npm package — reusable across all client projects",
     components: [
-      { name: "ADO Pipeline YAML", icon: "🏭", detail: "Manual trigger pipeline. Node 20, npx powerautodoc@latest. PAT injected at runtime via sed into doc-gen.config.yml. WIKI_PAT secret variable. Tested end-to-end on live solutions.", tags: ["ADO YAML"], done: true, moscow: "S" },
+      { name: "ADO Pipeline YAML", icon: "🏭", detail: "Manual trigger pipeline. Node 20, npx powerautodocs@latest. PAT injected at runtime via sed into doc-gen.config.yml. WIKI_PAT secret variable. Tested end-to-end on live solutions.", tags: ["ADO YAML"], done: true, moscow: "S" },
       { name: "doc-gen.config.yml", icon: "⚙️", detail: "Per-project config. Multi-solution support with roles (all/datamodel/plugins/flows/classicWorkflows/webresources/securityRoles/environmentVariables). Wiki org/project/identifier/parentPath. PAT field REDACTED for safe commit, injected at runtime.", tags: ["Config"], done: true, moscow: "M" },
-      { name: "npm Package (powerautodoc)", icon: "📦", detail: "Published as powerautodoc on npmjs.com. Granular Access Token with bypass-2FA. Shebang entry point via scripts/addShebang.mjs (cross-platform, replaces broken macOS BSD sed approach). prepublishOnly build step. Node >=20 requirement.", tags: ["npm"], done: true, moscow: "M" },
+      { name: "npm Package (powerautodocs)", icon: "📦", detail: "Published as powerautodocs on npmjs.com. GitHub repo: lewginn/PowerAutoDocs. Granular Access Token with bypass-2FA. Shebang entry point via scripts/addShebang.mjs (cross-platform). prepublishOnly build step. Node >=18 requirement. Renamed from powerautodoc to avoid accidental client data exposure in earlier versions.", tags: ["npm"], done: true, moscow: "M" },
+      { name: "Run Logger + Summary", icon: "📋", detail: "src/logger.ts — structured console output with symbols (✓/✗/⚠/→). Per-solution section headers, per-component counts. End-of-run summary with solutions processed/skipped, parse warnings, pages published, publish failures. Exit code 1 on any hard failure — ADO pipeline marks step as failed.", tags: ["DX"], done: true, moscow: "S" },
+      { name: "GitHub Actions npm Publish", icon: "🚀", detail: "npm-publish.yml workflow. Triggers on GitHub Release created. Runs npm ci → npm run build → npm publish. NODE_AUTH_TOKEN from NPM_TOKEN repo secret. Replaces manual npm publish from local machine.", tags: ["CI/CD"], done: true, moscow: "S" },
       { name: "Trigger Strategy", icon: "⚡", detail: "Currently manual trigger only. Push to main, scheduled nightly options planned.", tags: ["Trigger"], done: false, moscow: "S" },
       { name: "IR Artifact Store", icon: "💾", detail: "IR JSON snapshot published as pipeline artifact. Enables diffing, debugging, re-runs from cache.", tags: ["Artefact"], done: false, moscow: "C" },
     ]
@@ -182,22 +184,18 @@ const pages = [
 ];
 
 const decisions = [
-  { q: "Language / Runtime?", a: "TypeScript / Node.js", reason: "Confirmed. Typed IR interfaces catch errors at compile time. tsx for fast dev iteration. NodeNext module resolution." },
-  { q: "Markdown templating?", a: "String builder (no engine)", reason: "Confirmed. Pure TypeScript string arrays with a markdownTable() helper. Simpler, fully typed, no Handlebars dependency." },
-  { q: "Multi-solution projects?", a: "Config-driven (Option A)", reason: "Confirmed. doc-gen.config.yml lists solutions. Tool merges IR across solutions into one wiki." },
-  { q: "Solution ZIP vs flat XML?", a: "pac unpack → flat XML", reason: "Confirmed. pac solution unpack runs before the tool. Unpacked XML is the working format. ZIPs and unpacked folders are gitignored." },
-  { q: "How reusable across clients?", a: "npm package + ADO pipeline", reason: "Confirmed. powerautodoc published to npmjs.com. Client projects have doc-gen.config.yml and a pipeline that runs npx powerautodoc@latest." },
-  { q: "Flow action rendering?", a: "Nested markdown list", reason: "Confirmed. Table format was fighting the tree structure of flow actions. Nested bullet list with ✓/✗ branch markers renders hierarchy naturally. Diagram owns the visual." },
-  { q: "Mermaid in ADO Wiki?", a: ":::mermaid ::: syntax", reason: "Confirmed. ADO Wiki uses ::: delimiters not backtick fences. Pinned to Mermaid v8.14 — avoid newer node shapes like {{}}. Trigger=stadium, Terminate=circle." },
-  { q: "Table page structure?", a: "Index + subpages", reason: "Confirmed. Each table gets an index page (metadata + [[_TOSP_]]) plus subpages: Columns, Views, Forms, Relationships, Business Rules. All subpages always emitted with empty state messages." },
-  { q: "Business rules placement?", a: "Subpage under table", reason: "Confirmed. Business rules naturally belong under the table they govern. Matched by entity name. Always parsed alongside tables — no separate config toggle." },
-  { q: "Business rule XAML structure?", a: "Two sibling ConditionBranch nodes", reason: "Confirmed. Dataverse encodes if/else as ConditionBranchStep2 (condition) and ConditionBranchStep3 ([True] = always). Not a real Else node." },
-  { q: "Page name safety?", a: "s() + toADOWikiLink()", reason: "Confirmed. s() strips /, ?, #, % from page path segments at publish time. toADOWikiLink() encodes markdown link hrefs: existing hyphens → %2D (before space conversion), parens escaped, spaces → hyphens." },
-  { q: "Security page structure?", a: "Security → Security Roles sublevel", reason: "Confirmed. Security is a container page with [[_TOSP_]]. Security Roles is a sublevel — leaving room for future additions like Column Security Profiles without restructuring." },
-  { q: "Where does the IR live?", a: "In-memory + JSON artifact", reason: "IR is built in memory each run. Pipeline artifact publishing planned — enables diffing between releases and incremental re-runs." },
-  { q: "Word / PDF output feasibility?", a: "Blocked — needs document model layer", reason: "Current renderers emit markdown strings directly. A Word renderer needs structured DocNode objects that a docx library can consume. Requires a format-agnostic document model layer. Deferred to Phase 5." },
-  { q: "ERD entity filtering?", a: "Two-tier: prefix + config overrides", reason: "Confirmed. excludeStandardRelationships:true automatically filters to custom entities via publisher prefix. erd.excludeEntities and erd.excludeRelationships in config.yml for per-solution fine-tuning." },
-  { q: "postbuild shebang injection?", a: "Node script (cross-platform)", reason: "Confirmed. BSD sed on macOS silently fails with sed -i '1s|^|...|' — requires sed -i '' syntax. Replaced with scripts/addShebang.mjs called from postbuild." },
+  { q: "Language / Runtime?", a: "TypeScript / Node.js", reason: "Typed IR interfaces catch errors at compile time. Pure TypeScript string builders mean no templating engine dependency. NodeNext module resolution for ESM compatibility. tsx for fast local iteration without a build step." },
+  { q: "Core architecture?", a: "IR-based pipeline", reason: "Parsers only produce IR. Renderers only consume IR. Neither knows about the other. This separation means output formats (markdown, Word, Confluence) can be swapped or added without touching any parser. The IR is the contract between the two halves of the system." },
+  { q: "How reusable across clients?", a: "npm package + ADO pipeline template", reason: "powerautodocs published to npmjs.com — clients run npx powerautodocs@latest with no local install. Client projects only need doc-gen.config.yml and a pipeline YAML. GitHub Actions workflow auto-publishes to npm on each GitHub Release, removing manual publish steps." },
+  { q: "Multi-solution projects?", a: "Config-driven merge", reason: "doc-gen.config.yml lists multiple solutions. Each is parsed independently then merged into a single IR before rendering. Every solution is scanned for everything — the components config controls what gets rendered, not what gets parsed. Solution role concept was removed as unnecessary complexity." },
+  { q: "Flow action rendering?", a: "Nested markdown list", reason: "Flows have a natural tree structure. A flat table format fought against this. Nested bullet list with ✓/✗ branch markers renders the hierarchy naturally. The Mermaid diagram owns the visual representation — the action list owns the detail." },
+  { q: "Mermaid in ADO Wiki?", a: ":::mermaid fence, pinned to v8.14", reason: "ADO Wiki uses ::: delimiters, not backtick fences. Pinned to Mermaid v8.14 for compatibility — newer node shapes like {{}} are not supported. Trigger nodes use stadium shape, Terminate uses circle. erDiagram used for ERD with empty entity blocks (no columns by design)." },
+  { q: "ERD entity filtering?", a: "Two-tier: prefix + explicit overrides", reason: "excludeStandardRelationships:true automatically filters to custom entities via publisher prefix — eliminates ownerid/systemuser/businessunit noise in one setting. erd.excludeEntities and erd.excludeRelationships in config.yml for per-solution fine-tuning of remaining noise." },
+  { q: "Error handling strategy?", a: "Skip-and-continue with run summary", reason: "A single bad solution path should not kill the entire run. Each solution is wrapped in try/catch — failures are recorded and the run continues. End-of-run summary shows processed/skipped counts, parse warnings and publish failures. Exit code 1 on any failure so ADO marks the step red." },
+  { q: "File casing on Linux?", a: "Capitalised filenames (Solution.xml)", reason: "pac CLI on Windows produces capitalised filenames (Solution.xml, Customizations.xml). macOS is case-insensitive so lowercase references worked locally. ADO agents run Ubuntu — Linux is case-sensitive and lowercase references failed silently. Standardised all filename references to match pac CLI output." },
+  { q: "Package name?", a: "powerautodocs (renamed from powerautodoc)", reason: "Original package powerautodoc was published with client references in source file comments. npm does not allow full package deletion after 72 hours. Renamed to powerautodocs on a clean repository (lewginn/PowerAutoDocs) with no client data in history. Old package deprecated." },
+  { q: "Security page structure?", a: "Security container → sublevel pages", reason: "Security is a container page with [[_TOSP_]]. Security Roles is a sublevel — not the top page itself — leaving room for Column Security Profiles and other future additions without restructuring the wiki hierarchy." },
+  { q: "Word / PDF output?", a: "Blocked — needs document model layer", reason: "All renderers emit markdown strings directly via string builders. A Word/PDF renderer needs structured DocNode objects (Heading/Table/Paragraph) that a docx library can consume. Adding this requires a format-agnostic document model layer between IR and renderers. Deferred to Phase 5." },
 ];
 
 const progress = [
@@ -242,7 +240,7 @@ const progress = [
       { label: "Web Resource parser (JS)", done: true },
       { label: "ADO Wiki REST publisher", done: true },
       { label: "Page name sanitisation + ADO wiki link encoding", done: true },
-      { label: "npm package (powerautodoc)", done: true },
+      { label: "npm package (powerautodocs)", done: true },
       { label: "ADO pipeline YAML", done: true },
       { label: "Multi-solution manifest parsing (all roles)", done: true },
       { label: "Security role privilege matrix", done: true },
@@ -252,6 +250,8 @@ const progress = [
       { label: "Email template parser", done: true },
       { label: "Model-driven app parser", done: true },
       { label: "Mermaid ER diagram generator", done: true },
+      { label: "Run logger + summary (logger.ts)", done: true },
+      { label: "GitHub Actions npm publish workflow", done: true },
       { label: "PCF control parser", done: false },
     ]
   },
@@ -329,7 +329,7 @@ export default function App() {
 
         <div style={{ padding: "28px 40px 0", borderBottom: "1px solid #e2e8f0", background: "#ffffff", boxShadow: "0 1px 8px rgba(0,0,0,0.06)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-            <div style={{ background: "#0f172a", color: "white", fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, fontSize: 11, padding: "3px 10px", borderRadius: 2, letterSpacing: "0.12em" }}>POWERAUTODOC</div>
+            <div style={{ background: "#0f172a", color: "white", fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, fontSize: 11, padding: "3px 10px", borderRadius: 2, letterSpacing: "0.12em" }}>POWERAUTODOCS</div>
             <span style={{ fontSize: 9, color: "#64748b", letterSpacing: "0.1em", fontFamily: "'IBM Plex Mono', monospace" }}>v0.1.x</span>
           </div>
           <h1 style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 22, fontWeight: 300, color: "#0f172a", letterSpacing: "-0.01em", marginBottom: 6 }}>
@@ -339,7 +339,7 @@ export default function App() {
             A reusable pipeline that reads Power Platform solution artifacts directly from Git and produces
             structured, cross-linked wiki documentation in Azure DevOps — including Mermaid flow diagrams,
             nested action trees, business rules, plugin registrations, web resource indexes, security role
-            matrices, environment variables, global choices, email templates, model-driven apps and auto-generated ER diagrams.
+            matrices, environment variables, global choices, email templates, model-driven apps and auto-generated ER diagrams. Published as powerautodocs on npm.
           </p>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
             <div style={{ width: 260, height: 3, background: "#e2e8f0", borderRadius: 2, overflow: "hidden" }}>
