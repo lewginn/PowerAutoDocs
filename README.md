@@ -1,18 +1,18 @@
-# PowerAutoDoc
+# PowerAutoDocs
 
 Automated as-built documentation generator for Power Platform solutions.
 
 Reads unpacked solution XML directly from Git and publishes structured, cross-linked documentation to an Azure DevOps Wiki — automatically, on every deployment.
 
-[![npm](https://img.shields.io/npm/v/powerautodoc)](https://www.npmjs.com/package/powerautodoc)
-[![license](https://img.shields.io/npm/l/powerautodoc)](LICENSE)
-[![node](https://img.shields.io/node/v/powerautodoc)](https://nodejs.org)
+[![npm](https://img.shields.io/npm/v/powerautodocs)](https://www.npmjs.com/package/powerautodocs)
+[![license](https://img.shields.io/npm/l/powerautodocs)](LICENSE)
+[![node](https://img.shields.io/node/v/powerautodocs)](https://nodejs.org)
 
 ---
 
 ## What it documents
 
-PowerAutoDoc covers the full stack of a Dataverse/Power Platform solution:
+powerautodocs covers the full stack of a Dataverse/Power Platform solution:
 
 | Component | Output |
 | --- | --- |
@@ -45,7 +45,7 @@ pac solution unpack --zipfile MySolution.zip --folder ./unpacked/MySolution
 
 **3. Run**
 ```bash
-npx powerautodoc@latest
+npx powerautodocs@latest
 ```
 
 That's it. Documentation is published directly to your ADO Wiki.
@@ -62,7 +62,7 @@ Add this to your Azure DevOps pipeline YAML to auto-generate docs on every deplo
     versionSpec: '20.x'
   displayName: 'Install Node.js'
 
-- script: npx powerautodoc@latest
+- script: npx powerautodocs@latest
   displayName: 'Generate As-Built Documentation'
   env:
     WIKI_PAT: $(WIKI_PAT)
@@ -144,7 +144,7 @@ wiki:
 
 ### Multi-solution projects
 
-List multiple solutions — PowerAutoDoc merges them into a single wiki:
+List multiple solutions — powerautodocs merges them into a single wiki:
 
 ```yaml
 solutions:
@@ -166,7 +166,7 @@ solutions:
 If your config lives outside the repo root, pass its location via environment variable:
 
 ```yaml
-- script: npx powerautodoc@latest
+- script: npx powerautodocs@latest
   env:
     DOC_GEN_CONFIG_DIR: $(Build.SourcesDirectory)/config
     WIKI_PAT: $(WIKI_PAT)
@@ -215,7 +215,7 @@ If your config lives outside the repo root, pass its location via environment va
 
 ## How it works
 
-PowerAutoDoc uses a layered IR (Intermediate Representation) pipeline:
+powerautodocs uses a layered IR (Intermediate Representation) pipeline:
 
 ```
 Unpacked Solution XML/JSON
