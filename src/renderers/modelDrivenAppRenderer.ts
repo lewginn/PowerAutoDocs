@@ -1,94 +1,98 @@
+// renderers/modelDrivenAppRenderer.ts
+
 import type { ModelDrivenAppModel } from '../ir/modelDrivenApp.js';
-import { toADOWikiLink } from './rendererUtils.js';
+import type { DocNode, InlineNode } from '../docmodel/nodes.js';
+import { h, pt, p, t, c, b, lnk, table, ct, cc, cell } from '../docmodel/nodes.js';
 
 export function renderModelDrivenAppsIndex(
   apps: ModelDrivenAppModel[],
   basePath: string
-): string {
-  const lines: string[] = [];
+): DocNode[] {
+  const nodes: DocNode[] = [];
 
-  lines.push('# Model-Driven Apps\n');
-  lines.push('Model-driven applications defined in this solution.\n');
+  nodes.push(h(1, 'Model-Driven Apps'));
+  nodes.push(pt('Model-driven applications defined in this solution.'));
 
   if (apps.length === 0) {
-    lines.push('_No model-driven apps found in this solution._');
-    return lines.join('\n');
+    nodes.push(pt('No model-driven apps found in this solution.'));
+    return nodes;
   }
 
-  lines.push('| App | Status | Form Factor | Custom Entities | Roles |');
-  lines.push('| --- | --- | --- | --- | --- |');
+  nodes.push(table(
+    ['App', 'Status', 'Form Factor', 'Custom Entities', 'Roles'],
+    apps.map(app => [
+      cell(lnk(app.displayName, `${basePath}/${app.displayName}`)),
+      ct(app.isActive ? 'Active' : 'Inactive'),
+      ct(app.formFactor),
+      ct(String(app.customEntities.length)),
+      ct(String(app.roleCount)),
+    ])
+  ));
 
-  for (const app of apps) {
-    const link = `[${app.displayName}](${toADOWikiLink(`${basePath}/${app.displayName}`)})`;
-    lines.push(`| ${link} | ${app.isActive ? 'Active' : 'Inactive'} | ${app.formFactor} | ${app.customEntities.length} | ${app.roleCount} |`);
-  }
-
-  return lines.join('\n');
+  return nodes;
 }
 
-export function renderModelDrivenAppPage(app: ModelDrivenAppModel): string {
-  const lines: string[] = [];
+export function renderModelDrivenAppPage(app: ModelDrivenAppModel): DocNode[] {
+  const nodes: DocNode[] = [];
 
-  lines.push(`# ${app.displayName}\n`);
+  nodes.push(h(1, app.displayName));
 
-  lines.push('| Property | Value |');
-  lines.push('| --- | --- |');
-  lines.push(`| Unique Name | \`${app.uniqueName}\` |`);
-  lines.push(`| Status | ${app.isActive ? 'Active' : 'Inactive'} |`);
-  lines.push(`| Form Factor | ${app.formFactor} |`);
-  lines.push(`| Security Roles | ${app.roleCount} |`);
-  if (app.description) {
-    lines.push(`| Description | ${app.description} |`);
-  }
-  lines.push('');
+  const metaRows: InlineNode[][][] = [
+    [ct('Unique Name'),     cc(app.uniqueName)],
+    [ct('Status'),          ct(app.isActive ? 'Active' : 'Inactive')],
+    [ct('Form Factor'),     ct(app.formFactor)],
+    [ct('Security Roles'),  ct(String(app.roleCount))],
+  ];
+  if (app.description) metaRows.push([ct('Description'), ct(app.description)]);
+  nodes.push(table(['Property', 'Value'], metaRows));
 
   if (app.appSettings.length > 0) {
-    lines.push('## App Settings\n');
-    lines.push('| Setting | Value |');
-    lines.push('| --- | --- |');
-    for (const s of app.appSettings) {
-      lines.push(`| \`${s.key}\` | ${s.value} |`);
-    }
-    lines.push('');
+    nodes.push(h(2, 'App Settings'));
+    nodes.push(table(
+      ['Setting', 'Value'],
+      app.appSettings.map(s => [cc(s.key), ct(s.value)])
+    ));
   }
 
-  // Custom entities in 3-column table
-  lines.push('## Custom Entities\n');
+  // Custom entities — 3-column layout
+  nodes.push(h(2, 'Custom Entities'));
   if (app.customEntities.length === 0) {
-    lines.push('_No custom entities included in this app._');
+    nodes.push(pt('No custom entities included in this app.'));
   } else {
-    lines.push(`${app.customEntities.length} custom entities included:\n`);
-    lines.push('| | | |');
-    lines.push('| --- | --- | --- |');
-    for (let i = 0; i < app.customEntities.length; i += 3) {
-      const row = [
-        app.customEntities[i]     ? `\`${app.customEntities[i]}\``     : '',
-        app.customEntities[i + 1] ? `\`${app.customEntities[i + 1]}\`` : '',
-        app.customEntities[i + 2] ? `\`${app.customEntities[i + 2]}\`` : '',
-      ];
-      lines.push(`| ${row.join(' | ')} |`);
-    }
+    nodes.push(pt(`${app.customEntities.length} custom entities included:`));
+    nodes.push(table(
+      ['', '', ''],
+      chunk(app.customEntities, 3).map(row =>
+        row.map(e => cc(e)).concat(
+          Array(3 - row.length).fill(ct(''))
+        )
+      )
+    ));
   }
-  lines.push('');
 
-  // Standard entities in 3-column table
-  lines.push('## Standard Entities\n');
+  // Standard entities — 3-column layout
+  nodes.push(h(2, 'Standard Entities'));
   if (app.standardEntities.length === 0) {
-    lines.push('_No standard entities included in this app._');
+    nodes.push(pt('No standard entities included in this app.'));
   } else {
-    lines.push(`${app.standardEntities.length} standard Dataverse entities included:\n`);
-    lines.push('| | | |');
-    lines.push('| --- | --- | --- |');
-    for (let i = 0; i < app.standardEntities.length; i += 3) {
-      const row = [
-        app.standardEntities[i]     ? `\`${app.standardEntities[i]}\``     : '',
-        app.standardEntities[i + 1] ? `\`${app.standardEntities[i + 1]}\`` : '',
-        app.standardEntities[i + 2] ? `\`${app.standardEntities[i + 2]}\`` : '',
-      ];
-      lines.push(`| ${row.join(' | ')} |`);
-    }
+    nodes.push(pt(`${app.standardEntities.length} standard Dataverse entities included:`));
+    nodes.push(table(
+      ['', '', ''],
+      chunk(app.standardEntities, 3).map(row =>
+        row.map(e => cc(e)).concat(
+          Array(3 - row.length).fill(ct(''))
+        )
+      )
+    ));
   }
-  lines.push('');
 
-  return lines.join('\n');
+  return nodes;
+}
+
+function chunk<T>(arr: T[], size: number): T[][] {
+  const result: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) {
+    result.push(arr.slice(i, i + size));
+  }
+  return result;
 }

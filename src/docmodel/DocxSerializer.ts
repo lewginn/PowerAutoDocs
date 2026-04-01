@@ -1,0 +1,263 @@
+// src/docmodel/DocxSerializer.ts
+//
+// Converts DocNode[] → docx document elements.
+// headingOffset is added to every heading level (used by docAssembler).
+
+import {
+  Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
+  HeadingLevel, AlignmentType, WidthType, ShadingType,
+  Footer, PageNumber, convertInchesToTwip, TableOfContents,
+} from 'docx';
+import type { DocNode, InlineNode, BulletItem } from './nodes.js';
+
+// -----------------------------------------------
+// Page geometry
+// -----------------------------------------------
+
+// A4 content width at 1-inch margins = 6.5 inches = 9360 twips
+const PAGE_WIDTH_TWIPS = 9360;
+
+// -----------------------------------------------
+// Inline serialisation
+// -----------------------------------------------
+
+function inlineRuns(inlines: InlineNode[]): TextRun[] {
+  return inlines.map(node => {
+    switch (node.type) {
+      case 'text':
+        return new TextRun({ text: node.value, italics: false });
+      case 'code':
+        return new TextRun({ text: node.value, font: 'Courier New', size: 18, italics: false });
+      case 'bold':
+        return new TextRun({ text: node.value, bold: true, italics: false });
+      case 'italic':
+        return new TextRun({ text: node.value, italics: true });
+      case 'link':
+        // Render as plain text — no subpage hyperlinks in a self-contained Word doc
+        return new TextRun({ text: node.text });
+    }
+  });
+}
+
+/** Flatten InlineNode[] to a plain string (used for column width measurement). */
+function inlinesToText(inlines: InlineNode[]): string {
+  return inlines.map(n => {
+    switch (n.type) {
+      case 'text':   return n.value;
+      case 'code':   return n.value;
+      case 'bold':   return n.value;
+      case 'italic': return n.value;
+      case 'link':   return n.text;
+    }
+  }).join('');
+}
+
+// -----------------------------------------------
+// Heading level mapping
+// -----------------------------------------------
+
+const HEADING_LEVELS: Record<number, (typeof HeadingLevel)[keyof typeof HeadingLevel]> = {
+  1: HeadingLevel.HEADING_1,
+  2: HeadingLevel.HEADING_2,
+  3: HeadingLevel.HEADING_3,
+  4: HeadingLevel.HEADING_4,
+};
+
+function resolveHeadingLevel(level: number, offset: number) {
+  const resolved = Math.min(level + offset, 4);
+  return HEADING_LEVELS[resolved] ?? HeadingLevel.HEADING_4;
+}
+
+// -----------------------------------------------
+// Column width calculation — proportional to content
+// -----------------------------------------------
+
+function calcColumnWidths(headers: string[], rows: InlineNode[][][]): number[] {
+  // Max character length per column across headers + all rows
+  const maxChars = headers.map((h, i) =>
+    Math.max(
+      h.length,
+      ...rows.map(row => inlinesToText(row[i] ?? []).length),
+      3  // minimum so empty columns aren't invisible
+    )
+  );
+  const total = maxChars.reduce((a, b) => a + b, 0);
+  const widths = maxChars.map(w => Math.floor((w / total) * PAGE_WIDTH_TWIPS));
+
+  // Correct rounding drift on the last column
+  const allocated = widths.reduce((a, b) => a + b, 0);
+  widths[widths.length - 1] += PAGE_WIDTH_TWIPS - allocated;
+
+  return widths;
+}
+
+// -----------------------------------------------
+// Table serialisation
+// -----------------------------------------------
+
+const SPACER = () => new Paragraph({ children: [], spacing: { after: 160 } });
+
+function serializeTable(headers: string[], rows: InlineNode[][][]): Table {
+  const colWidths = calcColumnWidths(headers, rows);
+
+  const headerRow = new TableRow({
+    tableHeader: true,
+    children: headers.map((h, i) =>
+      new TableCell({
+        width: { size: colWidths[i], type: WidthType.DXA },
+        children: [new Paragraph({
+          children: [new TextRun({ text: h, bold: true })],
+          spacing: { before: 60, after: 60 },
+        })],
+        shading: { type: ShadingType.SOLID, color: 'E8E8E8' },
+      })
+    ),
+  });
+
+  const bodyRows = rows.map(row =>
+    new TableRow({
+      children: row.map((cell, i) =>
+        new TableCell({
+          width: { size: colWidths[i], type: WidthType.DXA },
+          children: [new Paragraph({
+            children: inlineRuns(cell),
+            spacing: { before: 60, after: 60 },
+          })],
+        })
+      ),
+    })
+  );
+
+  return new Table({
+    style: 'TableGrid',
+    width: { size: PAGE_WIDTH_TWIPS, type: WidthType.DXA },
+    columnWidths: colWidths,
+    rows: [headerRow, ...bodyRows],
+  });
+}
+
+// -----------------------------------------------
+// Bullet list serialisation
+// -----------------------------------------------
+
+function bulletItems(items: BulletItem[]): Paragraph[] {
+  return items.map(item =>
+    new Paragraph({
+      children: inlineRuns(item.inlines),
+      bullet: { level: item.depth },
+      spacing: { after: 60 },
+    })
+  );
+}
+
+// -----------------------------------------------
+// Heading spacing config
+// -----------------------------------------------
+
+const HEADING_SPACING: Record<number, { before: number; after: number }> = {
+  1: { before: 0,   after: 240 },  // page break handles the before gap
+  2: { before: 280, after: 120 },
+  3: { before: 200, after: 80  },
+  4: { before: 160, after: 60  },
+};
+
+// -----------------------------------------------
+// Block serialisation
+// -----------------------------------------------
+
+type DocxBlock = Paragraph | Table;
+
+export function serializeBlock(node: DocNode, headingOffset: number): DocxBlock | DocxBlock[] {
+  switch (node.type) {
+    case 'heading': {
+      const absLevel  = Math.min(node.level + headingOffset, 4);
+      const spacing   = HEADING_SPACING[absLevel] ?? HEADING_SPACING[4];
+      return new Paragraph({
+        heading: resolveHeadingLevel(node.level, headingOffset),
+        pageBreakBefore: absLevel === 1,
+        children: [new TextRun({ text: node.text, italics: false })],
+        spacing,
+      });
+    }
+
+    case 'paragraph':
+      return new Paragraph({
+        children: inlineRuns(node.inlines),
+        spacing: { after: 120 },
+      });
+
+    case 'table':
+      // Spacer paragraph after every table for breathing room
+      return [serializeTable(node.headers, node.rows), SPACER()];
+
+    case 'bullet_list':
+      return bulletItems(node.items);
+
+    case 'mermaid':
+      return new Paragraph({
+        children: [new TextRun({ text: '[Diagram — see ADO Wiki for rendered version]', italics: true })],
+        spacing: { after: 120 },
+      });
+
+    case 'code_block':
+      return new Paragraph({
+        children: [new TextRun({ text: node.text, font: 'Courier New', size: 18 })],
+        spacing: { after: 120 },
+      });
+
+    case 'blockquote':
+      return new Paragraph({
+        children: inlineRuns(node.inlines),
+        indent: { left: convertInchesToTwip(0.4) },
+        spacing: { after: 120 },
+      });
+
+    case 'toc_placeholder':
+      return [];
+  }
+}
+
+// -----------------------------------------------
+// Public API
+// -----------------------------------------------
+
+export function serializeBlocks(nodes: DocNode[], headingOffset = 0): (Paragraph | Table)[] {
+  return nodes.flatMap(node => {
+    const result = serializeBlock(node, headingOffset);
+    return Array.isArray(result) ? result : [result];
+  });
+}
+
+export function buildToc(): TableOfContents {
+  return new TableOfContents('Table of Contents', {
+    hyperlink: true,
+    headingStyleRange: '1-3',
+  });
+}
+
+export function buildDocument(blocks: (Paragraph | Table)[]): Document {
+  return new Document({
+    sections: [{
+      footers: {
+        default: new Footer({
+          children: [
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              children: [
+                new TextRun('Page '),
+                new TextRun({ children: [PageNumber.CURRENT] }),
+                new TextRun(' of '),
+                new TextRun({ children: [PageNumber.TOTAL_PAGES] }),
+              ],
+            }),
+          ],
+        }),
+      },
+      children: blocks,
+    }],
+  });
+}
+
+export async function toBuffer(doc: Document): Promise<Buffer> {
+  return Packer.toBuffer(doc);
+}

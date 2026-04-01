@@ -5,26 +5,13 @@ import * as path from 'path';
 import type { TableModel, ColumnModel, RelationshipModel } from '../ir/index.js';
 import type { DocGenConfig } from '../config/index.js';
 import type { BusinessRuleModel } from '../ir/businessRule.js';
+import type { DocNode, InlineNode } from '../docmodel/nodes.js';
+import { h, pt, p, t, c, b, i, table, ct, cc, cell, bulletList, bullet, toc } from '../docmodel/nodes.js';
+import { serialize } from '../docmodel/MarkdownSerializer.js';
 
 // -----------------------------------------------
 // Shared helpers
 // -----------------------------------------------
-
-function pad(str: string, length: number): string {
-  return str.padEnd(length, ' ');
-}
-
-function markdownTable(headers: string[], rows: string[][]): string {
-  const widths = headers.map((h, i) =>
-    Math.max(h.length, ...rows.map(r => (r[i] ?? '').length))
-  );
-  const header  = '| ' + headers.map((h, i) => pad(h, widths[i])).join(' | ') + ' |';
-  const divider = '| ' + widths.map(w => '-'.repeat(w)).join(' | ') + ' |';
-  const body    = rows.map(
-    row => '| ' + row.map((cell, i) => pad(cell ?? '', widths[i])).join(' | ') + ' |'
-  );
-  return [header, divider, ...body].join('\n');
-}
 
 function friendlyType(col: ColumnModel): string {
   const typeLabels: Record<string, string> = {
@@ -44,291 +31,268 @@ function friendlyType(col: ColumnModel): string {
 }
 
 // -----------------------------------------------
-// Index page — summary + [[_TOSP_]]
+// Index page — summary + toc placeholder
 // -----------------------------------------------
 
-export function renderTableIndexMarkdown(table: TableModel): string {
-  const lines: string[] = [];
+export function renderTableIndex(table_: TableModel): DocNode[] {
+  const nodes: DocNode[] = [];
 
-  lines.push(`# ${table.displayName}`);
-  lines.push('');
-
-  lines.push(markdownTable(
+  nodes.push(h(1, table_.displayName));
+  nodes.push(table(
     ['Property', 'Value'],
     [
-      ['Logical Name',  `\`${table.logicalName}\``],
-      ['Display Name',  table.displayName],
-      ...(table.pluralDisplayName ? [['Plural Name', table.pluralDisplayName]] : []),
-      ['Type',          table.isCustom ? 'Custom Table' : 'Standard Table (Extended)'],
-      ['Activity Table', table.isActivity ? 'Yes' : 'No'],
-      ...(table.description ? [['Description', table.description]] : []),
-    ] as string[][]
+      [ct('Logical Name'),  cc(table_.logicalName)],
+      [ct('Display Name'),  ct(table_.displayName)],
+      ...(table_.pluralDisplayName ? [[ct('Plural Name'), ct(table_.pluralDisplayName)]] : []),
+      [ct('Type'),          ct(table_.isCustom ? 'Custom Table' : 'Standard Table (Extended)')],
+      [ct('Activity Table'), ct(table_.isActivity ? 'Yes' : 'No')],
+      ...(table_.description ? [[ct('Description'), ct(table_.description)]] : []),
+    ] as InlineNode[][][]
   ));
-  lines.push('');
 
-  if (table.aiSummary) {
-    lines.push('## Summary');
-    lines.push('');
-    lines.push(table.aiSummary);
-    lines.push('');
+  if (table_.aiSummary) {
+    nodes.push(h(2, 'Summary'));
+    nodes.push(pt(table_.aiSummary));
   }
 
-  lines.push('[[_TOSP_]]');
-  lines.push('');
+  nodes.push(toc());
 
-  return lines.join('\n');
+  return nodes;
 }
 
 // -----------------------------------------------
 // Columns subpage
 // -----------------------------------------------
 
-function renderColumnTable(columns: ColumnModel[]): string {
-  const rows = columns.map(col => [
-    col.displayName,
-    `\`${col.logicalName}\``,
-    friendlyType(col),
-    col.isRequired ? 'Yes' : 'No',
-    col.description || '',
+function columnTableRows(columns: ColumnModel[]): InlineNode[][][] {
+  return columns.map(col => [
+    ct(col.displayName),
+    cc(col.logicalName),
+    ct(friendlyType(col)),
+    ct(col.isRequired ? 'Yes' : 'No'),
+    ct(col.description || ''),
   ]);
-  return markdownTable(
-    ['Display Name', 'Logical Name', 'Type', 'Required', 'Description'],
-    rows
-  );
 }
 
-export function renderTableColumnsMarkdown(table: TableModel): string {
-  const lines: string[] = [];
+export function renderTableColumns(table_: TableModel): DocNode[] {
+  const nodes: DocNode[] = [];
 
-  lines.push(`# ${table.displayName} — Columns`);
-  lines.push('');
+  nodes.push(h(1, `${table_.displayName} — Columns`));
 
-  if (table.columns.length === 0) {
-    lines.push('_No columns found in solution for this table._');
-    return lines.join('\n');
+  if (table_.columns.length === 0) {
+    nodes.push(pt('No columns found in solution for this table.'));
+    return nodes;
   }
 
-  const customCols   = table.columns.filter(c =>  c.isCustom);
-  const standardCols = table.columns.filter(c => !c.isCustom);
+  const customCols   = table_.columns.filter(c => c.isCustom);
+  const standardCols = table_.columns.filter(c => !c.isCustom);
 
   if (customCols.length > 0) {
-    lines.push('## Custom Columns');
-    lines.push('');
-    lines.push(renderColumnTable(customCols));
-    lines.push('');
+    nodes.push(h(2, 'Custom Columns'));
+    nodes.push(table(
+      ['Display Name', 'Logical Name', 'Type', 'Required', 'Description'],
+      columnTableRows(customCols)
+    ));
   }
 
   if (standardCols.length > 0) {
-    lines.push('## Standard Columns');
-    lines.push('');
-    lines.push(renderColumnTable(standardCols));
-    lines.push('');
+    nodes.push(h(2, 'Standard Columns'));
+    nodes.push(table(
+      ['Display Name', 'Logical Name', 'Type', 'Required', 'Description'],
+      columnTableRows(standardCols)
+    ));
   }
 
-  return lines.join('\n');
+  return nodes;
 }
 
 // -----------------------------------------------
 // Views subpage
 // -----------------------------------------------
 
-export function renderTableViewsMarkdown(table: TableModel): string {
-  const lines: string[] = [];
+export function renderTableViews(table_: TableModel): DocNode[] {
+  const nodes: DocNode[] = [];
 
-  lines.push(`# ${table.displayName} — Views`);
-  lines.push('');
+  nodes.push(h(1, `${table_.displayName} — Views`));
 
-  if (table.views.length === 0) {
-    lines.push('_No views found._');
-    return lines.join('\n');
+  if (table_.views.length === 0) {
+    nodes.push(pt('No views found.'));
+    return nodes;
   }
 
-  const viewRows = table.views.map(v => [
-    v.name,
-    v.type,
-    v.isDefault ? 'Yes' : 'No',
-    v.columns.length.toString(),
-    v.description || '',
-  ]);
-  lines.push(markdownTable(
+  nodes.push(table(
     ['View Name', 'Type', 'Default', 'Column Count', 'Description'],
-    viewRows
+    table_.views.map(v => [
+      ct(v.name),
+      ct(v.type),
+      ct(v.isDefault ? 'Yes' : 'No'),
+      ct(v.columns.length.toString()),
+      ct(v.description || ''),
+    ])
   ));
-  lines.push('');
 
-  for (const view of table.views) {
-    lines.push(`## ${view.name}`);
-    lines.push('');
-    lines.push(`**Type:** ${view.type}`);
-    if (view.description) lines.push(`**Notes:** ${view.description}`);
-    lines.push('');
+  for (const view of table_.views) {
+    nodes.push(h(2, view.name));
+    nodes.push(p(b('Type:'), t(' ' + view.type)));
+    if (view.description) nodes.push(p(b('Notes:'), t(' ' + view.description)));
 
     if (view.filters.length > 0) {
-      lines.push('**Filters:**');
-      lines.push('');
-      for (const f of view.filters) {
-        const indent = '  '.repeat(f.depth);
-        const value  = f.value ? ` \`${f.value}\`` : '';
+      nodes.push(p(b('Filters:')));
+      nodes.push(bulletList(view.filters.map(f => {
         if (f.isJoin) {
           const joinLabel = f.joinType === 'inner' ? 'inner join' : 'outer join';
-          const field     = f.joinField ? ` via \`${f.joinField}\`` : '';
-          lines.push(`${indent}- **${f.attribute}**${field} — ${joinLabel}`);
+          const field = f.joinField ? ` via ` : '';
+          const inlines: InlineNode[] = [b(f.attribute)];
+          if (f.joinField) { inlines.push(t(` via `)); inlines.push(c(f.joinField)); }
+          inlines.push(t(` — ${joinLabel}`));
+          return bullet(f.depth, ...inlines);
         } else {
-          const groupPrefix = f.filterType === 'or' ? '*(or)* ' : '';
-          lines.push(`${indent}- ${groupPrefix}\`${f.attribute}\` ${f.operator}${value}`);
+          const inlines: InlineNode[] = [];
+          if (f.filterType === 'or') inlines.push(i('(or) '));
+          inlines.push(c(f.attribute));
+          inlines.push(t(` ${f.operator}`));
+          if (f.value) inlines.push(t(' '), c(f.value));
+          return bullet(f.depth, ...inlines);
         }
-      }
-      lines.push('');
+      })));
     }
 
     if (view.columns.length === 0) {
-      lines.push('**Columns:** _none_');
+      nodes.push(p(b('Columns:'), t(' none')));
     } else {
-      lines.push('**Columns:** ' + view.columns.map(c => `\`${c}\``).join(', '));
+      const colInlines: InlineNode[] = [b('Columns:'), t(' ')];
+      view.columns.forEach((col, idx) => {
+        colInlines.push(c(col));
+        if (idx < view.columns.length - 1) colInlines.push(t(', '));
+      });
+      nodes.push(p(...colInlines));
     }
-    lines.push('');
   }
 
-  return lines.join('\n');
+  return nodes;
 }
 
 // -----------------------------------------------
 // Forms subpage
 // -----------------------------------------------
 
-export function renderTableFormsMarkdown(table: TableModel, config: DocGenConfig): string {
-  const lines: string[] = [];
+export function renderTableForms(table_: TableModel, config: DocGenConfig): DocNode[] {
+  const nodes: DocNode[] = [];
   const formLayout = config.render.formLayout;
 
-  lines.push(`# ${table.displayName} — Forms`);
-  lines.push('');
+  nodes.push(h(1, `${table_.displayName} — Forms`));
 
-  if (table.forms.length === 0) {
-    lines.push('_No forms found._');
-    return lines.join('\n');
+  if (table_.forms.length === 0) {
+    nodes.push(pt('No forms found.'));
+    return nodes;
   }
 
-  const formRows = table.forms.map(f => [
-    f.name,
-    f.type,
-    f.tabs.length.toString(),
-    f.tabs.reduce((acc, t) => acc + t.sections.reduce((s, sec) => s + sec.columns.length, 0), 0).toString(),
-  ]);
-  lines.push(markdownTable(
+  nodes.push(table(
     ['Form Name', 'Type', 'Tab Count', 'Total Fields'],
-    formRows
+    table_.forms.map(f => [
+      ct(f.name),
+      ct(f.type),
+      ct(f.tabs.length.toString()),
+      ct(f.tabs.reduce((acc, t_) => acc + t_.sections.reduce((s, sec) => s + sec.columns.length, 0), 0).toString()),
+    ])
   ));
-  lines.push('');
 
   if (formLayout === 'detailed') {
-    for (const form of table.forms) {
-      lines.push(`## ${form.name} (${form.type})`);
-      lines.push('');
+    for (const form of table_.forms) {
+      nodes.push(h(2, `${form.name} (${form.type})`));
       for (const tab of form.tabs) {
-        lines.push(`### ${tab.label}`);
-        lines.push('');
+        nodes.push(h(3, tab.label));
         for (const section of tab.sections) {
-          lines.push(`**${section.label}**`);
-          lines.push('');
+          nodes.push(p(b(section.label)));
           if (section.columns.length === 0) {
-            lines.push('_No fields in this section._');
+            nodes.push(pt('No fields in this section.'));
           } else {
-            lines.push(section.columns.map(c => `- \`${c}\``).join('\n'));
+            nodes.push(bulletList(section.columns.map(col => bullet(0, c(col)))));
           }
-          lines.push('');
         }
       }
     }
   }
 
-  return lines.join('\n');
+  return nodes;
 }
 
 // -----------------------------------------------
 // Relationships subpage
 // -----------------------------------------------
 
-function renderRelationshipTable(relationships: RelationshipModel[], currentTable: string): string {
-  const rows = relationships.map(rel => {
-    const isParent  = rel.referencedEntity.toLowerCase() === currentTable.toLowerCase();
-    const direction = isParent ? 'One (this) → Many' : 'Many → One (this)';
-    const otherTable = isParent ? rel.referencingEntity : rel.referencedEntity;
-    return [
-      rel.name,
-      direction,
-      otherTable,
-      `\`${rel.referencingAttribute}\``,
-      rel.description || '',
-    ];
-  });
-  return markdownTable(
-    ['Relationship Name', 'Direction', 'Related Table', 'Lookup Field', 'Description'],
-    rows
-  );
-}
+export function renderTableRelationships(table_: TableModel): DocNode[] {
+  const nodes: DocNode[] = [];
 
-export function renderTableRelationshipsMarkdown(table: TableModel): string {
-  const lines: string[] = [];
+  nodes.push(h(1, `${table_.displayName} — Relationships`));
 
-  lines.push(`# ${table.displayName} — Relationships`);
-  lines.push('');
-
-  if (table.relationships.length === 0) {
-    lines.push('_No relationships found._');
-    return lines.join('\n');
+  if (table_.relationships.length === 0) {
+    nodes.push(pt('No relationships found.'));
+    return nodes;
   }
 
-  const customRels   = table.relationships.filter(r =>  r.isCustom);
-  const standardRels = table.relationships.filter(r => !r.isCustom);
+  function relRows(relationships: RelationshipModel[]): InlineNode[][][] {
+    return relationships.map(rel => {
+      const isParent   = rel.referencedEntity.toLowerCase() === table_.logicalName.toLowerCase();
+      const direction  = isParent ? 'One (this) → Many' : 'Many → One (this)';
+      const otherTable = isParent ? rel.referencingEntity : rel.referencedEntity;
+      return [
+        ct(rel.name),
+        ct(direction),
+        ct(otherTable),
+        cc(rel.referencingAttribute),
+        ct(rel.description || ''),
+      ];
+    });
+  }
+
+  const customRels   = table_.relationships.filter(r =>  r.isCustom);
+  const standardRels = table_.relationships.filter(r => !r.isCustom);
+  const relHeaders   = ['Relationship Name', 'Direction', 'Related Table', 'Lookup Field', 'Description'];
 
   if (customRels.length > 0) {
-    lines.push('## Custom Relationships');
-    lines.push('');
-    lines.push(renderRelationshipTable(customRels, table.logicalName));
-    lines.push('');
+    nodes.push(h(2, 'Custom Relationships'));
+    nodes.push(table(relHeaders, relRows(customRels)));
   }
 
   if (standardRels.length > 0) {
-    lines.push('## Standard Relationships');
-    lines.push('');
-    lines.push(renderRelationshipTable(standardRels, table.logicalName));
-    lines.push('');
+    nodes.push(h(2, 'Standard Relationships'));
+    nodes.push(table(relHeaders, relRows(standardRels)));
   }
 
-  return lines.join('\n');
+  return nodes;
 }
 
 // -----------------------------------------------
-// Business Rules — index page (summary + [[_TOSP_]])
+// Business Rules — index page
 // -----------------------------------------------
 
-export function renderTableBusinessRulesMarkdown(
-  table: TableModel,
+export function renderTableBusinessRules(
+  table_: TableModel,
   rules: BusinessRuleModel[]
-): string {
-  const lines: string[] = [];
+): DocNode[] {
+  const nodes: DocNode[] = [];
 
-  lines.push(`# ${table.displayName} — Business Rules`);
-  lines.push('');
+  nodes.push(h(1, `${table_.displayName} — Business Rules`));
 
   if (rules.length === 0) {
-    lines.push('_No business rules found for this table._');
-    return lines.join('\n');
+    nodes.push(pt('No business rules found for this table.'));
+    return nodes;
   }
 
-  const rows = rules.map(r => {
-    const scopeLabel =
-      r.scope === 'specificForm' ? 'Specific Form' :
-      r.scope === 'allForms'     ? 'All Forms'     : 'Entity';
-    return [r.name, r.status === 'active' ? 'Active' : 'Inactive', scopeLabel];
-  });
+  nodes.push(table(
+    ['Rule', 'Status', 'Scope'],
+    rules.map(r => {
+      const scopeLabel =
+        r.scope === 'specificForm' ? 'Specific Form' :
+        r.scope === 'allForms'     ? 'All Forms'     : 'Entity';
+      return [ct(r.name), ct(r.status === 'active' ? 'Active' : 'Inactive'), ct(scopeLabel)];
+    })
+  ));
 
-  lines.push(markdownTable(['Rule', 'Status', 'Scope'], rows));
-  lines.push('');
-  lines.push('[[_TOSP_]]');
-  lines.push('');
+  nodes.push(toc());
 
-  return lines.join('\n');
+  return nodes;
 }
 
 // -----------------------------------------------
@@ -336,106 +300,101 @@ export function renderTableBusinessRulesMarkdown(
 // -----------------------------------------------
 
 const ACTION_LABELS: Record<string, string> = {
-  show:           '**Show**',
-  hide:           '**Hide**',
-  setRequired:    '**Set Required**',
-  setRecommended: '**Set Recommended**',
-  setOptional:    '**Set Optional**',
-  setValue:       '**Set Value**',
-  clearValue:     '**Clear**',
+  show:           'Show',
+  hide:           'Hide',
+  setRequired:    'Set Required',
+  setRecommended: 'Set Recommended',
+  setOptional:    'Set Optional',
+  setValue:       'Set Value',
+  clearValue:     'Clear',
 };
 
-function renderActionGroup(actions: BusinessRuleModel['conditions'][0]['thenActions']): string {
+function actionGroupNodes(actions: BusinessRuleModel['conditions'][0]['thenActions']): DocNode[] {
   const groups = new Map<string, string[]>();
   for (const a of actions) {
     if (!groups.has(a.type)) groups.set(a.type, []);
-    groups.get(a.type)!.push(`\`${a.field}\``);
+    groups.get(a.type)!.push(a.field);
   }
-  return [...groups.entries()]
-    .map(([type, fields]) => `${ACTION_LABELS[type] ?? type}: ${fields.join(', ')}`)
-    .join('  \n');
+  return [...groups.entries()].map(([type, fields]) => {
+    const label = ACTION_LABELS[type] ?? type;
+    const inlines: InlineNode[] = [b(label + ':'), t(' ')];
+    fields.forEach((field, idx) => {
+      inlines.push(c(field));
+      if (idx < fields.length - 1) inlines.push(t(', '));
+    });
+    return p(...inlines);
+  });
 }
 
-export function renderSingleBusinessRuleMarkdown(rule: BusinessRuleModel): string {
-  const lines: string[] = [];
+export function renderSingleBusinessRule(rule: BusinessRuleModel): DocNode[] {
+  const nodes: DocNode[] = [];
 
-  lines.push(`# ${rule.name}`);
-  lines.push('');
+  nodes.push(h(1, rule.name));
 
   const scopeLabel =
     rule.scope === 'specificForm' ? 'Specific Form' :
     rule.scope === 'allForms'     ? 'All Forms'     : 'Entity (Server-side)';
 
-  lines.push(markdownTable(
+  nodes.push(table(
     ['Property', 'Value'],
     [
-      ['Status', rule.status === 'active' ? 'Active' : 'Inactive'],
-      ['Entity', `\`${rule.entity}\``],
-      ['Scope',  scopeLabel],
+      [ct('Status'), ct(rule.status === 'active' ? 'Active' : 'Inactive')],
+      [ct('Entity'), cc(rule.entity)],
+      [ct('Scope'),  ct(scopeLabel)],
     ]
   ));
-  lines.push('');
 
   if (rule.conditions.length === 0) {
-    lines.push('_No conditions extracted._');
-    return lines.join('\n');
+    nodes.push(pt('No conditions extracted.'));
+    return nodes;
   }
 
-  lines.push('## Logic');
-  lines.push('');
+  nodes.push(h(2, 'Logic'));
 
-  for (let i = 0; i < rule.conditions.length; i++) {
-    const cond  = rule.conditions[i];
-    const label = cond.description ?? `Condition ${i + 1}`;
+  for (let i_ = 0; i_ < rule.conditions.length; i_++) {
+    const cond  = rule.conditions[i_];
+    const label = cond.description ?? `Condition ${i_ + 1}`;
 
-    lines.push(`### If \`${cond.conditionField}\` — ${label}`);
-    lines.push('');
-
-    if (cond.thenActions.length > 0) {
-      lines.push(renderActionGroup(cond.thenActions));
-    }
+    nodes.push(h(3, `If \`${cond.conditionField}\` — ${label}`));
+    nodes.push(...actionGroupNodes(cond.thenActions));
 
     if (cond.elseActions.length > 0) {
-      lines.push('');
-      lines.push('**Else**');
-      lines.push('');
-      lines.push(renderActionGroup(cond.elseActions));
+      nodes.push(p(b('Else')));
+      nodes.push(...actionGroupNodes(cond.elseActions));
     }
-
-    lines.push('');
   }
 
-  return lines.join('\n');
+  return nodes;
 }
 
 // -----------------------------------------------
-// Legacy single-file renderer (used by writeTableMarkdown for local output)
+// Legacy combined renderer (local file output)
 // -----------------------------------------------
 
-export function renderTableMarkdown(table: TableModel, config: DocGenConfig): string {
-  const sections: string[] = [
-    renderTableIndexMarkdown(table).replace('[[_TOSP_]]', '').trim(),
-    renderTableColumnsMarkdown(table),
+export function renderTableMarkdown(table_: TableModel, config: DocGenConfig): string {
+  const sections: DocNode[][] = [
+    renderTableIndex(table_).filter(n => n.type !== 'toc_placeholder'),
+    renderTableColumns(table_),
   ];
 
-  if (config.components.views && table.views.length > 0) {
-    sections.push(renderTableViewsMarkdown(table));
+  if (config.components.views && table_.views.length > 0) {
+    sections.push(renderTableViews(table_));
   }
-  if (config.components.forms && table.forms.length > 0) {
-    sections.push(renderTableFormsMarkdown(table, config));
+  if (config.components.forms && table_.forms.length > 0) {
+    sections.push(renderTableForms(table_, config));
   }
-  if (config.components.relationships && table.relationships.length > 0) {
-    sections.push(renderTableRelationshipsMarkdown(table));
+  if (config.components.relationships && table_.relationships.length > 0) {
+    sections.push(renderTableRelationships(table_));
   }
 
-  return sections.join('\n\n');
+  return sections.map(s => serialize(s).trimEnd()).join('\n\n');
 }
 
-export function writeTableMarkdown(table: TableModel, outputDir: string, config: DocGenConfig): void {
+export function writeTableMarkdown(table_: TableModel, outputDir: string, config: DocGenConfig): void {
   fs.mkdirSync(outputDir, { recursive: true });
-  const filename = `${table.logicalName}.md`;
+  const filename = `${table_.logicalName}.md`;
   const filepath = path.join(outputDir, filename);
-  const content  = renderTableMarkdown(table, config).replace(/\r\n/g, '\n');
+  const content  = renderTableMarkdown(table_, config).replace(/\r\n/g, '\n');
   fs.writeFileSync(filepath, content, 'utf-8');
   console.log(`Written: ${filepath}`);
 }

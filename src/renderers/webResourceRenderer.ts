@@ -1,184 +1,135 @@
+// renderers/webResourceRenderer.ts
+
 import * as fs from 'fs';
 import * as path from 'path';
 import type { WebResourceModel, WebResourceFunction } from '../ir/index.js';
-import { toADOWikiLink } from './rendererUtils.js';
-
-function pad(str: string, length: number): string {
-  return str.padEnd(length, ' ');
-}
-
-function markdownTable(headers: string[], rows: string[][]): string {
-  const widths = headers.map((h, i) =>
-    Math.max(h.length, ...rows.map(r => (r[i] ?? '').length))
-  );
-  const header  = '| ' + headers.map((h, i) => pad(h, widths[i])).join(' | ') + ' |';
-  const divider = '| ' + widths.map(w => '-'.repeat(w)).join(' | ') + ' |';
-  const body    = rows.map(
-    row => '| ' + row.map((cell, i) => pad(cell ?? '', widths[i])).join(' | ') + ' |'
-  );
-  return [header, divider, ...body].join('\n');
-}
+import type { DocNode, InlineNode } from '../docmodel/nodes.js';
+import { h, pt, p, t, c, b, lnk, table, ct, cc, cell, bulletList, bullet } from '../docmodel/nodes.js';
+import { serialize } from '../docmodel/MarkdownSerializer.js';
 
 // -----------------------------------------------
-// Summary page — /Custom Code/Web Resources
+// Summary page
 // -----------------------------------------------
 
-export function renderWebResourceSummaryMarkdown(
+export function renderWebResourceSummary(
   resources: WebResourceModel[],
   basePath?: string
-): string {
-  const lines: string[] = [];
+): DocNode[] {
+  const nodes: DocNode[] = [];
 
-  lines.push('# Web Resources');
-  lines.push('');
+  nodes.push(h(1, 'Web Resources'));
 
   if (resources.length === 0) {
-    lines.push('_No web resources found in this solution._');
-    return lines.join('\n');
+    nodes.push(pt('No web resources found in this solution.'));
+    return nodes;
   }
 
   const jsResources    = resources.filter(r => r.resourceType === 'JavaScript');
   const otherResources = resources.filter(r => r.resourceType !== 'JavaScript');
   const totalFunctions = jsResources.reduce((sum, r) => sum + (r.functions?.length ?? 0), 0);
 
-  lines.push(`${resources.length} web resource(s) — ${jsResources.length} JavaScript file(s), ${totalFunctions} function(s) total.`);
-  lines.push('');
+  nodes.push(pt(
+    `${resources.length} web resource(s) — ${jsResources.length} JavaScript file(s), ${totalFunctions} function(s) total.`
+  ));
 
-  // --- JavaScript files ---
   if (jsResources.length > 0) {
-    lines.push('## JavaScript Files');
-    lines.push('');
-
-    const rows = jsResources.map(r => {
-      const title = r.name.split('/').pop() ?? r.name;
-      const nameCell = basePath
-        ? `[${title}](${toADOWikiLink(`${basePath}/${title}`)})`
-        : title;
-      return [
-        nameCell,
-        r.namespace ?? '—',
-        String(r.functions?.length ?? 0),
-        r.dependencies.length > 0 ? r.dependencies.join(', ') : '—',
-        r.introducedVersion,
-      ];
-    });
-
-    lines.push(markdownTable(
+    nodes.push(h(2, 'JavaScript Files'));
+    nodes.push(table(
       ['Name', 'Namespace', 'Functions', 'Dependencies', 'Version'],
-      rows
+      jsResources.map(r => {
+        const title = r.name.split('/').pop() ?? r.name;
+        return [
+          basePath ? cell(lnk(title, `${basePath}/${title}`)) : ct(title),
+          ct(r.namespace ?? '—'),
+          ct(String(r.functions?.length ?? 0)),
+          ct(r.dependencies.length > 0 ? r.dependencies.join(', ') : '—'),
+          ct(r.introducedVersion),
+        ];
+      })
     ));
-    lines.push('');
   }
 
-  // --- Other resource types ---
   if (otherResources.length > 0) {
-    lines.push('## Other Resources');
-    lines.push('');
-
-    const rows = otherResources.map(r => [
-      r.name,
-      r.resourceType,
-      r.introducedVersion,
-    ]);
-
-    lines.push(markdownTable(
+    nodes.push(h(2, 'Other Resources'));
+    nodes.push(table(
       ['Name', 'Type', 'Version'],
-      rows
+      otherResources.map(r => [ct(r.name), ct(r.resourceType), ct(r.introducedVersion)])
     ));
-    lines.push('');
   }
 
-  return lines.join('\n');
+  return nodes;
 }
 
 // -----------------------------------------------
-// Per-file detail page — /Custom Code/Web Resources/[name]
+// Per-file detail page
 // -----------------------------------------------
 
-export function renderWebResourceDetailMarkdown(resource: WebResourceModel): string {
-  const lines: string[] = [];
+export function renderWebResourceDetail(resource: WebResourceModel): DocNode[] {
+  const nodes: DocNode[] = [];
 
   const title = resource.name.split('/').pop() ?? resource.name;
 
-  lines.push(`# ${title}`);
-  lines.push('');
-
-  lines.push('## Metadata');
-  lines.push('');
-  lines.push(markdownTable(
+  nodes.push(h(1, title));
+  nodes.push(h(2, 'Metadata'));
+  nodes.push(table(
     ['Property', 'Value'],
     [
-      ['Name',               resource.name],
-      ['Display Name',       resource.displayName],
-      ['Type',               resource.resourceType],
-      ['Introduced Version', resource.introducedVersion],
-      ['Namespace',          resource.namespace ?? '—'],
+      [ct('Name'),               ct(resource.name)],
+      [ct('Display Name'),       ct(resource.displayName)],
+      [ct('Type'),               ct(resource.resourceType)],
+      [ct('Introduced Version'), ct(resource.introducedVersion)],
+      [ct('Namespace'),          ct(resource.namespace ?? '—')],
     ]
   ));
-  lines.push('');
 
   if (resource.dependencies.length > 0) {
-    lines.push('## Dependencies');
-    lines.push('');
-    lines.push('This file depends on the following web resources:');
-    lines.push('');
-    for (const dep of resource.dependencies) {
-      lines.push(`- \`${dep}\``);
-    }
-    lines.push('');
+    nodes.push(h(2, 'Dependencies'));
+    nodes.push(pt('This file depends on the following web resources:'));
+    nodes.push(bulletList(resource.dependencies.map(dep => bullet(0, c(dep)))));
   }
 
   if (resource.resourceType === 'JavaScript') {
     const fns = resource.functions ?? [];
 
-    lines.push('## Functions');
-    lines.push('');
+    nodes.push(h(2, 'Functions'));
 
     if (fns.length === 0) {
-      lines.push('_No named functions detected._');
-      lines.push('');
+      nodes.push(pt('No named functions detected.'));
     } else {
-      lines.push(`${fns.length} function(s) defined in \`${resource.namespace ?? title}\`.`);
-      lines.push('');
+      nodes.push(pt(`${fns.length} function(s) defined in \`${resource.namespace ?? title}\`.`));
 
       const handlers = fns.filter(f => /^(OnLoad|OnChange|OnSave|OnBlur|OnFocus)/i.test(f.name));
       const helpers  = fns.filter(f => !/^(OnLoad|OnChange|OnSave|OnBlur|OnFocus)/i.test(f.name));
 
       if (handlers.length > 0) {
-        lines.push('### Event Handlers');
-        lines.push('');
-        lines.push(renderFunctionTable(handlers));
-        lines.push('');
+        nodes.push(h(3, 'Event Handlers'));
+        nodes.push(renderFunctionTable(handlers));
       }
 
       if (helpers.length > 0) {
-        lines.push('### Helper Functions');
-        lines.push('');
-        lines.push(renderFunctionTable(helpers));
-        lines.push('');
+        nodes.push(h(3, 'Helper Functions'));
+        nodes.push(renderFunctionTable(helpers));
       }
     }
   }
 
-  return lines.join('\n');
+  return nodes;
 }
 
-function renderFunctionTable(fns: WebResourceFunction[]): string {
-  const rows = fns.map(f => [
-    f.name,
-    f.isAsync ? 'Yes' : 'No',
-    f.params.length > 0 ? f.params.join(', ') : '—',
-    f.jsDoc ?? '—',
-  ]);
-
-  return markdownTable(
+function renderFunctionTable(fns: WebResourceFunction[]): DocNode {
+  return table(
     ['Function', 'Async', 'Parameters', 'Description'],
-    rows
+    fns.map(f => [
+      ct(f.name),
+      ct(f.isAsync ? 'Yes' : 'No'),
+      ct(f.params.length > 0 ? f.params.join(', ') : '—'),
+      ct(f.jsDoc ?? '—'),
+    ])
   );
 }
 
 // -----------------------------------------------
-// Write to disk — mirrors writePluginMarkdown pattern
+// Local file writer
 // -----------------------------------------------
 
 export function writeWebResourceMarkdown(
@@ -187,12 +138,8 @@ export function writeWebResourceMarkdown(
 ): void {
   fs.mkdirSync(outputPath, { recursive: true });
 
-  const summaryMd = renderWebResourceSummaryMarkdown(resources);
-  fs.writeFileSync(
-    path.join(outputPath, 'Web-Resources.md'),
-    summaryMd,
-    'utf-8'
-  );
+  const summaryMd = serialize(renderWebResourceSummary(resources));
+  fs.writeFileSync(path.join(outputPath, 'Web-Resources.md'), summaryMd, 'utf-8');
   console.log(`  Wrote Web-Resources.md (${resources.length} resources)`);
 
   const jsResources = resources.filter(r => r.resourceType === 'JavaScript');
@@ -203,8 +150,11 @@ export function writeWebResourceMarkdown(
 
   for (const resource of jsResources) {
     const fileName = sanitiseFileName(resource.name) + '.md';
-    const detailMd = renderWebResourceDetailMarkdown(resource);
-    fs.writeFileSync(path.join(detailDir, fileName), detailMd, 'utf-8');
+    fs.writeFileSync(
+      path.join(detailDir, fileName),
+      serialize(renderWebResourceDetail(resource)),
+      'utf-8'
+    );
   }
 
   console.log(`  Wrote ${jsResources.length} web resource detail page(s)`);

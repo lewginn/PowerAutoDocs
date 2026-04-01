@@ -1,15 +1,15 @@
 export {
   renderTableMarkdown, writeTableMarkdown,
-  renderTableIndexMarkdown, renderTableColumnsMarkdown, renderTableViewsMarkdown,
-  renderTableFormsMarkdown, renderTableRelationshipsMarkdown,
-  renderTableBusinessRulesMarkdown, renderSingleBusinessRuleMarkdown,
+  renderTableIndex, renderTableColumns, renderTableViews,
+  renderTableForms, renderTableRelationships,
+  renderTableBusinessRules, renderSingleBusinessRule,
 } from './tableRenderer.js';
-export { renderOverviewMarkdown, writeOverviewMarkdown } from './overviewRenderer.js';
-export { renderFlowMarkdown, renderFlowSummaryMarkdown, renderSingleFlowMarkdown, writeFlowMarkdown } from './flowRenderer.js';
-export { renderPluginSummaryMarkdown, renderAssemblyIndexMarkdown, renderSinglePluginTypeMarkdown, writePluginMarkdown } from './pluginRenderer.js';
-export { writeWebResourceMarkdown, renderWebResourceSummaryMarkdown, renderWebResourceDetailMarkdown } from './webResourceRenderer.js';
-export { renderClassicWorkflowMarkdown, renderClassicWorkflowsOverview } from './classicWorkflowRenderer.js';
-export { renderBusinessRuleMarkdown, renderBusinessRulesOverview } from './businessRuleRenderer.js';
+export { renderOverview, writeOverviewMarkdown } from './overviewRenderer.js';
+export { renderFlowMarkdown, renderFlowSummary, renderSingleFlow, writeFlowMarkdown } from './flowRenderer.js';
+export { renderPluginSummary, renderAssemblyIndex, renderSinglePluginType, writePluginMarkdown } from './pluginRenderer.js';
+export { writeWebResourceMarkdown, renderWebResourceSummary, renderWebResourceDetail } from './webResourceRenderer.js';
+export { renderClassicWorkflow, renderClassicWorkflowsOverview } from './classicWorkflowRenderer.js';
+export { renderBusinessRule, renderBusinessRulesOverview } from './businessRuleRenderer.js';
 export { renderSecurityRolePage, renderSecurityRolesIndex, encodeRoleName } from './securityRoleRenderer.js';
 export { renderEnvironmentVariablesPage } from './environmentVariableRenderer.js';
 export { renderGlobalChoicesIndex, renderGlobalChoicePage, encodeChoiceName } from './globalChoiceRenderer.js';

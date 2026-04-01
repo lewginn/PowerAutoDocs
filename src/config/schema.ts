@@ -27,6 +27,10 @@ export interface DocGenConfig {
   output: {
     /** Directory to write generated markdown files */
     path: string;
+    /** Generate a Word (.docx) document in addition to wiki output. Default: false */
+    word?: boolean;
+    /** Filename for the Word document (default: 'solution-documentation.docx') */
+    wordFilename?: string;
   };
 
   parse: {

@@ -1,35 +1,33 @@
-import type { ConnectionReferenceModel } from '../ir/connectionReference.js';
+// renderers/connectionReferenceRenderer.ts
 
-/**
- * Renders the Connection References section — added to the existing
- * Integrations page alongside Environment Variables.
- */
+import type { ConnectionReferenceModel } from '../ir/connectionReference.js';
+import type { DocNode } from '../docmodel/nodes.js';
+import { h, pt, bqt, table, ct, cc } from '../docmodel/nodes.js';
+
 export function renderConnectionReferencesPage(
   refs: ConnectionReferenceModel[]
-): string {
-  const lines: string[] = [];
+): DocNode[] {
+  const nodes: DocNode[] = [];
 
-  lines.push('# Connection References\n');
+  nodes.push(h(1, 'Connection References'));
 
   if (refs.length === 0) {
-    lines.push('_No connection references found in this solution._');
-    return lines.join('\n');
+    nodes.push(pt('No connection references found in this solution.'));
+    return nodes;
   }
 
-  lines.push(
-    `${refs.length} connection reference${refs.length === 1 ? '' : 's'} defined in this solution.\n`
-  );
-  lines.push(
-    '> Connection references decouple flows and apps from specific connections, ' +
-    'allowing each environment to provide its own connection without modifying the solution.\n'
-  );
+  nodes.push(pt(
+    `${refs.length} connection reference${refs.length === 1 ? '' : 's'} defined in this solution.`
+  ));
+  nodes.push(bqt(
+    'Connection references decouple flows and apps from specific connections, ' +
+    'allowing each environment to provide its own connection without modifying the solution.'
+  ));
 
-  lines.push('| Display Name | Connector | Logical Name |');
-  lines.push('| --- | --- | --- |');
+  nodes.push(table(
+    ['Display Name', 'Connector', 'Logical Name'],
+    refs.map(r => [ct(r.displayName), ct(r.connectorName), cc(r.logicalName)])
+  ));
 
-  for (const r of refs) {
-    lines.push(`| ${r.displayName} | ${r.connectorName} | \`${r.logicalName}\` |`);
-  }
-
-  return lines.join('\n');
+  return nodes;
 }

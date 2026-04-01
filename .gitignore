@@ -36,3 +36,6 @@ Thumbs.db
 
 #yml config file, required for client project, but should not be committed to source control as it may contain environment-specific settings
 *doc-gen.config.yml
+
+#claude code project instructions
+*claude.md

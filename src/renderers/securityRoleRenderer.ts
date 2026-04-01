@@ -1,5 +1,8 @@
+// renderers/securityRoleRenderer.ts
+
 import type { SecurityRoleModel, EntityPrivileges, PrivilegeLevel } from '../ir/securityRole.js';
-import { toADOWikiLink } from './rendererUtils.js';
+import type { DocNode, InlineNode } from '../docmodel/nodes.js';
+import { h, pt, p, t, c, b, lnk, table, ct, cc, cell } from '../docmodel/nodes.js';
 
 const LEVEL_DOTS: Record<PrivilegeLevel, string> = {
   None:   '○○○○○',
@@ -17,95 +20,78 @@ const LEVEL_LABELS: Record<PrivilegeLevel, string> = {
   Global: 'Organisation',
 };
 
-function dots(level: PrivilegeLevel): string {
-  return LEVEL_DOTS[level];
-}
-
-function mdTable(headers: string[], rows: string[][]): string {
-  const sep = headers.map(() => '---');
-  return [
-    `| ${headers.join(' | ')} |`,
-    `| ${sep.join(' | ')} |`,
-    ...rows.map(row => `| ${row.join(' | ')} |`),
-  ].join('\n');
-}
-
-/**
- * Renders the Security Roles index page.
- * basePath should be the full wiki path to the Security Roles page,
- * e.g. "/WikiNode/Security/Security Roles"
- */
 export function renderSecurityRolesIndex(
   roles: SecurityRoleModel[],
   basePath: string
-): string {
-  const lines: string[] = [];
+): DocNode[] {
+  const nodes: DocNode[] = [];
 
-  lines.push('# Security Roles\n');
-  lines.push('Custom security roles defined in this solution.\n');
+  nodes.push(h(1, 'Security Roles'));
+  nodes.push(pt('Custom security roles defined in this solution.'));
 
   if (roles.length === 0) {
-    lines.push('_No custom security roles found in this solution._');
-    return lines.join('\n');
+    nodes.push(pt('No custom security roles found in this solution.'));
+    return nodes;
   }
 
-  const rows = roles.map(r => [
-    `[${r.name}](${toADOWikiLink(`${basePath}/${encodeRoleName(r.name)}`)})`,
-    r.isAutoAssigned ? 'Yes' : 'No',
-    String(r.privileges.length),
-  ]);
+  nodes.push(table(
+    ['Role', 'Auto Assigned', 'Custom Entities'],
+    roles.map(r => [
+      cell(lnk(r.name, `${basePath}/${encodeRoleName(r.name)}`)),
+      ct(r.isAutoAssigned ? 'Yes' : 'No'),
+      ct(String(r.privileges.length)),
+    ])
+  ));
 
-  lines.push(mdTable(['Role', 'Auto Assigned', 'Custom Entities'], rows));
-
-  return lines.join('\n');
+  return nodes;
 }
 
-export function renderSecurityRolePage(role: SecurityRoleModel): string {
-  const lines: string[] = [];
+export function renderSecurityRolePage(role: SecurityRoleModel): DocNode[] {
+  const nodes: DocNode[] = [];
 
-  lines.push(`# ${role.name}\n`);
+  nodes.push(h(1, role.name));
+  nodes.push(table(
+    ['Property', 'Value'],
+    [
+      [ct('Auto Assigned'),       ct(role.isAutoAssigned ? 'Yes' : 'No')],
+      [ct('Customizable'),        ct(role.isCustomizable ? 'Yes' : 'No')],
+      [ct('Custom Entity Count'), ct(String(role.privileges.length))],
+    ]
+  ));
 
-  lines.push('| Property | Value |');
-  lines.push('| --- | --- |');
-  lines.push(`| Auto Assigned | ${role.isAutoAssigned ? 'Yes' : 'No'} |`);
-  lines.push(`| Customizable | ${role.isCustomizable ? 'Yes' : 'No'} |`);
-  lines.push(`| Custom Entity Count | ${role.privileges.length} |`);
-  lines.push('');
+  nodes.push(h(2, 'Access Level Key'));
+  nodes.push(table(
+    ['Dots', 'Level', 'Scope'],
+    (Object.entries(LEVEL_DOTS) as [PrivilegeLevel, string][]).map(([lvl, dots]) => [
+      ct(dots),
+      ct(lvl),
+      ct(LEVEL_LABELS[lvl]),
+    ])
+  ));
 
-  lines.push('## Access Level Key\n');
-  lines.push(
-    mdTable(
-      ['Dots', 'Level', 'Scope'],
-      Object.entries(LEVEL_DOTS).map(([lvl, d]) => [
-        d,
-        lvl,
-        LEVEL_LABELS[lvl as PrivilegeLevel],
-      ])
-    )
-  );
-  lines.push('');
-
-  lines.push('## Privilege Matrix\n');
+  nodes.push(h(2, 'Privilege Matrix'));
 
   if (role.privileges.length === 0) {
-    lines.push('_No custom entity privileges assigned to this role._');
-    return lines.join('\n');
+    nodes.push(pt('No custom entity privileges assigned to this role.'));
+    return nodes;
   }
 
-  const headers = [
-    'Entity', 'Create', 'Read', 'Write', 'Delete',
-    'Append', 'Append To', 'Assign', 'Share',
-  ];
+  nodes.push(table(
+    ['Entity', 'Create', 'Read', 'Write', 'Delete', 'Append', 'Append To', 'Assign', 'Share'],
+    role.privileges.map((priv: EntityPrivileges) => [
+      ct(priv.entityName),
+      ct(LEVEL_DOTS[priv.create]),
+      ct(LEVEL_DOTS[priv.read]),
+      ct(LEVEL_DOTS[priv.write]),
+      ct(LEVEL_DOTS[priv.delete]),
+      ct(LEVEL_DOTS[priv.append]),
+      ct(LEVEL_DOTS[priv.appendTo]),
+      ct(LEVEL_DOTS[priv.assign]),
+      ct(LEVEL_DOTS[priv.share]),
+    ])
+  ));
 
-  const rows = role.privileges.map((p: EntityPrivileges) => [
-    p.entityName,
-    dots(p.create), dots(p.read), dots(p.write), dots(p.delete),
-    dots(p.append), dots(p.appendTo), dots(p.assign), dots(p.share),
-  ]);
-
-  lines.push(mdTable(headers, rows));
-
-  return lines.join('\n');
+  return nodes;
 }
 
 export function encodeRoleName(roleName: string): string {

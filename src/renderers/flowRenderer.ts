@@ -1,157 +1,127 @@
+// renderers/flowRenderer.ts
+
 import * as fs from 'fs';
 import * as path from 'path';
 import type { FlowModel, FlowActionModel } from '../ir/index.js';
-import { toADOWikiLink } from './rendererUtils.js';
-
-function pad(str: string, length: number): string {
-  return str.padEnd(length, ' ');
-}
-
-function markdownTable(headers: string[], rows: string[][]): string {
-  const widths = headers.map((h, i) =>
-    Math.max(h.length, ...rows.map(r => (r[i] ?? '').length))
-  );
-  const header = '| ' + headers.map((h, i) => pad(h, widths[i])).join(' | ') + ' |';
-  const divider = '| ' + widths.map(w => '-'.repeat(w)).join(' | ') + ' |';
-  const body = rows.map(
-    row => '| ' + row.map((cell, i) => pad(cell ?? '', widths[i])).join(' | ') + ' |'
-  );
-  return [header, divider, ...body].join('\n');
-}
+import type { DocNode, InlineNode } from '../docmodel/nodes.js';
+import { h, pt, p, t, c, b, i, lnk, table, ct, cc, cell, bulletList, bullet, mermaid } from '../docmodel/nodes.js';
+import { serialize } from '../docmodel/MarkdownSerializer.js';
 
 // -----------------------------------------------
-// Summary page — index table only, links to child pages
-// Used by wiki publisher for the /Automation/Flows page
+// Summary page
 // -----------------------------------------------
-export function renderFlowSummaryMarkdown(flows: FlowModel[], basePath?: string): string {
-  const lines: string[] = [];
 
-  lines.push('# Power Automate Flows');
-  lines.push('');
+export function renderFlowSummary(flows: FlowModel[], basePath?: string): DocNode[] {
+  const nodes: DocNode[] = [];
+
+  nodes.push(h(1, 'Power Automate Flows'));
 
   if (flows.length === 0) {
-    lines.push('_No modern flows found in this solution._');
-    return lines.join('\n');
+    nodes.push(pt('No modern flows found in this solution.'));
+    return nodes;
   }
 
-  lines.push(`${flows.length} flow(s) in this solution.`);
-  lines.push('');
-
-  const summaryRows = flows.map(f => {
-    const linkName = basePath
-      ? `[${f.name}](${toADOWikiLink(`${basePath}/${f.name}`)})`
-      : f.name;
-    return [
-      linkName,
-      f.trigger.type,
-      f.trigger.entity ? `\`${f.trigger.entity}\`` : '—',
-      f.actions.length.toString(),
-      f.isActive ? '✅ Active' : '❌ Inactive',
-    ];
-  });
-
-  lines.push(markdownTable(
+  nodes.push(pt(`${flows.length} flow(s) in this solution.`));
+  nodes.push(table(
     ['Flow Name', 'Trigger Type', 'Entity', 'Actions', 'Status'],
-    summaryRows
+    flows.map(f => [
+      basePath ? cell(lnk(f.name, `${basePath}/${f.name}`)) : ct(f.name),
+      ct(f.trigger.type),
+      f.trigger.entity ? cc(f.trigger.entity) : ct('—'),
+      ct(f.actions.length.toString()),
+      ct(f.isActive ? '✅ Active' : '❌ Inactive'),
+    ])
   ));
-  lines.push('');
 
-  return lines.join('\n');
+  return nodes;
 }
 
 // -----------------------------------------------
-// Render actions as a nested markdown list
+// Actions as a bullet list
 // -----------------------------------------------
-function renderActionsList(actions: FlowActionModel[]): string {
-  const lines: string[] = [];
+
+function buildActionItems(actions: FlowActionModel[]): ReturnType<typeof bullet>[] {
+  const items: ReturnType<typeof bullet>[] = [];
 
   for (const a of actions) {
-    const indent = '  '.repeat(a.depth);
     const branchPrefix = a.parentName?.endsWith('(Yes)') ? '✓ ' :
       a.parentName?.endsWith('(No)') ? '✗ ' : '';
 
-    const details: string[] = [a.description];
+    const inlines: InlineNode[] = [];
+    inlines.push(b(branchPrefix + a.name));
+    inlines.push(t(' — ' + a.description));
     if (a.runAfter.length > 0) {
-      details.push(`_after: ${a.runAfter.join(', ')}_`);
+      inlines.push(t(' · '));
+      inlines.push(i(`after: ${a.runAfter.join(', ')}`));
     }
 
-    lines.push(`${indent}- ${branchPrefix}**${a.name}** — ${details.join(' · ')}`);
+    items.push(bullet(a.depth, ...inlines));
   }
 
-  return lines.join('\n');
+  return items;
 }
 
 // -----------------------------------------------
 // Single flow detail page
-// Used by wiki publisher for each /Automation/Flows/<name> page
 // -----------------------------------------------
-export function renderSingleFlowMarkdown(flow: FlowModel): string {
-  const lines: string[] = [];
 
-  lines.push(`# ${flow.name}`);
-  lines.push('');
+export function renderSingleFlow(flow: FlowModel): DocNode[] {
+  const nodes: DocNode[] = [];
 
-  lines.push('| Property | Value |');
-  lines.push('| --- | --- |');
-  lines.push(`| Status | ${flow.isActive ? 'Active' : 'Inactive'} |`);
-  lines.push(`| Type | ${flow.category === 'ModernFlow' ? 'Power Automate (Modern Flow)' : 'Classic Workflow'} |`);
+  nodes.push(h(1, flow.name));
+
+  const metaRows: InlineNode[][][] = [
+    [ct('Status'), ct(flow.isActive ? 'Active' : 'Inactive')],
+    [ct('Type'), ct(flow.category === 'ModernFlow' ? 'Power Automate (Modern Flow)' : 'Classic Workflow')],
+  ];
   if (flow.connectionReferences.length > 0) {
-    lines.push(`| Connections | ${flow.connectionReferences.map(c => `\`${c}\``).join(', ')} |`);
+    const connInlines: InlineNode[] = [];
+    flow.connectionReferences.forEach((conn, idx) => {
+      connInlines.push(c(conn));
+      if (idx < flow.connectionReferences.length - 1) connInlines.push(t(', '));
+    });
+    metaRows.push([ct('Connections'), connInlines]);
   }
-  lines.push('');
+  nodes.push(table(['Property', 'Value'], metaRows));
 
   // ---- Trigger ----
-  lines.push('## Trigger');
-  lines.push('');
-  lines.push(flow.trigger.description);
-  lines.push('');
+  nodes.push(h(2, 'Trigger'));
+  nodes.push(pt(flow.trigger.description));
   if (flow.trigger.filterAttributes) {
-    lines.push(`**Filtering attributes:** \`${flow.trigger.filterAttributes}\``);
+    nodes.push(p(b('Filtering attributes:'), t(' '), c(flow.trigger.filterAttributes)));
   }
   if (flow.trigger.filterExpression) {
-    lines.push(`**Filter expression:** \`${flow.trigger.filterExpression}\``);
+    nodes.push(p(b('Filter expression:'), t(' '), c(flow.trigger.filterExpression)));
   }
-  lines.push('');
 
   // ---- Actions ----
-  lines.push('## Actions');
-  lines.push('');
-
+  nodes.push(h(2, 'Actions'));
   if (flow.actions.length === 0) {
-    lines.push('_No actions found._');
-    lines.push('');
+    nodes.push(pt('No actions found.'));
   } else {
     const sorted = sortActionsByOrder(flow.actions);
-    lines.push(renderActionsList(sorted));
-    lines.push('');
+    nodes.push(bulletList(buildActionItems(sorted)));
   }
 
   // ---- Diagram ----
   if (flow.mermaidDiagram) {
-    lines.push('## Diagram');
-    lines.push('');
-    lines.push(':::mermaid');
-    lines.push(flow.mermaidDiagram);
-    lines.push(':::');
-    lines.push('');
+    nodes.push(h(2, 'Diagram'));
+    nodes.push(mermaid(flow.mermaidDiagram));
   }
 
-  return lines.join('\n');
+  return nodes;
 }
 
 // -----------------------------------------------
 // Combined render — kept for local file output
 // -----------------------------------------------
+
 export function renderFlowMarkdown(flows: FlowModel[]): string {
-  const lines: string[] = [];
-
-  lines.push(renderFlowSummaryMarkdown(flows));
-
+  const parts: string[] = [serialize(renderFlowSummary(flows)).trimEnd()];
   for (const flow of flows) {
-    lines.push(renderSingleFlowMarkdown(flow));
+    parts.push(serialize(renderSingleFlow(flow)).trimEnd());
   }
-
-  return lines.join('\n');
+  return parts.join('\n\n');
 }
 
 // -----------------------------------------------
@@ -159,8 +129,8 @@ export function renderFlowMarkdown(flows: FlowModel[]): string {
 // Uses parentName to correctly interleave children
 // immediately after their parent action.
 // -----------------------------------------------
+
 function sortActionsByOrder(actions: FlowActionModel[]): FlowActionModel[] {
-  // Topological sort of a sibling group (same parent, same depth)
   function topoSort(siblings: FlowActionModel[]): FlowActionModel[] {
     const sorted: FlowActionModel[] = [];
     const remaining = [...siblings];
@@ -178,10 +148,8 @@ function sortActionsByOrder(actions: FlowActionModel[]): FlowActionModel[] {
     return [...sorted, ...remaining];
   }
 
-  // Recursively emit: action, then its children (sorted), then their children etc.
   function emit(action: FlowActionModel, result: FlowActionModel[]) {
     result.push(action);
-    // Match both unqualified (Scope/Foreach) and branch-qualified (If Yes/No, Switch cases)
     const children = topoSort(
       actions.filter(a =>
         a.parentName === action.name ||
@@ -193,14 +161,12 @@ function sortActionsByOrder(actions: FlowActionModel[]): FlowActionModel[] {
     }
   }
 
-  // Start from top-level actions (no parent)
   const roots = topoSort(actions.filter(a => a.parentName === undefined));
   const result: FlowActionModel[] = [];
   for (const root of roots) {
     emit(root, result);
   }
 
-  // Safety net — anything not yet emitted
   for (const a of actions) {
     if (!result.includes(a)) result.push(a);
   }
@@ -211,6 +177,7 @@ function sortActionsByOrder(actions: FlowActionModel[]): FlowActionModel[] {
 // -----------------------------------------------
 // Local file writer
 // -----------------------------------------------
+
 export function writeFlowMarkdown(flows: FlowModel[], outputDir: string): void {
   fs.mkdirSync(outputDir, { recursive: true });
   const filepath = path.join(outputDir, 'flows.md');

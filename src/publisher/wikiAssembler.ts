@@ -6,15 +6,17 @@ import type {
 } from '../ir/index.js';
 import type { WikiPage } from './wikiPublisher.js';
 import { generateERDiagram } from '../enrichment/erdGenerator.js';
+import { serialize } from '../docmodel/MarkdownSerializer.js';
+import { h, toc, mermaid, pt } from '../docmodel/nodes.js';
 import {
-  renderOverviewMarkdown,
-  renderTableIndexMarkdown, renderTableColumnsMarkdown, renderTableViewsMarkdown,
-  renderTableFormsMarkdown, renderTableRelationshipsMarkdown,
-  renderTableBusinessRulesMarkdown, renderSingleBusinessRuleMarkdown,
-  renderFlowSummaryMarkdown, renderSingleFlowMarkdown,
-  renderPluginSummaryMarkdown, renderAssemblyIndexMarkdown, renderSinglePluginTypeMarkdown,
-  renderWebResourceSummaryMarkdown, renderWebResourceDetailMarkdown,
-  renderClassicWorkflowMarkdown, renderClassicWorkflowsOverview,
+  renderOverview,
+  renderTableIndex, renderTableColumns, renderTableViews,
+  renderTableForms, renderTableRelationships,
+  renderTableBusinessRules, renderSingleBusinessRule,
+  renderFlowSummary, renderSingleFlow,
+  renderPluginSummary, renderAssemblyIndex, renderSinglePluginType,
+  renderWebResourceSummary, renderWebResourceDetail,
+  renderClassicWorkflow, renderClassicWorkflowsOverview,
   renderSecurityRolesIndex, renderSecurityRolePage, encodeRoleName,
   renderEnvironmentVariablesPage,
   renderConnectionReferencesPage,
@@ -25,7 +27,6 @@ import {
 
 /**
  * Sanitise a string for use as an ADO Wiki page path segment.
- * ADO interprets '/' as a path separator and '?' as a query string.
  */
 function s(name: string): string {
   return name
@@ -59,12 +60,12 @@ export function buildWikiPages(
   // ---- Overview ----
   pages.push({
     path: `${base}/Overview`,
-    content: renderOverviewMarkdown(
+    content: serialize(renderOverview(
       solutions, flows, pluginAssemblies.filter(a => a.assemblyName.trim() !== ''),
       webResources, classicWorkflows, businessRules,
       securityRoles, envVars, globalChoices,
       emailTemplates, modelDrivenApps, connectionRefs
-    ),
+    )),
   });
 
   // ---- Data Model ----
@@ -75,8 +76,8 @@ export function buildWikiPages(
   pages.push({
     path: `${base}/Data Model`,
     content: erdDiagram
-      ? `# Data Model\n\n${erdDiagram}\n\n[[_TOSP_]]\n`
-      : `# Data Model\n\n[[_TOSP_]]\n`,
+      ? serialize([h(1, 'Data Model'), mermaid(erdDiagram), toc()])
+      : serialize([h(1, 'Data Model'), toc()]),
   });
 
   for (const table of mergedSolution.tables) {
@@ -85,128 +86,72 @@ export function buildWikiPages(
       r => r.entity.toLowerCase() === table.logicalName.toLowerCase()
     );
 
-    // Table index page — overview metadata + [[_TOSP_]]
-    pages.push({
-      path: tablePath,
-      content: renderTableIndexMarkdown(table),
-    });
+    pages.push({ path: tablePath,                   content: serialize(renderTableIndex(table)) });
+    pages.push({ path: `${tablePath}/Columns`,      content: serialize(renderTableColumns(table)) });
 
-    // Columns — always shown
-    pages.push({
-      path: `${tablePath}/Columns`,
-      content: renderTableColumnsMarkdown(table),
-    });
-
-    // Views
     if (config.components.views) {
-      pages.push({
-        path: `${tablePath}/Views`,
-        content: renderTableViewsMarkdown(table),
-      });
+      pages.push({ path: `${tablePath}/Views`,      content: serialize(renderTableViews(table)) });
     }
-
-    // Forms
     if (config.components.forms) {
-      pages.push({
-        path: `${tablePath}/Forms`,
-        content: renderTableFormsMarkdown(table, config),
-      });
+      pages.push({ path: `${tablePath}/Forms`,      content: serialize(renderTableForms(table, config)) });
     }
-
-    // Relationships
     if (config.components.relationships) {
-      pages.push({
-        path: `${tablePath}/Relationships`,
-        content: renderTableRelationshipsMarkdown(table),
-      });
+      pages.push({ path: `${tablePath}/Relationships`, content: serialize(renderTableRelationships(table)) });
     }
 
-    // Business Rules — index + one subpage per rule
     const brBasePath = `${tablePath}/Business Rules`;
-    pages.push({
-      path: brBasePath,
-      content: renderTableBusinessRulesMarkdown(table, tableRules),
-    });
-
+    pages.push({ path: brBasePath, content: serialize(renderTableBusinessRules(table, tableRules)) });
     for (const rule of tableRules) {
-      pages.push({
-        path: `${brBasePath}/${s(rule.name)}`,
-        content: renderSingleBusinessRuleMarkdown(rule),
-      });
+      pages.push({ path: `${brBasePath}/${s(rule.name)}`, content: serialize(renderSingleBusinessRule(rule)) });
     }
   }
 
   // ---- Automation ----
-  const hasFlows = flows.length > 0;
-  const validAssemblies = pluginAssemblies.filter(a => a.assemblyName.trim() !== '');
-  const hasPlugins = validAssemblies.length > 0;
+  const hasFlows           = flows.length > 0;
+  const validAssemblies    = pluginAssemblies.filter(a => a.assemblyName.trim() !== '');
+  const hasPlugins         = validAssemblies.length > 0;
   const hasClassicWorkflows = classicWorkflows.length > 0;
 
   if (hasFlows || hasPlugins || hasClassicWorkflows) {
     pages.push({
       path: `${base}/Automation`,
-      content: `# Automation\n\nPower Automate flows, classic workflows and plugins in this solution.\n`,
+      content: serialize([h(1, 'Automation'), pt('Power Automate flows, classic workflows and plugins in this solution.')]),
     });
 
-    // ---- Modern Flows ----
     if (hasFlows) {
       const flowsBasePath = `${base}/Automation/Flows`;
-      pages.push({
-        path: flowsBasePath,
-        content: renderFlowSummaryMarkdown(flows, flowsBasePath),
-      });
-
+      pages.push({ path: flowsBasePath, content: serialize(renderFlowSummary(flows, flowsBasePath)) });
       for (const flow of flows) {
-        pages.push({
-          path: `${flowsBasePath}/${s(flow.name)}`,
-          content: renderSingleFlowMarkdown(flow),
-        });
+        pages.push({ path: `${flowsBasePath}/${s(flow.name)}`, content: serialize(renderSingleFlow(flow)) });
       }
     }
 
-    // ---- Classic Workflows ----
     if (hasClassicWorkflows) {
       const cwBasePath = `${base}/Automation/Classic Workflows`;
-      pages.push({
-        path: cwBasePath,
-        content: renderClassicWorkflowsOverview(classicWorkflows),
-      });
-
+      pages.push({ path: cwBasePath, content: serialize(renderClassicWorkflowsOverview(classicWorkflows)) });
       for (const wf of classicWorkflows) {
-        pages.push({
-          path: `${cwBasePath}/${s(wf.name)}`,
-          content: renderClassicWorkflowMarkdown(wf),
-        });
+        pages.push({ path: `${cwBasePath}/${s(wf.name)}`, content: serialize(renderClassicWorkflow(wf)) });
       }
     }
 
-    // ---- Plugins ----
     if (hasPlugins) {
       const pluginsBasePath = `${base}/Automation/Plugins`;
-
-      pages.push({
-        path: pluginsBasePath,
-        content: renderPluginSummaryMarkdown(validAssemblies),
-      });
+      pages.push({ path: pluginsBasePath, content: serialize(renderPluginSummary(validAssemblies)) });
 
       for (const assembly of validAssemblies) {
         const safeAssemblyName = s(assembly.assemblyName.replace(/\./g, '-'));
         const assemblyBasePath = `${pluginsBasePath}/${safeAssemblyName}`;
 
-        pages.push({
-          path: assemblyBasePath,
-          content: renderAssemblyIndexMarkdown(assembly, assemblyBasePath),
-        });
+        pages.push({ path: assemblyBasePath, content: serialize(renderAssemblyIndex(assembly, assemblyBasePath)) });
 
         for (const fullName of assembly.pluginTypeNames) {
           const shortName = fullName.startsWith(assembly.assemblyName + '.')
             ? fullName.slice(assembly.assemblyName.length + 1)
             : fullName;
           const steps = assembly.steps.filter(st => st.className === shortName);
-
           pages.push({
             path: `${assemblyBasePath}/${s(shortName)}`,
-            content: renderSinglePluginTypeMarkdown(shortName, steps, assembly),
+            content: serialize(renderSinglePluginType(shortName, steps, assembly)),
           });
         }
       }
@@ -220,37 +165,21 @@ export function buildWikiPages(
 
     pages.push({
       path: `${base}/Custom Code`,
-      content: `# Custom Code\n\n[[_TOSP_]]\n`,
+      content: serialize([h(1, 'Custom Code'), toc()]),
     });
-
-    pages.push({
-      path: wrBasePath,
-      content: renderWebResourceSummaryMarkdown(jsResources),
-    });
-
+    pages.push({ path: wrBasePath, content: serialize(renderWebResourceSummary(jsResources)) });
     for (const resource of jsResources) {
       const title = resource.name.split('/').pop() ?? resource.name;
-      pages.push({
-        path: `${wrBasePath}/${s(title)}`,
-        content: renderWebResourceDetailMarkdown(resource),
-      });
+      pages.push({ path: `${wrBasePath}/${s(title)}`, content: serialize(renderWebResourceDetail(resource)) });
     }
   }
 
-  // ---- Security Roles----
+  // ---- Security Roles ----
   if (securityRoles.length > 0) {
     const secBasePath = `${base}/Security`;
-
-    pages.push({
-      path: secBasePath,
-      content: renderSecurityRolesIndex(securityRoles, secBasePath),
-    });
-
+    pages.push({ path: secBasePath, content: serialize(renderSecurityRolesIndex(securityRoles, secBasePath)) });
     for (const role of securityRoles) {
-      pages.push({
-        path: `${secBasePath}/${s(encodeRoleName(role.name))}`,
-        content: renderSecurityRolePage(role),
-      });
+      pages.push({ path: `${secBasePath}/${s(encodeRoleName(role.name))}`, content: serialize(renderSecurityRolePage(role)) });
     }
   }
 
@@ -258,67 +187,42 @@ export function buildWikiPages(
   if (envVars.length > 0 || connectionRefs.length > 0) {
     pages.push({
       path: `${base}/Integrations`,
-      content: `# Integrations\n\n[[_TOSP_]]\n`,
+      content: serialize([h(1, 'Integrations'), toc()]),
     });
-
     if (envVars.length > 0) {
-      pages.push({
-        path: `${base}/Integrations/Environment Variables`,
-        content: renderEnvironmentVariablesPage(envVars),
-      });
+      pages.push({ path: `${base}/Integrations/Environment Variables`, content: serialize(renderEnvironmentVariablesPage(envVars)) });
     }
-
     if (connectionRefs.length > 0) {
-      pages.push({
-        path: `${base}/Integrations/Connection References`,
-        content: renderConnectionReferencesPage(connectionRefs),
-      });
+      pages.push({ path: `${base}/Integrations/Connection References`, content: serialize(renderConnectionReferencesPage(connectionRefs)) });
     }
   }
 
   // ---- Global Choices ----
   if (globalChoices.length > 0) {
     const choicesBasePath = `${base}/Global Choices`;
-    pages.push({
-      path: choicesBasePath,
-      content: renderGlobalChoicesIndex(globalChoices, choicesBasePath),
-    });
+    pages.push({ path: choicesBasePath, content: serialize(renderGlobalChoicesIndex(globalChoices, choicesBasePath)) });
     for (const choice of globalChoices) {
-      pages.push({
-        path: `${choicesBasePath}/${s(encodeChoiceName(choice.displayName))}`,
-        content: renderGlobalChoicePage(choice),
-      });
+      pages.push({ path: `${choicesBasePath}/${s(encodeChoiceName(choice.displayName))}`, content: serialize(renderGlobalChoicePage(choice)) });
     }
   }
 
   // ---- Email Templates ----
   if (emailTemplates.length > 0) {
     const emailBasePath = `${base}/Email Templates`;
-    pages.push({
-      path: emailBasePath,
-      content: renderEmailTemplatesIndex(emailTemplates, emailBasePath),
-    });
+    pages.push({ path: emailBasePath, content: serialize(renderEmailTemplatesIndex(emailTemplates, emailBasePath)) });
     for (const template of emailTemplates) {
-      pages.push({
-        path: `${emailBasePath}/${s(template.title)}`,
-        content: renderEmailTemplatePage(template),
-      });
+      pages.push({ path: `${emailBasePath}/${s(template.title)}`, content: serialize(renderEmailTemplatePage(template)) });
     }
   }
 
   // ---- Model-Driven Apps ----
   if (modelDrivenApps.length > 0) {
     const appsBasePath = `${base}/Model-Driven Apps`;
-    pages.push({
-      path: appsBasePath,
-      content: renderModelDrivenAppsIndex(modelDrivenApps, appsBasePath),
-    });
+    pages.push({ path: appsBasePath, content: serialize(renderModelDrivenAppsIndex(modelDrivenApps, appsBasePath)) });
     for (const app of modelDrivenApps) {
-      pages.push({
-        path: `${appsBasePath}/${s(app.displayName)}`,
-        content: renderModelDrivenAppPage(app),
-      });
+      pages.push({ path: `${appsBasePath}/${s(app.displayName)}`, content: serialize(renderModelDrivenAppPage(app)) });
     }
   }
+
   return pages;
 }

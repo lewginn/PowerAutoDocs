@@ -1,152 +1,155 @@
 // renderers/classicWorkflowRenderer.ts
 
 import type { ClassicWorkflowModel, ClassicWorkflowStepModel } from '../ir/classicWorkflow.js';
-
-function markdownTable(headers: string[], rows: string[][]): string {
-  const cols = headers.length;
-  const widths = headers.map((h, i) =>
-    Math.max(h.length, ...rows.map(r => (r[i] ?? '').length), 3)
-  );
-  const pad = (s: string, w: number) => s + ' '.repeat(w - s.length);
-  const sep = widths.map(w => '-'.repeat(w));
-  const fmt = (row: string[]) =>
-    '| ' + row.map((c, i) => pad(c ?? '', widths[i])).join(' | ') + ' |';
-  return [fmt(headers), fmt(sep), ...rows.map(fmt)].join('\n');
-}
+import type { DocNode, InlineNode } from '../docmodel/nodes.js';
+import { h, pt, p, t, c, b, i, table, ct, cc, bulletList, bullet } from '../docmodel/nodes.js';
+import { serialize } from '../docmodel/MarkdownSerializer.js';
 
 // -----------------------------------------------
-// Step list — nested markdown bullets
+// Step list — nested bullet items
 // -----------------------------------------------
 
-function renderStep(step: ClassicWorkflowStepModel, depth: number): string {
-  const indent = '  '.repeat(depth);
-  const lines: string[] = [];
+function buildStepItems(steps: ClassicWorkflowStepModel[], depth = 0): ReturnType<typeof bullet>[] {
+  const items: ReturnType<typeof bullet>[] = [];
 
-  let summary = '';
+  for (const step of steps) {
+    const inlines: InlineNode[] = [];
 
-  switch (step.type) {
-    case 'condition': {
-      const fields = step.conditionFields?.map(f => `\`${f}\``).join(', ') ?? '';
-      summary = `**${step.name}**${fields ? ` — checks ${fields}` : ''}`;
-      break;
+    switch (step.type) {
+      case 'condition': {
+        const fields = step.conditionFields?.map(f => f) ?? [];
+        inlines.push(b(step.name));
+        if (fields.length > 0) {
+          inlines.push(t(' — checks '));
+          fields.forEach((f, idx) => {
+            inlines.push(c(f));
+            if (idx < fields.length - 1) inlines.push(t(', '));
+          });
+        }
+        break;
+      }
+      case 'update': {
+        const fields = step.setFields ?? [];
+        inlines.push(b(step.name));
+        inlines.push(t(' — Update '));
+        inlines.push(c(step.entity ?? '?'));
+        if (fields.length > 0) {
+          inlines.push(t(' ('));
+          fields.forEach((f, idx) => {
+            inlines.push(c(f));
+            if (idx < fields.length - 1) inlines.push(t(', '));
+          });
+          inlines.push(t(')'));
+        }
+        break;
+      }
+      case 'create': {
+        const fields = step.setFields ?? [];
+        inlines.push(b(step.name));
+        inlines.push(t(' — Create '));
+        inlines.push(c(step.entity ?? '?'));
+        if (fields.length > 0) {
+          inlines.push(t(' ('));
+          fields.forEach((f, idx) => {
+            inlines.push(c(f));
+            if (idx < fields.length - 1) inlines.push(t(', '));
+          });
+          inlines.push(t(')'));
+        }
+        break;
+      }
+      case 'terminate': {
+        inlines.push(b(step.name));
+        inlines.push(t(' — Stop workflow'));
+        if (step.errorMessage) {
+          inlines.push(t(' — '));
+          inlines.push(i(`"${step.errorMessage}"`));
+        }
+        break;
+      }
+      default:
+        inlines.push(b(step.name));
     }
-    case 'update': {
-      const fields = step.setFields?.map(f => `\`${f}\``).join(', ') ?? '';
-      summary = `**${step.name}** — Update \`${step.entity ?? '?'}\`${fields ? ` (${fields})` : ''}`;
-      break;
+
+    items.push(bullet(depth, ...inlines));
+
+    if (step.thenSteps && step.thenSteps.length > 0) {
+      items.push(...buildStepItems(step.thenSteps, depth + 1));
     }
-    case 'create': {
-      const fields = step.setFields?.map(f => `\`${f}\``).join(', ') ?? '';
-      summary = `**${step.name}** — Create \`${step.entity ?? '?'}\`${fields ? ` (${fields})` : ''}`;
-      break;
-    }
-    case 'terminate': {
-      const msg = step.errorMessage ? ` — _"${step.errorMessage}"_` : '';
-      summary = `**${step.name}** — Stop workflow${msg}`;
-      break;
-    }
-    default:
-      summary = `**${step.name}**`;
   }
 
-  lines.push(`${indent}- ${summary}`);
-
-  if (step.thenSteps && step.thenSteps.length > 0) {
-    for (const child of step.thenSteps) {
-      lines.push(renderStep(child, depth + 1));
-    }
-  }
-
-  return lines.join('\n');
-}
-
-function renderStepList(steps: ClassicWorkflowStepModel[]): string {
-  if (steps.length === 0) return '_No steps extracted._';
-  return steps.map(s => renderStep(s, 0)).join('\n');
+  return items;
 }
 
 // -----------------------------------------------
-// Trigger summary line
+// Trigger summary
 // -----------------------------------------------
 
-function renderTriggers(wf: ClassicWorkflowModel): string {
+function triggerText(wf: ClassicWorkflowModel): string {
   const parts: string[] = [];
   if (wf.triggers.onCreate) parts.push('Create');
   if (wf.triggers.onDelete) parts.push('Delete');
   if (wf.triggers.onUpdate) {
     const fields = wf.triggers.updateFields.length > 0
-      ? ` (\`${wf.triggers.updateFields.join('`, `')}\`)`
+      ? ` (${wf.triggers.updateFields.join(', ')})`
       : '';
     parts.push(`Update${fields}`);
   }
   if (wf.triggers.onDemand) parts.push('On Demand');
-  if (parts.length === 0) return '_None configured_';
-  return parts.join(', ');
+  return parts.length === 0 ? 'None configured' : parts.join(', ');
 }
 
 // -----------------------------------------------
 // Single workflow detail page
 // -----------------------------------------------
 
-export function renderClassicWorkflowMarkdown(wf: ClassicWorkflowModel): string {
-  const lines: string[] = [];
+export function renderClassicWorkflow(wf: ClassicWorkflowModel): DocNode[] {
+  const nodes: DocNode[] = [];
 
-  lines.push(`# ${wf.name}`);
-  lines.push('');
+  nodes.push(h(1, wf.name));
 
-  const categoryLabel =
-    wf.category === 'action' ? 'Custom Action' : 'Classic Workflow';
+  const categoryLabel = wf.category === 'action' ? 'Custom Action' : 'Classic Workflow';
+  const modeLabel     = wf.mode === 'realtime' ? 'Real-time (Synchronous)' : 'Background (Asynchronous)';
+  const scopeLabel    = wf.scope === 'user' ? 'User' : wf.scope === 'businessunit' ? 'Business Unit' : 'Organisation';
+  const runAsLabel    = wf.runAs === 'owner' ? 'Record Owner' : 'Calling User';
 
-  const modeLabel = wf.mode === 'realtime' ? 'Real-time (Synchronous)' : 'Background (Asynchronous)';
-
-  const scopeLabel =
-    wf.scope === 'user' ? 'User' :
-    wf.scope === 'businessunit' ? 'Business Unit' : 'Organisation';
-
-  const runAsLabel = wf.runAs === 'owner' ? 'Record Owner' : 'Calling User';
-
-  lines.push(markdownTable(
+  nodes.push(table(
     ['Property', 'Value'],
     [
-      ['Status',   wf.status === 'active' ? 'Active' : 'Inactive'],
-      ['Type',     categoryLabel],
-      ['Entity',   `\`${wf.entity}\``],
-      ['Mode',     modeLabel],
-      ['Scope',    scopeLabel],
-      ['Run As',   runAsLabel],
+      [ct('Status'),  ct(wf.status === 'active' ? 'Active' : 'Inactive')],
+      [ct('Type'),    ct(categoryLabel)],
+      [ct('Entity'),  cc(wf.entity)],
+      [ct('Mode'),    ct(modeLabel)],
+      [ct('Scope'),   ct(scopeLabel)],
+      [ct('Run As'),  ct(runAsLabel)],
     ]
   ));
-  lines.push('');
 
-  lines.push('## Triggers');
-  lines.push('');
-  lines.push(renderTriggers(wf));
-  lines.push('');
+  nodes.push(h(2, 'Triggers'));
+  nodes.push(pt(triggerText(wf)));
 
   if (wf.steps.length > 0) {
-    lines.push('## Steps');
-    lines.push('');
-    lines.push(renderStepList(wf.steps));
-    lines.push('');
+    nodes.push(h(2, 'Steps'));
+    const items = buildStepItems(wf.steps);
+    nodes.push(items.length > 0 ? bulletList(items) : pt('No steps extracted.'));
   }
 
-  return lines.join('\n');
+  return nodes;
 }
 
 // -----------------------------------------------
-// Summary table for the /Automation/Classic Workflows index page
+// Overview index table
 // -----------------------------------------------
 
-export function renderClassicWorkflowsOverview(workflows: ClassicWorkflowModel[]): string {
-  if (workflows.length === 0) return '_No classic workflows found._';
+export function renderClassicWorkflowsOverview(workflows: ClassicWorkflowModel[]): DocNode[] {
+  if (workflows.length === 0) return [pt('No classic workflows found.')];
 
-  const lines: string[] = [];
-  lines.push(markdownTable(
+  return [table(
     ['Workflow', 'Entity', 'Type', 'Mode', 'Triggers'],
     workflows.map(wf => {
       const triggerParts: string[] = [];
-      if (wf.triggers.onCreate)  triggerParts.push('Create');
-      if (wf.triggers.onDelete)  triggerParts.push('Delete');
+      if (wf.triggers.onCreate) triggerParts.push('Create');
+      if (wf.triggers.onDelete) triggerParts.push('Delete');
       if (wf.triggers.onUpdate) {
         const fields = wf.triggers.updateFields.length > 0
           ? ` (${wf.triggers.updateFields.join(', ')})`
@@ -155,17 +158,13 @@ export function renderClassicWorkflowsOverview(workflows: ClassicWorkflowModel[]
       }
       if (wf.triggers.onDemand) triggerParts.push('On Demand');
 
-      const categoryLabel =
-        wf.category === 'action' ? 'Custom Action' : 'Workflow';
-
       return [
-        wf.name,
-        `\`${wf.entity}\``,
-        categoryLabel,
-        wf.mode === 'realtime' ? 'Real-time' : 'Background',
-        triggerParts.join(', ') || '—',
+        ct(wf.name),
+        cc(wf.entity),
+        ct(wf.category === 'action' ? 'Custom Action' : 'Workflow'),
+        ct(wf.mode === 'realtime' ? 'Real-time' : 'Background'),
+        ct(triggerParts.join(', ') || '—'),
       ];
     })
-  ));
-  return lines.join('\n');
+  )];
 }

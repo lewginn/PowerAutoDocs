@@ -1,5 +1,9 @@
+// renderers/environmentVariableRenderer.ts
+
 import type { EnvironmentVariableModel } from '../ir/environmentVariable.js';
 import type { EnvironmentVariablesConfig } from '../config/schema.js';
+import type { DocNode, InlineNode } from '../docmodel/nodes.js';
+import { h, pt, p, t, c, b, i, bqt, table, ct, cc, cell } from '../docmodel/nodes.js';
 
 const SECRET_STORE_LABELS: Record<number, string> = {
   0: '—',
@@ -11,73 +15,66 @@ function secretStoreLabel(n: number): string {
   return SECRET_STORE_LABELS[n] ?? `Unknown (${n})`;
 }
 
-function renderDefaultValue(model: EnvironmentVariableModel): string {
-  if (model.secretStore > 0) return '_[secret]_';
-  if (model.defaultValue !== '') return `\`${model.defaultValue}\``;
-  return '_Not set_';
+function defaultValueCell(model: EnvironmentVariableModel): InlineNode[] {
+  if (model.secretStore > 0) return [i('[secret]')];
+  if (model.defaultValue !== '') return [c(model.defaultValue)];
+  return [i('Not set')];
 }
 
-function renderCurrentValue(model: EnvironmentVariableModel): string {
-  if (model.secretStore > 0) return '_[secret — stored externally]_';
-  if (model.currentValue !== undefined) return `\`${model.currentValue}\``;
-  return '_Not set_';
+function currentValueCell(model: EnvironmentVariableModel): InlineNode[] {
+  if (model.secretStore > 0) return [i('[secret — stored externally]')];
+  if (model.currentValue !== undefined) return [c(model.currentValue)];
+  return [i('Not set')];
 }
 
-/**
- * Renders the Integrations / Environment Variables wiki page.
- * Columns shown are controlled by the EnvironmentVariablesConfig options.
- */
 export function renderEnvironmentVariablesPage(
   envVars: EnvironmentVariableModel[],
   options: Pick<EnvironmentVariablesConfig, 'showDefaultValue' | 'showCurrentValue'> = {
     showDefaultValue: true,
     showCurrentValue: true,
   }
-): string {
-  const lines: string[] = [];
+): DocNode[] {
+  const nodes: DocNode[] = [];
 
-  lines.push('# Environment Variables\n');
+  nodes.push(h(1, 'Environment Variables'));
 
   if (envVars.length === 0) {
-    lines.push('_No environment variables found in this solution._');
-    return lines.join('\n');
+    nodes.push(pt('No environment variables found in this solution.'));
+    return nodes;
   }
 
-  lines.push(
-    `${envVars.length} environment variable${envVars.length === 1 ? '' : 's'} defined in this solution.\n`
-  );
+  nodes.push(pt(
+    `${envVars.length} environment variable${envVars.length === 1 ? '' : 's'} defined in this solution.`
+  ));
 
   const hasDataSource = envVars.some(v => v.type === 'DataSource');
   if (hasDataSource) {
-    lines.push(
-      '> **DataSource** variables hold a record GUID referencing a Dataverse lookup. ' +
-      'The value shown is the resolved GUID — check the target table for the display name.\n'
-    );
+    nodes.push(bqt(
+      'DataSource variables hold a record GUID referencing a Dataverse lookup. ' +
+      'The value shown is the resolved GUID — check the target table for the display name.'
+    ));
   }
 
-  // Build headers and rows dynamically based on options
   const headers = ['Display Name', 'Schema Name', 'Type', 'Required'];
   if (options.showDefaultValue) headers.push('Default Value');
   if (options.showCurrentValue) headers.push('Current Value');
   headers.push('Secret Store');
 
-  const sep = headers.map(() => '---');
-  lines.push(`| ${headers.join(' | ')} |`);
-  lines.push(`| ${sep.join(' | ')} |`);
+  nodes.push(table(
+    headers,
+    envVars.map(v => {
+      const row: InlineNode[][] = [
+        ct(v.displayName || v.schemaName),
+        cc(v.schemaName),
+        ct(v.type),
+        ct(v.isRequired ? 'Yes' : 'No'),
+      ];
+      if (options.showDefaultValue) row.push(defaultValueCell(v));
+      if (options.showCurrentValue) row.push(currentValueCell(v));
+      row.push(ct(secretStoreLabel(v.secretStore)));
+      return row;
+    })
+  ));
 
-  for (const v of envVars) {
-    const row = [
-      v.displayName || v.schemaName,
-      `\`${v.schemaName}\``,
-      v.type,
-      v.isRequired ? 'Yes' : 'No',
-    ];
-    if (options.showDefaultValue) row.push(renderDefaultValue(v));
-    if (options.showCurrentValue) row.push(renderCurrentValue(v));
-    row.push(secretStoreLabel(v.secretStore));
-
-    lines.push(`| ${row.join(' | ')} |`);
-  }
-
-  return lines.join('\n');
+  return nodes;
 }

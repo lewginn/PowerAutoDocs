@@ -1,3 +1,5 @@
+// renderers/overviewRenderer.ts
+
 import * as fs from 'fs';
 import * as path from 'path';
 import type { ConnectionReferenceModel, SolutionModel } from '../ir/index.js';
@@ -11,24 +13,11 @@ import type { EnvironmentVariableModel } from '../ir/index.js';
 import type { GlobalChoiceModel } from '../ir/index.js';
 import type { EmailTemplateModel } from '../ir/index.js';
 import type { ModelDrivenAppModel } from '../ir/index.js';
+import type { DocNode } from '../docmodel/nodes.js';
+import { h, table, ct, cc } from '../docmodel/nodes.js';
+import { serialize } from '../docmodel/MarkdownSerializer.js';
 
-function pad(str: string, length: number): string {
-    return str.padEnd(length, ' ');
-}
-
-function markdownTable(headers: string[], rows: string[][]): string {
-    const widths = headers.map((h, i) =>
-        Math.max(h.length, ...rows.map(r => (r[i] ?? '').length))
-    );
-    const header = '| ' + headers.map((h, i) => pad(h, widths[i])).join(' | ') + ' |';
-    const divider = '| ' + widths.map(w => '-'.repeat(w)).join(' | ') + ' |';
-    const body = rows.map(
-        row => '| ' + row.map((cell, i) => pad(cell ?? '', widths[i])).join(' | ') + ' |'
-    );
-    return [header, divider, ...body].join('\n');
-}
-
-export function renderOverviewMarkdown(
+export function renderOverview(
     solutions: SolutionModel[],
     flows: FlowModel[],
     assemblies: PluginAssemblyModel[],
@@ -41,13 +30,12 @@ export function renderOverviewMarkdown(
     emailTemplates: EmailTemplateModel[] = [],
     modelDrivenApps: ModelDrivenAppModel[] = [],
     connectionReferences: ConnectionReferenceModel[] = []
-): string {
-    const lines: string[] = [];
+): DocNode[] {
+    const nodes: DocNode[] = [];
 
-    lines.push('# Overview');
-    lines.push('');
+    nodes.push(h(1, 'Overview'));
 
-    // ---- Aggregate summary across all solutions ----
+    // ---- Aggregate summary ----
     const allTables = solutions.flatMap(s => s.tables);
     const customTables = allTables.filter(t => t.isCustom);
     const extendedTables = allTables.filter(t => !t.isCustom);
@@ -62,6 +50,7 @@ export function renderOverviewMarkdown(
     const validAssemblies = assemblies.filter(a => a.assemblyName.trim() !== '');
     const totalSteps = validAssemblies.reduce((acc, a) => acc + a.steps.length, 0);
     const jsResources = webResources.filter(r => r.resourceType === 'JavaScript');
+
     const summaryRows: [string, number][] = [
         ['Business Rules', businessRules.length],
         ['Classic Workflows', classicWorkflows.length],
@@ -84,43 +73,35 @@ export function renderOverviewMarkdown(
     ].filter(([, count]) => (count as number) > 0) as [string, number][];
 
     if (summaryRows.length > 0) {
-        lines.push('## Summary');
-        lines.push('');
-        lines.push('| Component | Count |');
-        lines.push('| --- | --- |');
-        for (const [label, count] of summaryRows) {
-            lines.push(`| ${label} | ${count} |`);
-        }
-        lines.push('');
+        nodes.push(h(2, 'Summary'));
+        nodes.push(table(
+            ['Component', 'Count'],
+            summaryRows.map(([label, count]) => [ct(label), ct(String(count))])
+        ));
     }
 
-    // ---- One section per solution ----
-    lines.push('## Solutions');
-    lines.push('');
-
-    const solutionRows = solutions.map(s => [
-        s.displayName,
-        `\`${s.uniqueName}\``,
-        s.version,
-        s.publisher.displayName,
-        `\`${s.publisher.prefix}\``,
-        s.isManaged ? 'Yes' : 'No',
-    ]);
-
-    lines.push(markdownTable(
+    // ---- Solutions table ----
+    nodes.push(h(2, 'Solutions'));
+    nodes.push(table(
         ['Name', 'Unique Name', 'Version', 'Publisher', 'Prefix', 'Managed'],
-        solutionRows
+        solutions.map(s => [
+            ct(s.displayName),
+            cc(s.uniqueName),
+            ct(s.version),
+            ct(s.publisher.displayName),
+            cc(s.publisher.prefix),
+            ct(s.isManaged ? 'Yes' : 'No'),
+        ])
     ));
-    lines.push('');
 
-    return lines.join('\n');
+    return nodes;
 }
 
-// Local file writer
+// Local file writer — kept for local dev output
 export function writeOverviewMarkdown(solution: SolutionModel, outputDir: string): void {
     fs.mkdirSync(outputDir, { recursive: true });
     const filepath = path.join(outputDir, 'overview.md');
-    const content = renderOverviewMarkdown([solution], [], []).replace(/\r\n/g, '\n');
+    const content = serialize(renderOverview([solution], [], [])).replace(/\r\n/g, '\n');
     fs.writeFileSync(filepath, content, 'utf-8');
     console.log(`Written: ${filepath}`);
 }

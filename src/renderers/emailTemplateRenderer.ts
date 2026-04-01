@@ -1,5 +1,8 @@
+// renderers/emailTemplateRenderer.ts
+
 import type { EmailTemplateModel } from '../ir/emailTemplate.js';
-import { toADOWikiLink } from './rendererUtils.js';
+import type { DocNode } from '../docmodel/nodes.js';
+import { h, pt, p, t, c, b, lnk, table, ct, cc, cell, bulletList, bullet, codeBlock } from '../docmodel/nodes.js';
 
 const LANGUAGE_MAP: Record<number, string> = {
   1033: 'English (United States)',
@@ -17,77 +20,58 @@ function resolveLanguage(code: number): string {
 export function renderEmailTemplatesIndex(
   templates: EmailTemplateModel[],
   basePath: string
-): string {
-  const lines: string[] = [];
+): DocNode[] {
+  const nodes: DocNode[] = [];
 
-  lines.push('# Email Templates\n');
-  lines.push('Custom email templates defined in this solution.\n');
+  nodes.push(h(1, 'Email Templates'));
+  nodes.push(pt('Custom email templates defined in this solution.'));
 
   if (templates.length === 0) {
-    lines.push('_No custom email templates found in this solution._');
-    return lines.join('\n');
+    nodes.push(pt('No custom email templates found in this solution.'));
+    return nodes;
   }
 
-  lines.push('| Title | Target Entity | Subject |');
-  lines.push('| --- | --- | --- |');
+  nodes.push(table(
+    ['Title', 'Target Entity', 'Subject'],
+    templates.map(tpl => {
+      const subjectPreview = tpl.subject
+        ? tpl.subject.substring(0, 80) + (tpl.subject.length > 80 ? '…' : '')
+        : 'No subject';
+      return [
+        cell(lnk(tpl.title, `${basePath}/${tpl.title}`)),
+        ct(tpl.targetEntity),
+        ct(subjectPreview),
+      ];
+    })
+  ));
 
-  for (const t of templates) {
-    const link = `[${t.title}](${toADOWikiLink(`${basePath}/${t.title}`)})`;
-    const subjectPreview = t.subject
-      ? t.subject.substring(0, 80) + (t.subject.length > 80 ? '…' : '')
-      : '_No subject_';
-    lines.push(`| ${link} | ${t.targetEntity} | ${subjectPreview} |`);
-  }
-
-  return lines.join('\n');
+  return nodes;
 }
 
-export function renderEmailTemplatePage(template: EmailTemplateModel): string {
-  const lines: string[] = [];
+export function renderEmailTemplatePage(template: EmailTemplateModel): DocNode[] {
+  const nodes: DocNode[] = [];
 
-  lines.push(`# ${template.title}\n`);
+  nodes.push(h(1, template.title));
 
-  // Metadata
-  lines.push('| Property | Value |');
-  lines.push('| --- | --- |');
-  lines.push(`| Target Entity | ${template.targetEntity} |`);
-  lines.push(`| Template ID | \`${template.id}\` |`);
-  lines.push(`| Language | ${resolveLanguage(template.languageCode)} |`);
-  if (template.description) {
-    lines.push(`| Description | ${template.description} |`);
-  }
-  lines.push('');
+  const metaRows: import('../docmodel/nodes.js').InlineNode[][][] = [
+    [ct('Target Entity'), ct(template.targetEntity)],
+    [ct('Template ID'),   cc(template.id)],
+    [ct('Language'),      ct(resolveLanguage(template.languageCode))],
+  ];
+  if (template.description) metaRows.push([ct('Description'), ct(template.description)]);
+  nodes.push(table(['Property', 'Value'], metaRows));
 
-  // Subject
-  lines.push('## Subject\n');
-  if (template.subject) {
-    lines.push(template.subject);
-  } else {
-    lines.push('_No subject defined._');
-  }
-  lines.push('');
+  nodes.push(h(2, 'Subject'));
+  nodes.push(template.subject ? pt(template.subject) : pt('No subject defined.'));
 
-  // Body
-  lines.push('## Body\n');
-  if (template.body) {
-    // Render as a code block to preserve line breaks and show {field} placeholders clearly
-    lines.push('```');
-    lines.push(template.body);
-    lines.push('```');
-  } else {
-    lines.push('_No body content found._');
-  }
-  lines.push('');
+  nodes.push(h(2, 'Body'));
+  nodes.push(template.body ? codeBlock(template.body) : pt('No body content found.'));
 
-  // Dynamic fields summary
   if (template.dynamicFields.length > 0) {
-    lines.push('## Dynamic Fields\n');
-    lines.push('Fields referenced in this template (shown as `{fieldName}` placeholders above):\n');
-    for (const field of template.dynamicFields) {
-      lines.push(`- \`${field}\``);
-    }
-    lines.push('');
+    nodes.push(h(2, 'Dynamic Fields'));
+    nodes.push(pt('Fields referenced in this template (shown as `{fieldName}` placeholders above):'));
+    nodes.push(bulletList(template.dynamicFields.map(field => bullet(0, c(field)))));
   }
 
-  return lines.join('\n');
+  return nodes;
 }

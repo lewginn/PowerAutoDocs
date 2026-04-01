@@ -1,142 +1,111 @@
-import type { BusinessRuleModel, BusinessRuleAction, BusinessRuleCondition } from '../ir/businessRule.js';
+// renderers/businessRuleRenderer.ts
 
-function markdownTable(headers: string[], rows: string[][]): string {
-  const widths = headers.map((h, i) =>
-    Math.max(h.length, ...rows.map(r => (r[i] ?? '').length), 3)
-  );
-  const pad = (s: string, w: number) => s + ' '.repeat(w - s.length);
-  const sep = widths.map(w => '-'.repeat(w));
-  const fmt = (row: string[]) =>
-    '| ' + row.map((c, i) => pad(c ?? '', widths[i])).join(' | ') + ' |';
-  return [fmt(headers), fmt(sep), ...rows.map(fmt)].join('\n');
-}
+import type { BusinessRuleModel, BusinessRuleAction, BusinessRuleCondition } from '../ir/businessRule.js';
+import type { DocNode, InlineNode } from '../docmodel/nodes.js';
+import { h, pt, p, t, c, b, table, ct, cc, bulletList, bullet } from '../docmodel/nodes.js';
 
 // -----------------------------------------------
-// Action group rendering
-// Groups actions by type and renders as compact lines
-// e.g. "**Show:** `field1`, `field2`"
+// Action group — groups actions by type
 // -----------------------------------------------
 
 const ACTION_LABELS: Record<string, string> = {
-  show:           '**Show**',
-  hide:           '**Hide**',
-  setRequired:    '**Set Required**',
-  setRecommended: '**Set Recommended**',
-  setOptional:    '**Set Optional**',
-  setValue:       '**Set Value**',
-  clearValue:     '**Clear**',
+  show:           'Show',
+  hide:           'Hide',
+  setRequired:    'Set Required',
+  setRecommended: 'Set Recommended',
+  setOptional:    'Set Optional',
+  setValue:       'Set Value',
+  clearValue:     'Clear',
 };
 
-function renderActionGroup(actions: BusinessRuleAction[]): string {
-  if (actions.length === 0) return '_No actions._';
+function actionGroupNodes(actions: BusinessRuleAction[]): DocNode[] {
+  if (actions.length === 0) return [pt('No actions.')];
 
-  // Group by type
   const groups = new Map<string, string[]>();
   for (const action of actions) {
     if (!groups.has(action.type)) groups.set(action.type, []);
-    groups.get(action.type)!.push(`\`${action.field}\``);
+    groups.get(action.type)!.push(action.field);
   }
 
-  return [...groups.entries()]
-    .map(([type, fields]) => `${ACTION_LABELS[type] ?? type}: ${fields.join(', ')}`)
-    .join('  \n');
-}
-
-// -----------------------------------------------
-// Single condition block
-// -----------------------------------------------
-
-function renderCondition(cond: BusinessRuleCondition, index: number): string {
-  const lines: string[] = [];
-
-  const label = cond.description
-    ? `${cond.description}`
-    : `Condition ${index + 1}`;
-
-  lines.push(`### If \`${cond.conditionField}\` — ${label}`);
-  lines.push('');
-  lines.push(renderActionGroup(cond.thenActions));
-
-  if (cond.elseActions.length > 0) {
-    lines.push('');
-    lines.push('**Else**');
-    lines.push('');
-    lines.push(renderActionGroup(cond.elseActions));
-  }
-
-  return lines.join('\n');
+  return [...groups.entries()].map(([type, fields]) => {
+    const label = ACTION_LABELS[type] ?? type;
+    const inlines: InlineNode[] = [b(label + ':'), t(' ')];
+    fields.forEach((field, idx) => {
+      inlines.push(c(field));
+      if (idx < fields.length - 1) inlines.push(t(', '));
+    });
+    return p(...inlines);
+  });
 }
 
 // -----------------------------------------------
 // Single business rule detail page
 // -----------------------------------------------
 
-export function renderBusinessRuleMarkdown(rule: BusinessRuleModel): string {
-  const lines: string[] = [];
+export function renderBusinessRule(rule: BusinessRuleModel): DocNode[] {
+  const nodes: DocNode[] = [];
 
-  lines.push(`# ${rule.name}`);
-  lines.push('');
+  nodes.push(h(1, rule.name));
 
   const scopeLabel =
     rule.scope === 'specificForm' ? 'Specific Form' :
     rule.scope === 'allForms'     ? 'All Forms' : 'Entity';
 
-  lines.push(markdownTable(
+  nodes.push(table(
     ['Property', 'Value'],
     [
-      ['Status', rule.status === 'active' ? 'Active' : 'Inactive'],
-      ['Entity', `\`${rule.entity}\``],
-      ['Scope',  scopeLabel],
+      [ct('Status'), ct(rule.status === 'active' ? 'Active' : 'Inactive')],
+      [ct('Entity'), cc(rule.entity)],
+      [ct('Scope'),  ct(scopeLabel)],
     ]
   ));
-  lines.push('');
 
   if (rule.conditions.length === 0) {
-    lines.push('_No conditions extracted._');
+    nodes.push(pt('No conditions extracted.'));
   } else {
-    lines.push('## Logic');
-    lines.push('');
+    nodes.push(h(2, 'Logic'));
     for (let i = 0; i < rule.conditions.length; i++) {
-      lines.push(renderCondition(rule.conditions[i], i));
-      lines.push('');
+      const cond  = rule.conditions[i];
+      const label = cond.description ? cond.description : `Condition ${i + 1}`;
+
+      nodes.push(h(3, `If \`${cond.conditionField}\` — ${label}`));
+      nodes.push(...actionGroupNodes(cond.thenActions));
+
+      if (cond.elseActions.length > 0) {
+        nodes.push(p(b('Else')));
+        nodes.push(...actionGroupNodes(cond.elseActions));
+      }
     }
   }
 
-  return lines.join('\n');
+  return nodes;
 }
 
 // -----------------------------------------------
-// Summary index page for /Automation/Business Rules
+// Summary index table
 // -----------------------------------------------
 
-export function renderBusinessRulesOverview(rules: BusinessRuleModel[]): string {
-  if (rules.length === 0) return '_No business rules found._';
+export function renderBusinessRulesOverview(rules: BusinessRuleModel[]): DocNode[] {
+  if (rules.length === 0) return [pt('No business rules found.')];
 
-  const lines: string[] = [];
-  lines.push(markdownTable(
+  return [table(
     ['Rule', 'Entity', 'Scope', 'Conditions'],
     rules.map(r => {
       const scopeLabel =
         r.scope === 'specificForm' ? 'Specific Form' :
         r.scope === 'allForms'     ? 'All Forms' : 'Entity';
 
-      // Summarise what each condition does
-      const summary = r.conditions.map(c => {
-        const label = c.description ?? `\`${c.conditionField}\``;
-        const actionTypes = [...new Set(c.thenActions.map(a => a.type))];
-        const hasShow = actionTypes.includes('show') || actionTypes.includes('hide');
-        const hasReq  = actionTypes.some(t => t.startsWith('set'));
-        const hasClear = actionTypes.includes('clearValue');
+      const summary = r.conditions.map(cond => {
+        const label = cond.description ?? `\`${cond.conditionField}\``;
+        const actionTypes = [...new Set(cond.thenActions.map(a => a.type))];
         const tags: string[] = [];
-        if (hasShow)  tags.push('visibility');
-        if (hasReq)   tags.push('required');
-        if (hasClear) tags.push('clear');
+        if (actionTypes.includes('show') || actionTypes.includes('hide')) tags.push('visibility');
+        if (actionTypes.some(t_ => t_.startsWith('set'))) tags.push('required');
+        if (actionTypes.includes('clearValue')) tags.push('clear');
         return `${label} (${tags.join(', ') || 'actions'})`;
       }).join('; ');
 
-      return [r.name, `\`${r.entity}\``, scopeLabel, summary || '—'];
+      return [ct(r.name), cc(r.entity), ct(scopeLabel), ct(summary || '—')];
     })
-  ));
-
-  return lines.join('\n');
+  )];
 }

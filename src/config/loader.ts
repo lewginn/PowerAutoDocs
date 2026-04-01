@@ -27,6 +27,8 @@ export const CONFIG_DEFAULTS: DocGenConfig = {
   ],
   output: {
     path: './output',
+    word: false,
+    wordFilename: 'solution-documentation.docx',
   },
   parse: {
     customColumnsOnly: false,

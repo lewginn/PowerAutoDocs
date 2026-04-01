@@ -1,86 +1,68 @@
+// renderers/pluginRenderer.ts
+
 import * as fs from 'fs';
 import * as path from 'path';
 import type { PluginAssemblyModel, PluginStepModel } from '../ir/index.js';
-
-function pad(str: string, length: number): string {
-  return str.padEnd(length, ' ');
-}
-
-function markdownTable(headers: string[], rows: string[][]): string {
-  const widths = headers.map((h, i) =>
-    Math.max(h.length, ...rows.map(r => (r[i] ?? '').length))
-  );
-  const header = '| ' + headers.map((h, i) => pad(h, widths[i])).join(' | ') + ' |';
-  const divider = '| ' + widths.map(w => '-'.repeat(w)).join(' | ') + ' |';
-  const body = rows.map(
-    row => '| ' + row.map((cell, i) => pad(cell ?? '', widths[i])).join(' | ') + ' |'
-  );
-  return [header, divider, ...body].join('\n');
-}
+import type { DocNode, InlineNode } from '../docmodel/nodes.js';
+import { h, pt, p, t, c, b, i, lnk, table, ct, cc, cell, bulletList, bullet } from '../docmodel/nodes.js';
+import { serialize } from '../docmodel/MarkdownSerializer.js';
+import { toADOWikiLink } from './rendererUtils.js';
 
 // -----------------------------------------------
 // Top-level summary — index of all assemblies
-// /Automation/Plugins
 // -----------------------------------------------
-export function renderPluginSummaryMarkdown(assemblies: PluginAssemblyModel[]): string {
-  const lines: string[] = [];
 
-  lines.push('# Plugin Assemblies');
-  lines.push('');
+export function renderPluginSummary(assemblies: PluginAssemblyModel[]): DocNode[] {
+  const nodes: DocNode[] = [];
+
+  nodes.push(h(1, 'Plugin Assemblies'));
 
   if (assemblies.length === 0) {
-    lines.push('_No plugin assemblies found in this solution._');
-    return lines.join('\n');
+    nodes.push(pt('No plugin assemblies found in this solution.'));
+    return nodes;
   }
 
   const totalSteps = assemblies.reduce((sum, a) => sum + a.steps.length, 0);
-  lines.push(`${assemblies.length} assembly/assemblies, ${totalSteps} registered step(s).`);
-  lines.push('');
-
-  const summaryRows = assemblies.map(a => [
-    a.assemblyName,
-    a.version,
-    a.isolationMode,
-    a.pluginTypeNames.length.toString(),
-    a.steps.length.toString(),
-  ]);
-
-  lines.push(markdownTable(
+  nodes.push(pt(`${assemblies.length} assembly/assemblies, ${totalSteps} registered step(s).`));
+  nodes.push(table(
     ['Assembly', 'Version', 'Isolation', 'Plugin Types', 'Steps'],
-    summaryRows
+    assemblies.map(a => [
+      ct(a.assemblyName),
+      ct(a.version),
+      ct(a.isolationMode),
+      ct(a.pluginTypeNames.length.toString()),
+      ct(a.steps.length.toString()),
+    ])
   ));
-  lines.push('');
 
-  return lines.join('\n');
+  return nodes;
 }
 
 // -----------------------------------------------
 // Assembly index page — links to each plugin class
-// /Automation/Plugins/AppName-CE-Plugins
 // -----------------------------------------------
-export function renderAssemblyIndexMarkdown(assembly: PluginAssemblyModel, basePath: string): string {
-  const lines: string[] = [];
 
-  lines.push(`# ${assembly.assemblyName}`);
-  lines.push('');
+export function renderAssemblyIndex(assembly: PluginAssemblyModel, basePath: string): DocNode[] {
+  const nodes: DocNode[] = [];
 
-  lines.push('| Property | Value |');
-  lines.push('| --- | --- |');
-  lines.push(`| Version | ${assembly.version} |`);
-  lines.push(`| Isolation Mode | ${assembly.isolationMode} |`);
-  lines.push(`| Plugin Types | ${assembly.pluginTypeNames.length} |`);
-  lines.push(`| Registered Steps | ${assembly.steps.length} |`);
-  lines.push('');
+  nodes.push(h(1, assembly.assemblyName));
+  nodes.push(table(
+    ['Property', 'Value'],
+    [
+      [ct('Version'),          ct(assembly.version)],
+      [ct('Isolation Mode'),   ct(assembly.isolationMode)],
+      [ct('Plugin Types'),     ct(assembly.pluginTypeNames.length.toString())],
+      [ct('Registered Steps'), ct(assembly.steps.length.toString())],
+    ]
+  ));
 
   if (assembly.pluginTypeNames.length === 0) {
-    lines.push('_No plugin types found._');
-    return lines.join('\n');
+    nodes.push(pt('No plugin types found.'));
+    return nodes;
   }
 
-  lines.push('## Plugin Types');
-  lines.push('');
+  nodes.push(h(2, 'Plugin Types'));
 
-  // Build index table — one row per plugin class, with step count
   const stepsByClass = new Map<string, PluginStepModel[]>();
   for (const step of assembly.steps) {
     const existing = stepsByClass.get(step.className) ?? [];
@@ -88,131 +70,122 @@ export function renderAssemblyIndexMarkdown(assembly: PluginAssemblyModel, baseP
     stepsByClass.set(step.className, existing);
   }
 
-  const typeRows = assembly.pluginTypeNames.map(fullName => {
-    const shortName = fullName.startsWith(assembly.assemblyName + '.')
-      ? fullName.slice(assembly.assemblyName.length + 1)
-      : fullName;
-    const steps = stepsByClass.get(shortName) ?? [];
-    const entities = [...new Set(steps.map(s => s.primaryEntity))].join(', ');
-    return [
-      `[${shortName}](${toADOWikiLink(`${basePath}/${shortName}`)})`,
-      steps.length.toString(),
-      entities || '—',
-    ];
-  });
-
-  lines.push(markdownTable(
+  nodes.push(table(
     ['Plugin Class', 'Steps', 'Entities'],
-    typeRows
+    assembly.pluginTypeNames.map(fullName => {
+      const shortName = fullName.startsWith(assembly.assemblyName + '.')
+        ? fullName.slice(assembly.assemblyName.length + 1)
+        : fullName;
+      const steps    = stepsByClass.get(shortName) ?? [];
+      const entities = [...new Set(steps.map(s => s.primaryEntity))].join(', ');
+      return [
+        cell(lnk(shortName, `${basePath}/${shortName}`)),
+        ct(steps.length.toString()),
+        ct(entities || '—'),
+      ];
+    })
   ));
-  lines.push('');
 
-  return lines.join('\n');
+  return nodes;
 }
 
 // -----------------------------------------------
 // Individual plugin class page
-// /Automation/Plugins/AppName-CE-Plugins/ApplicationPostOperation
 // -----------------------------------------------
-export function renderSinglePluginTypeMarkdown(
+
+export function renderSinglePluginType(
   className: string,
   steps: PluginStepModel[],
   assembly: PluginAssemblyModel
-): string {
-  const lines: string[] = [];
+): DocNode[] {
+  const nodes: DocNode[] = [];
 
-  lines.push(`# ${className}`);
-  lines.push('');
-
-  lines.push('| Property | Value |');
-  lines.push('| --- | --- |');
-  lines.push(`| Assembly | \`${assembly.assemblyName}\` |`);
-  lines.push(`| Version | ${assembly.version} |`);
-  lines.push(`| Isolation Mode | ${assembly.isolationMode} |`);
-  lines.push(`| Registered Steps | ${steps.length} |`);
-  lines.push('');
+  nodes.push(h(1, className));
+  nodes.push(table(
+    ['Property', 'Value'],
+    [
+      [ct('Assembly'),         cc(assembly.assemblyName)],
+      [ct('Version'),          ct(assembly.version)],
+      [ct('Isolation Mode'),   ct(assembly.isolationMode)],
+      [ct('Registered Steps'), ct(steps.length.toString())],
+    ]
+  ));
 
   if (steps.length === 0) {
-    lines.push('_No registered steps found for this plugin type._');
-    return lines.join('\n');
+    nodes.push(pt('No registered steps found for this plugin type.'));
+    return nodes;
   }
 
-  // ---- Registered Steps ----
-  lines.push('## Registered Steps');
-  lines.push('');
-
-  const stepRows = steps.map(s => [
-    s.message,
-    `\`${s.primaryEntity}\``,
-    s.stage,
-    s.mode,
-    s.filteringAttributes.length > 0
-      ? s.filteringAttributes.map(a => `\`${a}\``).join(', ')
-      : '_(all)_',
-  ]);
-
-  lines.push(markdownTable(
+  nodes.push(h(2, 'Registered Steps'));
+  nodes.push(table(
     ['Message', 'Entity', 'Stage', 'Mode', 'Filtering Attributes'],
-    stepRows
+    steps.map(s => [
+      ct(s.message),
+      cc(s.primaryEntity),
+      ct(s.stage),
+      ct(s.mode),
+      s.filteringAttributes.length > 0
+        ? (() => {
+            const inlines: InlineNode[] = [];
+            s.filteringAttributes.forEach((attr, idx) => {
+              inlines.push(c(attr));
+              if (idx < s.filteringAttributes.length - 1) inlines.push(t(', '));
+            });
+            return inlines;
+          })()
+        : [i('(all)')],
+    ])
   ));
-  lines.push('');
 
-  // ---- Step Images ----
   const stepsWithImages = steps.filter(s => s.images.length > 0);
   if (stepsWithImages.length > 0) {
-    lines.push('## Step Images');
-    lines.push('');
-
+    nodes.push(h(2, 'Step Images'));
     for (const step of stepsWithImages) {
-      lines.push(`### ${step.message} of \`${step.primaryEntity}\``);
-      lines.push('');
-
-      const imageRows = step.images.map(img => [
-        img.name,
-        img.imageType,
-        img.attributes.length > 0
-          ? img.attributes.map(a => `\`${a}\``).join(', ')
-          : '_(all)_',
-      ]);
-
-      lines.push(markdownTable(
+      nodes.push(h(3, `${step.message} of \`${step.primaryEntity}\``));
+      nodes.push(table(
         ['Image Name', 'Type', 'Attributes'],
-        imageRows
+        step.images.map(img => [
+          ct(img.name),
+          ct(img.imageType),
+          img.attributes.length > 0
+            ? (() => {
+                const inlines: InlineNode[] = [];
+                img.attributes.forEach((attr, idx) => {
+                  inlines.push(c(attr));
+                  if (idx < img.attributes.length - 1) inlines.push(t(', '));
+                });
+                return inlines;
+              })()
+            : [i('(all)')],
+        ])
       ));
-      lines.push('');
     }
   }
 
-  return lines.join('\n');
+  return nodes;
 }
 
 // -----------------------------------------------
 // Local file writer
 // -----------------------------------------------
+
 export function writePluginMarkdown(assemblies: PluginAssemblyModel[], outputDir: string): void {
   fs.mkdirSync(outputDir, { recursive: true });
   const filepath = path.join(outputDir, 'plugins.md');
 
-  const lines: string[] = [];
+  const parts: string[] = [];
   for (const assembly of assemblies) {
-    lines.push(renderAssemblyIndexMarkdown(assembly, ''));
+    parts.push(serialize(renderAssemblyIndex(assembly, '')).trimEnd());
     for (const fullName of assembly.pluginTypeNames) {
       const shortName = fullName.startsWith(assembly.assemblyName + '.')
         ? fullName.slice(assembly.assemblyName.length + 1)
         : fullName;
       const steps = assembly.steps.filter(s => s.className === shortName);
-      lines.push(renderSinglePluginTypeMarkdown(shortName, steps, assembly));
+      parts.push(serialize(renderSinglePluginType(shortName, steps, assembly)).trimEnd());
     }
   }
 
-  const content = lines.join('\n').replace(/\r\n/g, '\n');
+  const content = parts.join('\n\n').replace(/\r\n/g, '\n');
   fs.writeFileSync(filepath, content, 'utf-8');
   console.log(`Written: ${filepath}`);
-}
-function toADOWikiLink(fullPath: string): string {
-  return fullPath
-    .replace(/-/g, '%2D')       // encode existing hyphens first
-    .replace(/\(/g, '\\(')      // escape parentheses
-    .replace(/\)/g, '\\)')
-    .replace(/ /g, '-');        // spaces to hyphens last
 }

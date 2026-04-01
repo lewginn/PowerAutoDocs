@@ -20,6 +20,7 @@ import type {
 } from './ir/index.js';
 import { publishToWiki } from './publisher/wikiPublisher.js';
 import { buildWikiPages } from './publisher/wikiAssembler.js';
+import { buildWordDocument } from './publisher/docAssembler.js';
 import { log, logHeader, logSummary, createSummary } from './logger.js';
 import type { RunSummary } from './logger.js';
 
@@ -66,6 +67,11 @@ function validateSolutionPath(unpackedPath: string): string | null {
 export async function main(configDir?: string): Promise<void> {
   const summary = createSummary();
 
+  // ---- CLI flags (override config) ----
+  const argv    = process.argv.slice(2);
+  const flagWord = argv.includes('--word');
+  const flagWiki = argv.includes('--wiki');
+
   // ---- Load config ----
   let config;
   try {
@@ -75,6 +81,20 @@ export async function main(configDir?: string): Promise<void> {
     console.error('  → Is doc-gen.config.yml present in the current directory?');
     console.error('  → Or set DOC_GEN_CONFIG_DIR to its location.');
     process.exit(1);
+  }
+
+  // Apply CLI flag overrides.
+  // If either flag is passed, treat them as the explicit output selection:
+  //   --word        → Word only, suppress wiki even if config.wiki is set
+  //   --wiki        → Wiki only, suppress Word even if config has output.word: true
+  //   --word --wiki → both
+  //   (no flags)    → fall through to whatever the config says
+  if (flagWord || flagWiki) {
+    config.output.word = flagWord;
+    if (!flagWiki) config.wiki = undefined;  // suppress wiki when --word only
+    if (flagWiki && !config.wiki) {
+      log('warn', '--wiki flag set but no wiki config in doc-gen.config.yml — skipping wiki publish');
+    }
   }
 
   const { path: outputPath } = config.output;
@@ -303,6 +323,36 @@ export async function main(configDir?: string): Promise<void> {
     }
   } else if (!config.wiki) {
     log('info', 'No wiki config — skipping publish (local output only)');
+  }
+
+  // ---- Word document ----
+  if (config.output.word && mergedSolution) {
+    logHeader('Generating Word document');
+    const wordFilename = config.output.wordFilename ?? 'solution-documentation.docx';
+    const wordOutputPath = path.join(config.output.path, wordFilename);
+    try {
+      await buildWordDocument(
+        config,
+        allSolutions,
+        mergedSolution,
+        allFlows,
+        allPluginAssemblies,
+        allWebResources,
+        allClassicWorkflows,
+        allBusinessRules,
+        allSecurityRoles,
+        allEnvVars,
+        allConnectionReferences,
+        allGlobalChoices,
+        allEmailTemplates,
+        allModelDrivenApps,
+        wordOutputPath,
+      );
+      log('success', `Word document written: ${wordOutputPath}`);
+    } catch (err: any) {
+      log('error', `Word document generation failed — ${err?.message ?? err}`);
+      summary.publishFailures.push({ path: wordOutputPath, reason: err?.message ?? String(err) });
+    }
   }
 
   // ---- Summary ----

@@ -1,6 +1,6 @@
 {
   "name": "powerautodocs",
-  "version": "1.0.4",
+  "version": "1.1.0",
   "description": "Automated as-built documentation generator for Power Platform solutions",
   "type": "module",
   "bin": {
@@ -32,6 +32,7 @@
   "dependencies": {
     "adm-zip": "^0.5.16",
     "commander": "^14.0.3",
+    "docx": "^9.6.1",
     "fast-xml-parser": "^5.4.2",
     "glob": "^13.0.6",
     "handlebars": "^4.7.8",
@@ -40,6 +41,9 @@
   },
   "scripts": {
     "dev": "tsx src/index.ts > dev.log 2>&1",
+    "dev:word": "tsx src/index.ts --word > dev.log 2>&1",
+    "dev:wiki": "tsx src/index.ts --wiki > dev.log 2>&1",
+    "dev:both": "tsx src/index.ts --word --wiki > dev.log 2>&1",
     "build": "tsc",
     "postbuild": "node scripts/addShebang.mjs && chmod +x dist/index.js",
     "prepublishOnly": "npm run build",
