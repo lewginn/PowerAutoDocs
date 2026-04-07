@@ -6,7 +6,7 @@ import type { TableModel, ColumnModel, RelationshipModel } from '../ir/index.js'
 import type { DocGenConfig } from '../config/index.js';
 import type { BusinessRuleModel } from '../ir/businessRule.js';
 import type { DocNode, InlineNode } from '../docmodel/nodes.js';
-import { h, pt, p, t, c, b, i, table, ct, cc, cell, bulletList, bullet, toc } from '../docmodel/nodes.js';
+import { h, pt, p, t, c, b, table, ct, cc, bulletList, bullet, toc } from '../docmodel/nodes.js';
 import { serialize } from '../docmodel/MarkdownSerializer.js';
 
 // -----------------------------------------------
@@ -120,53 +120,36 @@ export function renderTableViews(table_: TableModel): DocNode[] {
     return nodes;
   }
 
-  nodes.push(table(
-    ['View Name', 'Type', 'Default', 'Column Count', 'Description'],
-    table_.views.map(v => [
-      ct(v.name),
-      ct(v.type),
-      ct(v.isDefault ? 'Yes' : 'No'),
-      ct(v.columns.length.toString()),
-      ct(v.description || ''),
-    ])
-  ));
-
   for (const view of table_.views) {
     nodes.push(h(2, view.name));
-    nodes.push(p(b('Type:'), t(' ' + view.type)));
-    if (view.description) nodes.push(p(b('Notes:'), t(' ' + view.description)));
 
-    if (view.filters.length > 0) {
-      nodes.push(p(b('Filters:')));
-      nodes.push(bulletList(view.filters.map(f => {
-        if (f.isJoin) {
-          const joinLabel = f.joinType === 'inner' ? 'inner join' : 'outer join';
-          const field = f.joinField ? ` via ` : '';
-          const inlines: InlineNode[] = [b(f.attribute)];
-          if (f.joinField) { inlines.push(t(` via `)); inlines.push(c(f.joinField)); }
-          inlines.push(t(` — ${joinLabel}`));
-          return bullet(f.depth, ...inlines);
-        } else {
-          const inlines: InlineNode[] = [];
-          if (f.filterType === 'or') inlines.push(i('(or) '));
-          inlines.push(c(f.attribute));
-          inlines.push(t(` ${f.operator}`));
-          if (f.value) inlines.push(t(' '), c(f.value));
-          return bullet(f.depth, ...inlines);
-        }
-      })));
-    }
+    const colsSummary = view.columns.length > 0
+      ? view.columns.join(', ')
+      : 'None';
 
-    if (view.columns.length === 0) {
-      nodes.push(p(b('Columns:'), t(' none')));
-    } else {
-      const colInlines: InlineNode[] = [b('Columns:'), t(' ')];
-      view.columns.forEach((col, idx) => {
-        colInlines.push(c(col));
-        if (idx < view.columns.length - 1) colInlines.push(t(', '));
-      });
-      nodes.push(p(...colInlines));
-    }
+    const filtersSummary = view.filters.length > 0
+      ? view.filters.map(f => {
+          if (f.isJoin) {
+            const joinLabel = f.joinType === 'inner' ? 'inner join' : 'outer join';
+            return `${f.attribute} (${joinLabel}${f.joinField ? ` via ${f.joinField}` : ''})`;
+          }
+          const parts = [f.attribute, f.operator];
+          if (f.value) parts.push(f.value);
+          if (f.filterType === 'or') parts.unshift('OR');
+          return parts.join(' ');
+        }).join('\n')
+      : 'None';
+
+    const rows: InlineNode[][][] = [
+      [ct('Type'),        ct(view.type)],
+      [ct('Default'),     ct(view.isDefault ? 'Yes' : 'No')],
+      [ct('Quick Find'),  ct(view.isQuickFind ? 'Yes' : 'No')],
+      [ct('Columns'),     [c(colsSummary)]],
+      [ct('Filters'),     ct(filtersSummary)],
+    ];
+    if (view.description) rows.splice(3, 0, [ct('Description'), ct(view.description)]);
+
+    nodes.push(table(['Property', 'Value'], rows));
   }
 
   return nodes;
@@ -309,28 +292,27 @@ const ACTION_LABELS: Record<string, string> = {
   clearValue:     'Clear',
 };
 
-function actionGroupNodes(actions: BusinessRuleModel['conditions'][0]['thenActions']): DocNode[] {
+function actionBullets(actions: BusinessRuleModel['conditions'][0]['thenActions']): DocNode {
   const groups = new Map<string, string[]>();
   for (const a of actions) {
     if (!groups.has(a.type)) groups.set(a.type, []);
     groups.get(a.type)!.push(a.field);
   }
-  return [...groups.entries()].map(([type, fields]) => {
+  return bulletList([...groups.entries()].map(([type, fields]) => {
     const label = ACTION_LABELS[type] ?? type;
     const inlines: InlineNode[] = [b(label + ':'), t(' ')];
     fields.forEach((field, idx) => {
       inlines.push(c(field));
       if (idx < fields.length - 1) inlines.push(t(', '));
     });
-    return p(...inlines);
-  });
+    return bullet(0, ...inlines);
+  }));
 }
 
 export function renderSingleBusinessRule(rule: BusinessRuleModel): DocNode[] {
   const nodes: DocNode[] = [];
 
   nodes.push(h(1, rule.name));
-
   const scopeLabel =
     rule.scope === 'specificForm' ? 'Specific Form' :
     rule.scope === 'allForms'     ? 'All Forms'     : 'Entity (Server-side)';
@@ -349,18 +331,16 @@ export function renderSingleBusinessRule(rule: BusinessRuleModel): DocNode[] {
     return nodes;
   }
 
-  nodes.push(h(2, 'Logic'));
-
   for (let i_ = 0; i_ < rule.conditions.length; i_++) {
     const cond  = rule.conditions[i_];
     const label = cond.description ?? `Condition ${i_ + 1}`;
 
-    nodes.push(h(3, `If \`${cond.conditionField}\` — ${label}`));
-    nodes.push(...actionGroupNodes(cond.thenActions));
+    nodes.push(p(b('If'), t(' '), c(cond.conditionField), t(` — ${label}`)));
+    nodes.push(actionBullets(cond.thenActions));
 
     if (cond.elseActions.length > 0) {
       nodes.push(p(b('Else')));
-      nodes.push(...actionGroupNodes(cond.elseActions));
+      nodes.push(actionBullets(cond.elseActions));
     }
   }
 

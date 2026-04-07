@@ -72,17 +72,30 @@ function resolveHeadingLevel(level: number, offset: number) {
 // Column width calculation — proportional to content
 // -----------------------------------------------
 
+// Cap long content so one wide column can't starve narrow columns.
+const COL_MAX_CHARS  = 35;
+// Minimum twips per column (~0.7 inch) — enough for an 8-char header at 12pt body font.
+const COL_MIN_TWIPS  = 1008;
+
 function calcColumnWidths(headers: string[], rows: InlineNode[][][]): number[] {
-  // Max character length per column across headers + all rows
-  const maxChars = headers.map((h, i) =>
-    Math.max(
-      h.length,
-      ...rows.map(row => inlinesToText(row[i] ?? []).length),
-      3  // minimum so empty columns aren't invisible
-    )
+  const rawMax = headers.map((h, i) =>
+    Math.max(h.length, ...rows.map(row => inlinesToText(row[i] ?? []).length), 3)
   );
-  const total = maxChars.reduce((a, b) => a + b, 0);
-  const widths = maxChars.map(w => Math.floor((w / total) * PAGE_WIDTH_TWIPS));
+  // Cap wide columns so they don't starve narrower ones
+  const clamped = rawMax.map(w => Math.min(w, COL_MAX_CHARS));
+  const total    = clamped.reduce((a, b) => a + b, 0);
+  const widths   = clamped.map(w => Math.floor((w / total) * PAGE_WIDTH_TWIPS));
+
+  // Second pass: bump any column below the minimum, stealing proportionally
+  // from columns that are above it.
+  const belowIdx = widths.map((w, i) => w < COL_MIN_TWIPS ? i : -1).filter(i => i >= 0);
+  if (belowIdx.length > 0) {
+    const deficit  = belowIdx.reduce((s, i) => s + (COL_MIN_TWIPS - widths[i]), 0);
+    const aboveIdx = widths.map((w, i) => w > COL_MIN_TWIPS ? i : -1).filter(i => i >= 0);
+    const surplus  = aboveIdx.reduce((s, i) => s + widths[i], 0);
+    belowIdx.forEach(i  => { widths[i] = COL_MIN_TWIPS; });
+    aboveIdx.forEach(i  => { widths[i] = Math.floor(widths[i] * (surplus - deficit) / surplus); });
+  }
 
   // Correct rounding drift on the last column
   const allocated = widths.reduce((a, b) => a + b, 0);
@@ -199,11 +212,15 @@ export function serializeBlock(node: DocNode, headingOffset: number): DocxBlock 
         spacing: { after: 120 },
       });
 
-    case 'code_block':
-      return new Paragraph({
-        children: [new TextRun({ text: node.text, font: 'Courier New', size: 18 })],
-        spacing: { after: 120 },
-      });
+    case 'code_block': {
+      const lines = node.text.split('\n');
+      return lines.map((line, idx) =>
+        new Paragraph({
+          children: [new TextRun({ text: line || ' ', font: 'Courier New', size: 18, italics: false })],
+          spacing: { after: idx === lines.length - 1 ? 120 : 0 },
+        })
+      );
+    }
 
     case 'blockquote':
       return new Paragraph({
