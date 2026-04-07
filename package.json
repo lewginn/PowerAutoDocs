@@ -1,6 +1,6 @@
 {
   "name": "powerautodocs",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Automated as-built documentation generator for Power Platform solutions",
   "type": "module",
   "bin": {
