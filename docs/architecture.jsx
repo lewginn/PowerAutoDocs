@@ -133,7 +133,8 @@ const layers = [
     components: [
       { name: "Markdown Renderer", icon: "✍️", detail: "Primary output. All renderers emit markdown strings directly — string builder pattern with markdownTable() helper. toADOWikiLink() encodes all internal links (spaces→hyphens, parens escaped, hyphens→%2D). [[_TOSP_]] on container pages only.", tags: ["Primary"], done: true, moscow: "M" },
       { name: "ADO Wiki Publisher", icon: "🌐", detail: "Azure DevOps REST API. Creates/updates wiki pages in correct hierarchy. Top-down parent creation. Page name sanitisation via s() helper. Auth pre-validation. Z→A publish order for A→Z sidebar display.", tags: ["ADO"], done: true, moscow: "S" },
-      { name: "Word / PDF Renderer", icon: "📄", detail: "Blocked: current renderers emit markdown strings directly — a docx library needs structured DocNode objects (Heading/Table/Paragraph), not strings. Requires a format-agnostic document model layer between IR and renderers before Word output is feasible.", tags: ["Optional"], done: false, moscow: "C" },
+      { name: "Word Renderer", icon: "📄", detail: "DocNode format-agnostic document model layer (src/docmodel/nodes.ts). Renderers emit DocNode[] via MarkdownSerializer (ADO Wiki) or DocxSerializer (Word). DocxSerializer → docx library: A4 page, proportional fixed-width column tables, TOC, page-number footer. Output controlled by output.word in config or --word CLI flag. Mermaid skipped in Word (ADO-only).", tags: ["Optional"], done: true, moscow: "C" },
+      { name: "PDF Renderer", icon: "📑", detail: "Standalone PDF output separate from Word. Would reuse the DocNode layer — needs a headless rendering strategy (e.g. Puppeteer, Playwright, or a dedicated PDF library). Deferred: Word covers the primary use case.", tags: ["Optional"], done: false, moscow: "W" },
       { name: "Confluence Renderer", icon: "🔵", detail: "Same IR → Confluence storage format. For clients not on ADO. Low priority — most clients use ADO.", tags: ["Optional"], done: false, moscow: "W" },
     ]
   },
@@ -145,7 +146,7 @@ const layers = [
     description: "Azure DevOps YAML + npm package — reusable across all client projects",
     components: [
       { name: "ADO Pipeline YAML", icon: "🏭", detail: "Manual trigger pipeline. Node 20, npx powerautodocs@latest. PAT injected at runtime via sed into doc-gen.config.yml. WIKI_PAT secret variable. Tested end-to-end on live solutions.", tags: ["ADO YAML"], done: true, moscow: "S" },
-      { name: "doc-gen.config.yml", icon: "⚙️", detail: "Per-project config. Multi-solution support with roles (all/datamodel/plugins/flows/classicWorkflows/webresources/securityRoles/environmentVariables). Wiki org/project/identifier/parentPath. PAT field REDACTED for safe commit, injected at runtime.", tags: ["Config"], done: true, moscow: "M" },
+      { name: "doc-gen.config.yml", icon: "⚙️", detail: "Per-project config. Multi-solution support. output.wiki / output.word booleans control output modes. components toggles control what gets rendered. Wiki org/project/identifier/parentPath. PAT field REDACTED for safe commit, injected at runtime via sed. Comprehensive inline comments for end-user setup.", tags: ["Config"], done: true, moscow: "M" },
       { name: "npm Package (powerautodocs)", icon: "📦", detail: "Published as powerautodocs on npmjs.com. GitHub repo: lewginn/PowerAutoDocs. Granular Access Token with bypass-2FA. Shebang entry point via scripts/addShebang.mjs (cross-platform). prepublishOnly build step. Node >=18 requirement. Renamed from powerautodoc to avoid accidental client data exposure in earlier versions.", tags: ["npm"], done: true, moscow: "M" },
       { name: "Run Logger + Summary", icon: "📋", detail: "src/logger.ts — structured console output with symbols (✓/✗/⚠/→). Per-solution section headers, per-component counts. End-of-run summary with solutions processed/skipped, parse warnings, pages published, publish failures. Exit code 1 on any hard failure — ADO pipeline marks step as failed.", tags: ["DX"], done: true, moscow: "S" },
       { name: "GitHub Actions npm Publish", icon: "🚀", detail: "npm-publish.yml workflow. Triggers on GitHub Release created. Runs npm ci → npm run build → npm publish. NODE_AUTH_TOKEN from NPM_TOKEN repo secret. Replaces manual npm publish from local machine.", tags: ["CI/CD"], done: true, moscow: "S" },
@@ -195,7 +196,8 @@ const decisions = [
   { q: "File casing on Linux?", a: "Capitalised filenames (Solution.xml)", reason: "pac CLI on Windows produces capitalised filenames (Solution.xml, Customizations.xml). macOS is case-insensitive so lowercase references worked locally. ADO agents run Ubuntu — Linux is case-sensitive and lowercase references failed silently. Standardised all filename references to match pac CLI output." },
   { q: "Package name?", a: "powerautodocs (renamed from powerautodoc)", reason: "Original package powerautodoc was published with client references in source file comments. npm does not allow full package deletion after 72 hours. Renamed to powerautodocs on a clean repository (lewginn/PowerAutoDocs) with no client data in history. Old package deprecated." },
   { q: "Security page structure?", a: "Security container → sublevel pages", reason: "Security is a container page with [[_TOSP_]]. Security Roles is a sublevel — not the top page itself — leaving room for Column Security Profiles and other future additions without restructuring the wiki hierarchy." },
-  { q: "Word / PDF output?", a: "Blocked — needs document model layer", reason: "All renderers emit markdown strings directly via string builders. A Word/PDF renderer needs structured DocNode objects (Heading/Table/Paragraph) that a docx library can consume. Adding this requires a format-agnostic document model layer between IR and renderers. Deferred to Phase 5." },
+  { q: "Word output?", a: "DocNode layer + DocxSerializer", reason: "Renderers now emit DocNode[] (format-agnostic). MarkdownSerializer converts to ADO Wiki markdown; DocxSerializer converts to docx Paragraph/Table elements. A4 fixed-width tables (TableLayoutType.FIXED + DXA column widths) ensure consistent rendering in Word and Word Online. Output mode controlled by output.word in config.yml or --word CLI flag. Mermaid blocks skipped in Word — ADO-only rendering." },
+  { q: "PDF output?", a: "Treated as a separate future feature", reason: "PDF rendering requires a different approach to Word (headless browser or dedicated PDF library) and has different use cases. Splitting them avoids conflating two distinct delivery formats. Word covers the primary client use case. PDF deferred." },
 ];
 
 const progress = [
@@ -273,11 +275,12 @@ const progress = [
   {
     phase: "Phase 5 — Advanced & Delivery", color: "#0891b2", status: "PLANNED",
     items: [
-      { label: "CLI entry point (commander flags)", done: false },
+      { label: "CLI entry point (--word / --wiki flags, unknown flag detection)", done: true },
       { label: "Auto-trigger pipeline (push/scheduled)", done: false },
       { label: "Change log (git-diff driven)", done: false },
       { label: "IR JSON artifact publishing", done: false },
-      { label: "Word / PDF renderer (requires document model refactor)", done: false },
+      { label: "Word renderer (DocNode layer + DocxSerializer + docAssembler)", done: true },
+      { label: "PDF renderer (headless rendering — separate from Word)", done: false },
       { label: "Mermaid → PNG for static formats (mmdc)", done: false },
       { label: "Dependency resolver (flow → table links)", done: false },
       { label: "Complexity scorer", done: false },
@@ -593,8 +596,8 @@ export default function App() {
               </div>
               <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderLeft: "3px solid #2563eb", borderRadius: 6, padding: 14, fontSize: 11, color: "#1e40af", lineHeight: 1.7 }}>
                 <strong>IR is the contract.</strong> Parsers only produce IR. Renderers only consume IR.
-                Neither knows about the other. Word/PDF output will require a document model layer (DocNode tree) between IR and renderers —
-                current string-builder renderers cannot be consumed by a docx library directly.
+                Neither knows about the other. Renderers emit DocNode[] (format-agnostic); MarkdownSerializer converts to ADO Wiki markdown,
+                DocxSerializer converts to Word (.docx) via the docx library. New output formats only need a new serializer.
               </div>
             </div>
           )}
