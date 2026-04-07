@@ -8,6 +8,8 @@ Reads unpacked solution XML directly from Git and publishes structured, cross-li
 [![license](https://img.shields.io/npm/l/powerautodocs)](LICENSE)
 [![node](https://img.shields.io/node/v/powerautodocs)](https://nodejs.org)
 
+**[View architecture →](https://lewginn.github.io/PowerAutoDocs/)**
+
 ---
 
 ## What it documents
