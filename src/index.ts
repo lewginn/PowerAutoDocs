@@ -68,9 +68,18 @@ export async function main(configDir?: string): Promise<void> {
   const summary = createSummary();
 
   // ---- CLI flags (override config) ----
-  const argv    = process.argv.slice(2);
+  const argv     = process.argv.slice(2);
   const flagWord = argv.includes('--word');
   const flagWiki = argv.includes('--wiki');
+
+  const KNOWN_FLAGS = new Set(['--word', '--wiki']);
+  const unknownFlags = argv.filter(a => a.startsWith('--') && !KNOWN_FLAGS.has(a));
+  if (unknownFlags.length > 0) {
+    console.error(`✗ Unknown flag(s): ${unknownFlags.join(', ')}`);
+    console.error('  Valid flags: --word  --wiki');
+    console.error('  Or set output.wiki / output.word in doc-gen.config.yml instead.');
+    process.exit(1);
+  }
 
   // ---- Load config ----
   let config;
@@ -83,7 +92,7 @@ export async function main(configDir?: string): Promise<void> {
     process.exit(1);
   }
 
-  // Apply CLI flag overrides.
+  // Apply CLI flag overrides (local dev convenience — pipeline uses config only).
   // If either flag is passed, treat them as the explicit output selection:
   //   --word        → Word only, suppress wiki even if config.wiki is set
   //   --wiki        → Wiki only, suppress Word even if config has output.word: true
@@ -91,10 +100,15 @@ export async function main(configDir?: string): Promise<void> {
   //   (no flags)    → fall through to whatever the config says
   if (flagWord || flagWiki) {
     config.output.word = flagWord;
-    if (!flagWiki) config.wiki = undefined;  // suppress wiki when --word only
+    config.output.wiki = flagWiki;
     if (flagWiki && !config.wiki) {
       log('warn', '--wiki flag set but no wiki config in doc-gen.config.yml — skipping wiki publish');
     }
+  }
+
+  // Suppress wiki publish if output.wiki is explicitly false
+  if (config.output.wiki === false) {
+    config.wiki = undefined;
   }
 
   const { path: outputPath } = config.output;

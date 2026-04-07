@@ -27,7 +27,8 @@ export const CONFIG_DEFAULTS: DocGenConfig = {
   ],
   output: {
     path: './output',
-    word: false,
+    wiki: true,
+    word: true,
     wordFilename: 'solution-documentation.docx',
   },
   parse: {
