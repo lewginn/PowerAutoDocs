@@ -21,17 +21,17 @@ function defaultValueCell(model: EnvironmentVariableModel): InlineNode[] {
   return [i('Not set')];
 }
 
-function currentValueCell(model: EnvironmentVariableModel): InlineNode[] {
-  if (model.secretStore > 0) return [i('[secret — stored externally]')];
-  if (model.currentValue !== undefined) return [c(model.currentValue)];
-  return [i('Not set')];
-}
+// function currentValueCell(model: EnvironmentVariableModel): InlineNode[] {
+//   if (model.secretStore > 0) return [i('[secret — stored externally]')];
+//   if (model.currentValue !== undefined) return [c(model.currentValue)];
+//   return [i('Not set')];
+// }
 
 export function renderEnvironmentVariablesPage(
   envVars: EnvironmentVariableModel[],
   options: Pick<EnvironmentVariablesConfig, 'showDefaultValue' | 'showCurrentValue'> = {
     showDefaultValue: true,
-    showCurrentValue: true,
+    showCurrentValue: false, // Current value omitted by default — can expose sensitive runtime data
   }
 ): DocNode[] {
   const nodes: DocNode[] = [];
@@ -70,7 +70,7 @@ export function renderEnvironmentVariablesPage(
         ct(v.isRequired ? 'Yes' : 'No'),
       ];
       if (options.showDefaultValue) row.push(defaultValueCell(v));
-      if (options.showCurrentValue) row.push(currentValueCell(v));
+      // if (options.showCurrentValue) row.push(currentValueCell(v));
       row.push(ct(secretStoreLabel(v.secretStore)));
       return row;
     })

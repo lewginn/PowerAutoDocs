@@ -5,7 +5,7 @@
 
 import {
   Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
-  HeadingLevel, AlignmentType, WidthType, ShadingType,
+  HeadingLevel, AlignmentType, WidthType, ShadingType, TableLayoutType,
   Footer, PageNumber, convertInchesToTwip, TableOfContents,
 } from 'docx';
 import type { DocNode, InlineNode, BulletItem } from './nodes.js';
@@ -14,8 +14,9 @@ import type { DocNode, InlineNode, BulletItem } from './nodes.js';
 // Page geometry
 // -----------------------------------------------
 
-// A4 content width at 1-inch margins = 6.5 inches = 9360 twips
-const PAGE_WIDTH_TWIPS = 9360;
+// A4 page: 8.27" wide, 1" margins each side → 6.27" content = 9029 twips
+const PAGE_MARGIN_TWIPS = convertInchesToTwip(1);
+const PAGE_WIDTH_TWIPS  = convertInchesToTwip(8.27) - PAGE_MARGIN_TWIPS * 2;
 
 // -----------------------------------------------
 // Inline serialisation
@@ -73,9 +74,10 @@ function resolveHeadingLevel(level: number, offset: number) {
 // -----------------------------------------------
 
 // Cap long content so one wide column can't starve narrow columns.
-const COL_MAX_CHARS  = 35;
-// Minimum twips per column (~0.7 inch) — enough for an 8-char header at 12pt body font.
-const COL_MIN_TWIPS  = 1008;
+const COL_MAX_CHARS = 35;
+// Minimum twips per column (~0.42 inch). Keeps narrow columns visible without
+// stealing too much from wider ones when there are many columns (e.g. 7+).
+const COL_MIN_TWIPS = 600;
 
 function calcColumnWidths(headers: string[], rows: InlineNode[][][]): number[] {
   const rawMax = headers.map((h, i) =>
@@ -143,6 +145,7 @@ function serializeTable(headers: string[], rows: InlineNode[][][]): Table {
 
   return new Table({
     style: 'TableGrid',
+    layout: TableLayoutType.FIXED,
     width: { size: PAGE_WIDTH_TWIPS, type: WidthType.DXA },
     columnWidths: colWidths,
     rows: [headerRow, ...bodyRows],
@@ -207,10 +210,8 @@ export function serializeBlock(node: DocNode, headingOffset: number): DocxBlock 
       return bulletItems(node.items);
 
     case 'mermaid':
-      return new Paragraph({
-        children: [new TextRun({ text: '[Diagram — see ADO Wiki for rendered version]', italics: true })],
-        spacing: { after: 120 },
-      });
+      // Mermaid diagrams are only rendered in ADO Wiki — skip in Word output
+      return [];
 
     case 'code_block': {
       const lines = node.text.split('\n');
@@ -254,7 +255,22 @@ export function buildToc(): TableOfContents {
 
 export function buildDocument(blocks: (Paragraph | Table)[]): Document {
   return new Document({
+    features: { updateFields: true },
     sections: [{
+      properties: {
+        page: {
+          size: {
+            width:  convertInchesToTwip(8.27),   // A4
+            height: convertInchesToTwip(11.69),
+          },
+          margin: {
+            top:    PAGE_MARGIN_TWIPS,
+            bottom: PAGE_MARGIN_TWIPS,
+            left:   PAGE_MARGIN_TWIPS,
+            right:  PAGE_MARGIN_TWIPS,
+          },
+        },
+      },
       footers: {
         default: new Footer({
           children: [
