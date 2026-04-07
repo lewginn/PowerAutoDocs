@@ -29,7 +29,7 @@ export function renderFlowSummary(flows: FlowModel[], basePath?: string): DocNod
       ct(f.trigger.type),
       f.trigger.entity ? cc(f.trigger.entity) : ct('—'),
       ct(f.actions.length.toString()),
-      ct(f.isActive ? '✅ Active' : '❌ Inactive'),
+      ct(f.isActive ? 'Active' : 'Inactive'),
     ])
   ));
 
