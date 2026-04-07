@@ -2,7 +2,7 @@
 
 Automated as-built documentation generator for Power Platform solutions.
 
-Reads unpacked solution XML directly from Git and publishes structured, cross-linked documentation to an Azure DevOps Wiki — automatically, on every deployment.
+Reads unpacked solution XML directly from Git and publishes structured, cross-linked documentation to an Azure DevOps Wiki and/or a Word document — automatically, on every deployment.
 
 [![npm](https://img.shields.io/npm/v/powerautodocs)](https://www.npmjs.com/package/powerautodocs)
 [![license](https://img.shields.io/npm/l/powerautodocs)](LICENSE)
@@ -26,7 +26,7 @@ powerautodocs covers the full stack of a Dataverse/Power Platform solution:
 | Plugins | Assembly metadata, step registrations, entity/message/stage |
 | Web Resources (JS) | Function index, JSDoc, namespace detection |
 | Security Roles | Privilege matrix per entity (Create/Read/Write/Delete/Append/AppendTo) |
-| Environment Variables | Type, default value, current value, secret store |
+| Environment Variables | Type, default value, secret store |
 | Connection References | Connector name, logical name |
 | Global Choices | Option sets with values and labels |
 | Email Templates | Subject, plain text body with field placeholders |
@@ -41,42 +41,58 @@ powerautodocs covers the full stack of a Dataverse/Power Platform solution:
 pac solution unpack --zipfile MySolution.zip --folder ./unpacked/MySolution
 ```
 
-**2. Add a `doc-gen.config.yml`** to your repo root (see [Configuration](#configuration))
+**2. Add a `doc-gen.config.yml`** to your repo root — copy [`samples/doc-gen.config.sample.yml`](samples/doc-gen.config.sample.yml) as a starting point
 
 **3. Run**
 ```bash
 npx powerautodocs@latest
 ```
 
-That's it. Documentation is published directly to your ADO Wiki.
+Output is controlled by `output.wiki` and `output.word` in your config, or via CLI flags:
+
+```bash
+npx powerautodocs@latest --wiki        # Wiki only
+npx powerautodocs@latest --word        # Word only
+npx powerautodocs@latest --wiki --word # Both
+```
+
+---
+
+## Output modes
+
+powerautodocs supports two output formats, configurable independently:
+
+| Mode | Config flag | CLI flag | Output |
+| --- | --- | --- | --- |
+| ADO Wiki | `output.wiki: true` | `--wiki` | Pages published to Azure DevOps Wiki via REST API |
+| Word document | `output.word: true` | `--word` | `.docx` file written to `output/` folder |
+
+CLI flags override the config file. If no flags are passed, the config drives everything.
 
 ---
 
 ## ADO Pipeline
 
-Add this to your Azure DevOps pipeline YAML to auto-generate docs on every deployment:
+A ready-to-use pipeline is available at [`samples/powerautodocs.pipeline.sample.yml`](samples/powerautodocs.pipeline.sample.yml).
 
-```yaml
-- task: NodeTool@0
-  inputs:
-    versionSpec: '20.x'
-  displayName: 'Install Node.js'
+Copy it into your repo at `.azuredevops/powerautodocs.yml`, register it in ADO, and add the following pipeline variables:
 
-- script: npx powerautodocs@latest
-  displayName: 'Generate As-Built Documentation'
-  env:
-    WIKI_PAT: $(WIKI_PAT)
-```
+| Variable | Required | Notes |
+| --- | --- | --- |
+| `WIKI_PAT` | Yes (if using wiki output) | PAT with **Wiki (Read & Write)** scope — mark as secret |
+| `POWERAUTODOCS_VERSION` | No | npm version tag to pin (default: `latest`) |
 
-Set `WIKI_PAT` as a secret pipeline variable containing a PAT with **Wiki (Read & Write)** scope.
-
-In your `doc-gen.config.yml`, set `wiki.pat: $(WIKI_PAT)` — the pipeline injects it at runtime. Never commit a real PAT.
+The pipeline injects `WIKI_PAT` into `doc-gen.config.yml` at runtime via `sed`. The committed config file always contains `REDACTED` as the pat value — never commit a real token.
 
 ---
 
 ## Configuration
 
-Create a `doc-gen.config.yml` in your repo root:
+Copy [`samples/doc-gen.config.sample.yml`](samples/doc-gen.config.sample.yml) to your repo root, rename it to `doc-gen.config.yml`, and update the values. The sample file contains comments explaining every field.
+
+A sample ADO pipeline is also available at [`samples/powerautodocs.pipeline.sample.yml`](samples/powerautodocs.pipeline.sample.yml).
+
+A minimal config looks like this:
 
 ```yaml
 solutions:
@@ -86,53 +102,9 @@ solutions:
 
 output:
   path: ./output
-
-parse:
-  customColumnsOnly: false
-  excludeBaseCurrencyFields: true
-  excludeStandardRelationships: true
-  excludedColumns:
-    - timezoneruleversionnumber
-    - utcconversiontimezonecode
-    - importsequencenumber
-    - overriddencreatedon
-    - exchangerate
-    - transactioncurrencyid
-    - owningteam
-    - owninguser
-    - owningbusinessunit
-    - createdonbehalfby
-    - modifiedonbehalfby
-    - versionnumber
-
-render:
-  formLayout: compact   # compact | detailed
-
-components:
-  tables: true
-  forms: true
-  views: true
-  relationships: true
-  flows: true
-  classicWorkflows: true
-  plugins: true
-  webResources: true
-  securityRoles: true
-  environmentVariables:
-    enabled: true
-    showDefaultValue: true
-    showCurrentValue: true
-  globalChoices: true
-  emailTemplates: true
-  modelDrivenApps: true
-  connectionReferences: true
-
-# Optional — fine-tune the auto-generated ER diagram
-# erd:
-#   excludeEntities:
-#     - myprefix_auditlog
-#   excludeRelationships:
-#     - myprefix_leaverequest_myprefix_leavetype
+  wiki: true
+  word: true
+  wordFilename: solution-documentation.docx
 
 wiki:
   organisation: MyOrg
@@ -209,7 +181,7 @@ If your config lives outside the repo root, pass its location via environment va
 
 - Node.js 18+
 - Power Platform CLI (`pac`) — for unpacking solutions
-- Azure DevOps Wiki — for publishing
+- Azure DevOps Wiki — for wiki output (optional if using Word only)
 
 ---
 
@@ -226,9 +198,10 @@ Unpacked Solution XML/JSON
         ↓
     Enrichment (ERD, Mermaid diagrams)
         ↓
-    Renderers (markdown string builders)
+    Renderers (emit format-agnostic DocNode[])
         ↓
-    ADO Wiki Publisher (REST API)
+    MarkdownSerializer → ADO Wiki Publisher (REST API)
+    DocxSerializer     → Word .docx file
 ```
 
 Parsers only produce IR. Renderers only consume IR. Neither knows about the other — swap or add output formats without touching the parsing logic.

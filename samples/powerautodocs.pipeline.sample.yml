@@ -1,0 +1,74 @@
+# =============================================================================
+# PowerAutoDocs — Azure DevOps Pipeline
+# =============================================================================
+# SETUP: Copy this file into your client project repo and rename it (remove
+# ".sample"). Suggested location:
+#   .azuredevops/powerautodocs.yml
+#
+# Then register it in Azure DevOps:
+#   Pipelines → New Pipeline → Azure Repos Git → select your repo → Existing
+#   Azure Pipelines YAML file → select this file
+#
+# Required setup before running:
+#   1. Add a Pipeline Variable named WIKI_PAT (mark as secret)
+#      The PAT needs Wiki (Read & Write) scope
+#   2. Add doc-gen.config.yml to your repo root
+#      (copy and fill in samples/doc-gen.config.sample.yml)
+#
+# Optional pipeline variables:
+#   POWERAUTODOCS_VERSION — npm version tag to pin (default: latest)
+#                           Set in the ADO pipeline UI to lock a specific version
+# =============================================================================
+
+trigger: none
+pr: none
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  POWERAUTODOCS_VERSION: latest
+
+steps:
+
+  # ---------------------------------------------------------------------------
+  # 1. Setup Node.js
+  # ---------------------------------------------------------------------------
+  - task: NodeTool@0
+    displayName: Setup Node.js
+    inputs:
+      versionSpec: '20.x'
+
+  # ---------------------------------------------------------------------------
+  # 2. Inject PAT into config
+  # Replaces the REDACTED placeholder in doc-gen.config.yml with the actual
+  # PAT from the pipeline secret variable at runtime.
+  # The committed config file always contains REDACTED — never a real token.
+  # ---------------------------------------------------------------------------
+  - script: |
+      sed -i "s/REDACTED/$(WIKI_PAT)/g" doc-gen.config.yml
+      echo "PAT injected into config"
+    displayName: Inject wiki PAT
+    env:
+      WIKI_PAT: $(WIKI_PAT)
+
+  # ---------------------------------------------------------------------------
+  # 3. Run powerautodocs
+  # Output (wiki, Word, or both) is controlled by output.wiki / output.word
+  # in doc-gen.config.yml. Override at runtime with --wiki or --word flags.
+  # ---------------------------------------------------------------------------
+  - script: |
+      npx powerautodocs@$(POWERAUTODOCS_VERSION)
+    displayName: Generate documentation
+    workingDirectory: $(Build.SourcesDirectory)
+
+  # ---------------------------------------------------------------------------
+  # 4. Publish Word document as a downloadable pipeline artifact
+  # Remove this step if you are not generating a Word document (output.word: false)
+  # ---------------------------------------------------------------------------
+  - task: PublishPipelineArtifact@1
+    displayName: Publish Word document
+    inputs:
+      targetPath: 'output/solution-documentation.docx'
+      artifact: 'solution-documentation'
+      publishLocation: 'pipeline'

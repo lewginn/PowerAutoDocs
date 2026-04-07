@@ -1,0 +1,127 @@
+# =============================================================================
+# doc-gen.config.yml — PowerAutoDocs configuration
+# =============================================================================
+# SETUP: Copy this file to your repo root and rename it to: doc-gen.config.yml
+# Remove ".sample" from the filename — powerautodocs looks for doc-gen.config.yml
+# Full documentation: https://github.com/lewginn/PowerAutoDocs
+# =============================================================================
+
+
+# -----------------------------------------------------------------------------
+# SOLUTIONS
+# List every unpacked Power Platform solution you want to document.
+# All solutions are merged into a single output (wiki and/or Word).
+# -----------------------------------------------------------------------------
+solutions:
+  - path: ./unpacked/MySolution       # Path to the unpacked solution folder
+    publisherPrefix: myprefix         # Your publisher prefix (e.g. "contoso")
+    displayName: My Solution          # Display name used in headings and the wiki
+
+  # Add more solutions as needed:
+  # - path: ./unpacked/AnotherSolution
+  #   publisherPrefix: myprefix
+  #   displayName: Another Solution
+
+
+# -----------------------------------------------------------------------------
+# OUTPUT
+# Control what gets generated. You can enable wiki, Word, or both.
+# CLI flags --wiki and --word override these settings at runtime.
+# -----------------------------------------------------------------------------
+output:
+  path: ./output                      # Local folder for generated files
+
+  wiki: true                          # Publish to Azure DevOps Wiki
+  word: true                          # Generate a Word (.docx) document
+  wordFilename: solution-documentation.docx  # Word output filename
+
+
+# -----------------------------------------------------------------------------
+# PARSE
+# Controls how solution XML is read and filtered.
+# -----------------------------------------------------------------------------
+parse:
+  customColumnsOnly: false            # true = only show columns with your publisher prefix
+  excludeBaseCurrencyFields: true     # Exclude base currency columns (e.g. amount_base)
+  excludeStandardRelationships: true  # Exclude OOB relationships (owner, team, business unit)
+
+  # Columns to exclude from all table documentation.
+  # These are standard system columns that add noise without value.
+  excludedColumns:
+    - timezoneruleversionnumber
+    - utcconversiontimezonecode
+    - importsequencenumber
+    - overriddencreatedon
+    - exchangerate
+    - transactioncurrencyid
+    - owningteam
+    - owninguser
+    - owningbusinessunit
+    - createdonbehalfby
+    - modifiedonbehalfby
+    - versionnumber
+
+
+# -----------------------------------------------------------------------------
+# RENDER
+# Controls how certain components are presented in the output.
+# -----------------------------------------------------------------------------
+render:
+  formLayout: compact                 # compact | detailed
+
+
+# -----------------------------------------------------------------------------
+# COMPONENTS
+# Enable or disable individual component types.
+# This controls what gets rendered — all components are always parsed.
+# -----------------------------------------------------------------------------
+components:
+  tables: true
+  forms: true
+  views: true
+  relationships: true
+  flows: true
+  classicWorkflows: true
+  plugins: true
+  webResources: true
+  securityRoles: true
+  globalChoices: true
+  emailTemplates: true
+  modelDrivenApps: true
+  connectionReferences: true
+
+  environmentVariables:
+    enabled: true
+    showDefaultValue: true
+    showCurrentValue: false           # Caution: current values may contain sensitive runtime data
+
+
+# -----------------------------------------------------------------------------
+# ERD (optional)
+# Fine-tune the auto-generated ER diagram on the Data Model page.
+# By default, only custom entities (matching your publisher prefix) are shown.
+# Use these lists to exclude specific entities or relationships that add noise.
+# -----------------------------------------------------------------------------
+# erd:
+#   excludeEntities:
+#     - myprefix_auditlog
+#   excludeRelationships:
+#     - myprefix_leaverequest_myprefix_leavetype
+
+
+# -----------------------------------------------------------------------------
+# WIKI
+# Required if output.wiki is true.
+# The PAT must be injected at pipeline runtime — never commit a real value here.
+#
+# To inject via ADO pipeline, add WIKI_PAT as a secret pipeline variable and
+# include this in your pipeline YAML env block:
+#   env:
+#     WIKI_PAT: $(WIKI_PAT)
+# -----------------------------------------------------------------------------
+wiki:
+  organisation: MyOrg                 # ADO organisation name (from dev.azure.com/[org])
+  project: MyProject                  # ADO project name
+  wikiIdentifier: MyProject.wiki      # Wiki identifier (usually [Project].wiki)
+  parentPath: /My Solution            # Parent page path in the wiki
+  pat: REDACTED                       # Injected at runtime — do not commit a real PAT
