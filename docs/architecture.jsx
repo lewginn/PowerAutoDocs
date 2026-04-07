@@ -303,7 +303,7 @@ export default function App() {
     : [];
 
   return (
-    <div style={{ background: "#f8fafc", minHeight: "100vh" }}>
+    <div style={{ background: "#e8edf2", minHeight: "100vh" }}>
       <div style={{ fontFamily: "'IBM Plex Mono', 'Courier New', monospace", color: "#0f172a", maxWidth: 1400, margin: "0 auto" }}>
         <style>{`
           @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;600&display=swap');
@@ -311,34 +311,34 @@ export default function App() {
           ::-webkit-scrollbar { width: 4px; }
           ::-webkit-scrollbar-track { background: #f1f5f9; }
           ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
-          .layer-card { border: 1px solid #e2e8f0; background: #ffffff; border-radius: 6px; padding: 14px 18px; cursor: pointer; transition: all 0.2s; position: relative; overflow: hidden; margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
-          .layer-card:hover { border-color: var(--color); transform: translateX(3px); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+          .layer-card { border: 1px solid #d1d9e0; background: #ffffff; border-radius: 6px; padding: 14px 18px; cursor: pointer; transition: all 0.2s; position: relative; overflow: hidden; margin-bottom: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+          .layer-card:hover { border-color: var(--color); transform: translateX(3px); box-shadow: 0 3px 10px rgba(0,0,0,0.12); }
           .layer-card.active { border-color: var(--color); background: var(--bg); }
           .layer-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--color); }
-          .tag { display: inline-block; font-size: 9px; padding: 2px 6px; border-radius: 2px; border: 1px solid currentColor; opacity: 0.7; margin: 2px; letter-spacing: 0.04em; }
-          .comp-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px 14px; margin-bottom: 8px; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
-          .comp-card.done { background: #f0fdf4; border-color: #bbf7d0; }
-          .comp-card:hover { border-color: #cbd5e1; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
-          .tab-btn { background: none; border: none; color: #64748b; cursor: pointer; padding: 10px 18px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.08em; border-bottom: 2px solid transparent; transition: all 0.2s; }
-          .tab-btn:hover { color: #1e293b; }
-          .tab-btn.active { color: #0f172a; border-bottom-color: #0f172a; }
-          .decision-row { display: grid; grid-template-columns: 190px 170px 1fr; gap: 16px; padding: 11px 16px; border-bottom: 1px solid #f1f5f9; align-items: start; }
+          .tag { display: inline-block; font-size: 9px; padding: 2px 6px; border-radius: 2px; border: 1px solid currentColor; opacity: 0.8; margin: 2px; letter-spacing: 0.04em; }
+          .comp-card { background: #ffffff; border: 1px solid #d1d9e0; border-radius: 6px; padding: 12px 14px; margin-bottom: 8px; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+          .comp-card.done { background: #f0fdf4; border-color: #86efac; }
+          .comp-card:hover { border-color: #94a3b8; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+          .tab-btn { background: none; border: none; color: #475569; cursor: pointer; padding: 10px 18px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.08em; border-bottom: 2px solid transparent; transition: all 0.2s; }
+          .tab-btn:hover { color: #0f172a; }
+          .tab-btn.active { color: #0f172a; border-bottom-color: #2563eb; }
+          .decision-row { display: grid; grid-template-columns: 190px 170px 1fr; gap: 16px; padding: 11px 16px; border-bottom: 1px solid #e8ecf0; align-items: start; }
           .decision-row:last-child { border-bottom: none; }
           .pill { display: inline-block; font-size: 9px; padding: 1px 7px; border-radius: 2px; letter-spacing: 0.08em; font-weight: 500; }
-          .moscow-btn { background: #fff; border: 1px solid #cbd5e1; border-radius: 3px; cursor: pointer; padding: 3px 10px; font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.08em; transition: all 0.15s; color: #475569; }
-          .moscow-btn:hover { border-color: #334155; color: #1e293b; }
+          .moscow-btn { background: #fff; border: 1px solid #b0bec5; border-radius: 3px; cursor: pointer; padding: 3px 10px; font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.08em; transition: all 0.15s; color: #374151; }
+          .moscow-btn:hover { border-color: #1e293b; color: #0f172a; }
           .moscow-btn.active { color: white; }
         `}</style>
 
         <div style={{ padding: "28px 40px 0", borderBottom: "1px solid #e2e8f0", background: "#ffffff", boxShadow: "0 1px 8px rgba(0,0,0,0.06)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
             <div style={{ background: "#0f172a", color: "white", fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, fontSize: 11, padding: "3px 10px", borderRadius: 2, letterSpacing: "0.12em" }}>POWERAUTODOCS</div>
-            <span style={{ fontSize: 9, color: "#64748b", letterSpacing: "0.1em", fontFamily: "'IBM Plex Mono', monospace" }}>v0.1.x</span>
+            <span style={{ fontSize: 9, color: "#64748b", letterSpacing: "0.1em", fontFamily: "'IBM Plex Mono', monospace" }}>v1.2.0</span>
           </div>
           <h1 style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 22, fontWeight: 300, color: "#0f172a", letterSpacing: "-0.01em", marginBottom: 6 }}>
             Automated As-Built Documentation Generator
           </h1>
-          <p style={{ fontSize: 11, color: "#64748b", maxWidth: 700, lineHeight: 1.7, marginBottom: 16 }}>
+          <p style={{ fontSize: 11, color: "#374151", maxWidth: 700, lineHeight: 1.7, marginBottom: 16 }}>
             A reusable pipeline that reads Power Platform solution artifacts directly from Git and produces
             structured, cross-linked wiki documentation in Azure DevOps — including Mermaid flow diagrams,
             nested action trees, business rules, plugin registrations, web resource indexes, security role
@@ -369,7 +369,7 @@ export default function App() {
           {activeTab === "architecture" && (
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
-                <span style={{ fontSize: 9, color: "#475569", letterSpacing: "0.15em", marginRight: 4 }}>FILTER BY PRIORITY:</span>
+                <span style={{ fontSize: 9, color: "#1e293b", letterSpacing: "0.15em", marginRight: 4 }}>FILTER BY PRIORITY:</span>
                 <button className={`moscow-btn ${moscowFilter === null ? "active" : ""}`}
                   style={{ borderColor: moscowFilter === null ? "#0f172a" : undefined, background: moscowFilter === null ? "#0f172a" : undefined }}
                   onClick={() => setMoscowFilter(null)}>ALL</button>
@@ -378,11 +378,11 @@ export default function App() {
                     style={{ borderColor: moscowFilter === key ? val.color : undefined, background: moscowFilter === key ? val.color : undefined }}
                     onClick={() => setMoscowFilter(moscowFilter === key ? null : key)}>{val.label}</button>
                 ))}
-                <span style={{ fontSize: 10, color: "#64748b", marginLeft: 8 }}>Must · Should · Could · Won't (for now)</span>
+                <span style={{ fontSize: 10, color: "#374151", marginLeft: 8 }}>Must · Should · Could · Won't (for now)</span>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 24, alignItems: "start" }}>
                 <div>
-                  <div style={{ fontSize: 9, color: "#475569", letterSpacing: "0.15em", marginBottom: 12 }}>SELECT A LAYER</div>
+                  <div style={{ fontSize: 9, color: "#1e293b", letterSpacing: "0.15em", marginBottom: 12 }}>SELECT A LAYER</div>
                   {layers.map((layer) => {
                     const dc = layer.components.filter(c => c.done).length;
                     const tot = layer.components.length;
@@ -394,9 +394,9 @@ export default function App() {
                           onClick={() => setActiveLayer(activeLayer === layer.id ? null : layer.id)}>
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
                             <span style={{ fontSize: 10, color: layer.color, fontWeight: 500, letterSpacing: "0.08em" }}>{layer.label}</span>
-                            <span style={{ fontSize: 9, color: "#94a3b8" }}>{dc}/{tot} built{moscowFilter && visibleCount !== tot ? ` · ${visibleCount} visible` : ""}</span>
+                            <span style={{ fontSize: 9, color: "#64748b" }}>{dc}/{tot} built{moscowFilter && visibleCount !== tot ? ` · ${visibleCount} visible` : ""}</span>
                           </div>
-                          <div style={{ fontSize: 11, color: "#64748b" }}>{layer.description}</div>
+                          <div style={{ fontSize: 11, color: "#374151" }}>{layer.description}</div>
                           <div style={{ marginTop: 8, height: 2, background: "#f1f5f9", borderRadius: 1, overflow: "hidden" }}>
                             <div style={{ width: `${dc / tot * 100}%`, height: "100%", background: layer.color, opacity: 0.7 }} />
                           </div>
@@ -438,7 +438,7 @@ export default function App() {
                                     : <span className="pill" style={{ background: "#f8fafc", color: "#94a3b8", border: "1px solid #e2e8f0" }}>PLANNED</span>
                                   }
                                 </div>
-                                <div style={{ fontSize: 11, color: "#64748b", lineHeight: 1.6, marginBottom: 7 }}>{comp.detail}</div>
+                                <div style={{ fontSize: 11, color: "#374151", lineHeight: 1.6, marginBottom: 7 }}>{comp.detail}</div>
                                 <div>{comp.tags.map(t => <span key={t} className="tag" style={{ color: active.color }}>{t}</span>)}</div>
                               </div>
                             </div>
@@ -454,7 +454,7 @@ export default function App() {
 
           {activeTab === "progress" && (
             <div style={{ maxWidth: 880 }}>
-              <div style={{ fontSize: 9, color: "#64748b", letterSpacing: "0.15em", marginBottom: 20 }}>BUILD PROGRESS</div>
+              <div style={{ fontSize: 9, color: "#1e293b", letterSpacing: "0.15em", marginBottom: 20 }}>BUILD PROGRESS</div>
               {progress.map(p => {
                 const dc = p.items.filter(i => i.done).length;
                 const tot = p.items.length;
@@ -497,9 +497,9 @@ export default function App() {
 
           {activeTab === "wiki structure" && (
             <div style={{ maxWidth: 820 }}>
-              <div style={{ fontSize: 9, color: "#64748b", letterSpacing: "0.15em", marginBottom: 20 }}>ADO WIKI PAGE HIERARCHY</div>
+              <div style={{ fontSize: 9, color: "#1e293b", letterSpacing: "0.15em", marginBottom: 20 }}>ADO WIKI PAGE HIERARCHY</div>
               <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 6, padding: 24, marginBottom: 20, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-                <div style={{ fontSize: 11, color: "#64748b", marginBottom: 18, lineHeight: 1.6 }}>
+                <div style={{ fontSize: 11, color: "#374151", marginBottom: 18, lineHeight: 1.6 }}>
                   Each solution gets its own top-level wiki section. Pages are generated from the IR layer and published via ADO REST API.
                 </div>
                 <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12 }}>
@@ -553,7 +553,7 @@ export default function App() {
                   ))}
                 </div>
               </div>
-              <div style={{ fontSize: 9, color: "#64748b", letterSpacing: "0.15em", marginBottom: 12 }}>PAGES BUILT SO FAR</div>
+              <div style={{ fontSize: 9, color: "#1e293b", letterSpacing: "0.15em", marginBottom: 12 }}>PAGES BUILT SO FAR</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 {pages.map(page => {
                   const m = moscow[page.moscow];
@@ -567,7 +567,7 @@ export default function App() {
                             <span className="pill" style={{ background: m.bg, color: m.color, border: `1px solid ${m.color}40` }}>{m.label}</span>
                             {page.done && <span className="pill" style={{ background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0" }}>BUILT</span>}
                           </div>
-                          <div style={{ fontSize: 11, color: "#64748b", lineHeight: 1.5 }}>{page.desc}</div>
+                          <div style={{ fontSize: 11, color: "#374151", lineHeight: 1.5 }}>{page.desc}</div>
                         </div>
                       </div>
                     </div>
@@ -579,18 +579,18 @@ export default function App() {
 
           {activeTab === "decisions" && (
             <div style={{ maxWidth: 900 }}>
-              <div style={{ fontSize: 9, color: "#64748b", letterSpacing: "0.15em", marginBottom: 20 }}>KEY ARCHITECTURAL DECISIONS — CONFIRMED IN BUILD</div>
+              <div style={{ fontSize: 9, color: "#1e293b", letterSpacing: "0.15em", marginBottom: 20 }}>KEY ARCHITECTURAL DECISIONS — CONFIRMED IN BUILD</div>
               <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 6, overflow: "hidden", marginBottom: 20, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
                 <div style={{ display: "grid", gridTemplateColumns: "190px 170px 1fr", gap: 16, padding: "10px 16px", borderBottom: "1px solid #f1f5f9", background: "#f8fafc" }}>
                   {["Decision", "Choice", "Rationale"].map(h => (
-                    <div key={h} style={{ fontSize: 9, color: "#64748b", letterSpacing: "0.15em" }}>{h}</div>
+                    <div key={h} style={{ fontSize: 9, color: "#1e293b", letterSpacing: "0.15em" }}>{h}</div>
                   ))}
                 </div>
                 {decisions.map(d => (
                   <div key={d.q} className="decision-row">
-                    <div style={{ fontSize: 11, color: "#475569" }}>{d.q}</div>
+                    <div style={{ fontSize: 11, color: "#1e293b" }}>{d.q}</div>
                     <div style={{ fontSize: 11, color: "#2563eb", fontWeight: 500 }}>{d.a}</div>
-                    <div style={{ fontSize: 11, color: "#64748b", lineHeight: 1.6 }}>{d.reason}</div>
+                    <div style={{ fontSize: 11, color: "#374151", lineHeight: 1.6 }}>{d.reason}</div>
                   </div>
                 ))}
               </div>
