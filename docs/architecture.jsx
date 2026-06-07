@@ -119,9 +119,9 @@ const layers = [
       { name: "Mermaid ER Diagram Generator", icon: "🗺️", detail: "Generates erDiagram from TableModels and RelationshipModels. Filters to custom entities via publisher prefix. Two-tier exclusion: excludeStandardRelationships flag kills all OOB noise; erd.excludeEntities/excludeRelationships config for per-solution fine-tuning. Self-referential edges skipped. Entity names SafeMermaidName-encoded. ADO :::mermaid fence.", tags: ["Diagram"], done: true, moscow: "S" },
       { name: "Mermaid Flow Generator", icon: "📈", detail: "Recursive action tree walker. flowchart TD with ADO :::mermaid syntax. Node shapes per type (If=diamond, Scope=subroutine, Foreach=loop, Terminate=circle). Yes/No edge labels, ⚠ Error path for Catch. Compatible with ADO Mermaid v8.14.", tags: ["Diagram"], done: true, moscow: "S" },
       { name: "Expression Serialiser", icon: "🔣", detail: "Converts Power Automate condition expression objects into human-readable strings. Handles and/or/not, equals/greater/less, contains, startsWith. Cleans @outputs()/@triggerBody() references to field names.", tags: ["Analysis"], done: true, moscow: "S" },
-      { name: "AI Summary Cache Manager", icon: "💾", detail: "Committed .powerautodocs-ai-cache.json file stores AI-generated summaries. SHA-256 hash of component IR for cache invalidation. --regenerate-ai flag for manual full refresh. Cache entries reviewed in PRs before publication.", tags: ["AI", "Cache"], done: true, moscow: "C" },
-      { name: "AI Provider Interface", icon: "🤖", detail: "Thin abstraction layer (AiProvider interface) for pluggable AI providers. Initially Claude/Anthropic. Config specifies provider + model. Future: add OpenAI, other providers without touching enrichment logic.", tags: ["AI", "Pluggable"], done: true, moscow: "C" },
-      { name: "Component Summarizer", icon: "✍️", detail: "Generates human-readable summaries for flows, plugins, business rules, tables, security roles. Optional per-component in config. Audience-aware (technical/functional/executive). Injects summaries into DocNode output alongside raw extracted content.", tags: ["AI", "Enrichment"], done: true, moscow: "C" },
+      { name: "AI Summary Cache Manager", icon: "💾", detail: "Committed .powerautodocs-ai-cache.json file stores AI-generated summaries. SHA-256 hash of component IR for cache invalidation. --regenerate-ai flag for manual full refresh. Cache entries reviewed in PRs before publication.", tags: ["AI", "Cache"], done: false, moscow: "C" },
+      { name: "AI Provider Interface", icon: "🤖", detail: "Thin abstraction layer (AiProvider interface) for pluggable AI providers. Initially Claude/Anthropic. Config specifies provider + model. Future: add OpenAI, other providers without touching enrichment logic.", tags: ["AI", "Pluggable"], done: false, moscow: "C" },
+      { name: "Component Summarizer", icon: "✍️", detail: "Generates human-readable summaries for flows, plugins, business rules, tables, security roles. Optional per-component in config. Audience-aware (technical/functional/executive). Injects summaries into DocNode output alongside raw extracted content.", tags: ["AI", "Enrichment"], done: false, moscow: "C" },
       { name: "Dependency Resolver", icon: "🔗", detail: "Resolves plugin → entity, flow → table links. Surfaces in docs as 'Used By' / 'Related' sections.", tags: ["Analysis"], done: false, moscow: "C" },
       { name: "Complexity Scorer", icon: "📏", detail: "Flags high-complexity flows/plugins. Highlights what needs most attention in handover docs.", tags: ["Analysis"], done: false, moscow: "C" },
       { name: "Change Detector", icon: "📝", detail: "Git diff between commits → 'What changed since last release'. Generates change log wiki pages.", tags: ["Optional"], done: false, moscow: "C" },
@@ -185,7 +185,7 @@ const pages = [
   { emoji: "📨", name: "Routing Rule Sets", desc: "Rule set index + per-rule conditions and queue assignments", done: false, moscow: "S" },
   { emoji: "🔗", name: "Custom Connectors", desc: "Connector index + per-connector operations list", done: false, moscow: "S" },
   { emoji: "🌐", name: "Power Pages", desc: "Site overview, pages, web templates, entity forms and lists", done: false, moscow: "C" },
-  { emoji: "🤖", name: "AI Enrichment", desc: "Optional AI-generated summaries for components. Per-component toggle in config. Cache-first approach with .powerautodocs-ai-cache.json. Pluggable provider interface.", done: true, moscow: "C" },
+  { emoji: "🤖", name: "AI Enrichment", desc: "Optional AI-generated summaries for components. Per-component toggle in config. Cache-first approach with .powerautodocs-ai-cache.json. Pluggable provider interface.", done: false, moscow: "C" },
 ];
 
 const decisions = [
@@ -288,9 +288,9 @@ const progress = [
     phase: "Phase 5 — Advanced & Delivery", color: "#0891b2", status: "PLANNED",
     items: [
       { label: "CLI entry point (--word / --wiki flags, unknown flag detection)", done: true },
-      { label: "AI Summary Cache Manager", done: true },
-      { label: "AI Provider Interface (Anthropic/Claude)", done: true },
-      { label: "Component Summarizer (flows, plugins, rules, tables, roles)", done: true },
+      { label: "AI Summary Cache Manager", done: false },
+      { label: "AI Provider Interface (Anthropic/Claude)", done: false },
+      { label: "Component Summarizer (flows, plugins, rules, tables, roles)", done: false },
       { label: "Auto-trigger pipeline (push/scheduled)", done: false },
       { label: "Change log (git-diff driven)", done: false },
       { label: "IR JSON artifact publishing", done: false },
