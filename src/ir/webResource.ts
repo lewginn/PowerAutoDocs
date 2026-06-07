@@ -54,4 +54,6 @@ export interface WebResourceModel {
   namespace?: string;
   /** Populated only for JavaScript resources */
   functions?: WebResourceFunction[];
+  /** AI-generated summary — populated by enrichment when aiEnrichment.components.webResources is enabled */
+  aiSummary?: string;
 }

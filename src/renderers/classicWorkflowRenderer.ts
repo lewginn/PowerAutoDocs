@@ -4,6 +4,7 @@ import type { ClassicWorkflowModel, ClassicWorkflowStepModel } from '../ir/class
 import type { DocNode, InlineNode } from '../docmodel/nodes.js';
 import { h, pt, p, t, c, b, i, table, ct, cc, bulletList, bullet } from '../docmodel/nodes.js';
 import { serialize } from '../docmodel/MarkdownSerializer.js';
+import { aiSummaryBlock } from './rendererUtils.js';
 
 // -----------------------------------------------
 // Step list — nested bullet items
@@ -107,6 +108,7 @@ export function renderClassicWorkflow(wf: ClassicWorkflowModel): DocNode[] {
   const nodes: DocNode[] = [];
 
   nodes.push(h(1, wf.name));
+  nodes.push(...aiSummaryBlock(wf.aiSummary));
 
   const categoryLabel = wf.category === 'action' ? 'Custom Action' : 'Classic Workflow';
   const modeLabel     = wf.mode === 'realtime' ? 'Real-time (Synchronous)' : 'Background (Asynchronous)';

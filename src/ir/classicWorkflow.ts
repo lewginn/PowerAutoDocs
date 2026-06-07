@@ -33,4 +33,6 @@ export interface ClassicWorkflowModel {
   status: 'active' | 'inactive';
   triggers: ClassicWorkflowTriggers;
   steps: ClassicWorkflowStepModel[];
+  /** AI-generated summary — populated by enrichment when aiEnrichment.components.classicWorkflows is enabled */
+  aiSummary?: string;
 }

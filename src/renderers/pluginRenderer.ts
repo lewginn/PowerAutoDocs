@@ -6,7 +6,7 @@ import type { PluginAssemblyModel, PluginStepModel } from '../ir/index.js';
 import type { DocNode, InlineNode } from '../docmodel/nodes.js';
 import { h, pt, p, t, c, b, i, lnk, table, ct, cc, cell, bulletList, bullet } from '../docmodel/nodes.js';
 import { serialize } from '../docmodel/MarkdownSerializer.js';
-import { toADOWikiLink } from './rendererUtils.js';
+import { toADOWikiLink, aiSummaryBlock } from './rendererUtils.js';
 
 // -----------------------------------------------
 // Top-level summary — index of all assemblies
@@ -46,6 +46,7 @@ export function renderAssemblyIndex(assembly: PluginAssemblyModel, basePath: str
   const nodes: DocNode[] = [];
 
   nodes.push(h(1, assembly.assemblyName));
+  nodes.push(...aiSummaryBlock(assembly.aiSummary));
   nodes.push(table(
     ['Property', 'Value'],
     [

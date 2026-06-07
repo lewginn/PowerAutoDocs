@@ -60,6 +60,18 @@ export const CONFIG_DEFAULTS: DocGenConfig = {
     modelDrivenApps: true,
     connectionReferences: true
   },
+  aiEnrichment: {
+    enabled: false,
+    provider: 'anthropic',
+    components: {
+      flows: false,
+      classicWorkflows: false,
+      businessRules: false,
+      plugins: false,
+      webResources: false,
+    },
+    cacheFile: '.powerautodocs-ai-cache.json',
+  },
 };
 
 /**
@@ -86,6 +98,57 @@ function deepMerge<T>(defaults: T, overrides: Partial<T>): T {
     }
   }
   return result;
+}
+
+/**
+ * Validates the aiEnrichment block at config-load time.
+ * This is deliberately fail-fast (throws) rather than skip-and-continue —
+ * a misconfigured AI block means the user explicitly opted in but got the
+ * shape wrong, so surfacing it immediately (before any parsing/rendering
+ * work happens) is far more useful than silently disabling enrichment
+ * partway through a run.
+ */
+function validateAiEnrichmentConfig(config: DocGenConfig): void {
+  const ai = config.aiEnrichment;
+  if (!ai || !ai.enabled) return;
+
+  const errors: string[] = [];
+
+  if (ai.provider === 'anthropic') {
+    if (!ai.anthropic) {
+      errors.push(`aiEnrichment.provider is 'anthropic' but aiEnrichment.anthropic is missing`);
+    } else {
+      if (!ai.anthropic.apiKeyEnv) errors.push(`aiEnrichment.anthropic.apiKeyEnv is required`);
+      // model is optional — AnthropicProvider falls back to DEFAULT_ANTHROPIC_MODEL
+    }
+  } else if (ai.provider === 'azure-openai') {
+    if (!ai.azureOpenAI) {
+      errors.push(`aiEnrichment.provider is 'azure-openai' but aiEnrichment.azureOpenAI is missing`);
+    } else {
+      const az = ai.azureOpenAI;
+      if (!az.endpointEnv) errors.push(`aiEnrichment.azureOpenAI.endpointEnv is required`);
+      if (!az.deployment) errors.push(`aiEnrichment.azureOpenAI.deployment is required`);
+      if (!az.apiVersion) errors.push(`aiEnrichment.azureOpenAI.apiVersion is required`);
+      if (!az.useManagedIdentity && !az.apiKeyEnv) {
+        errors.push(`aiEnrichment.azureOpenAI requires either apiKeyEnv or useManagedIdentity: true`);
+      }
+    }
+  } else {
+    errors.push(`aiEnrichment.provider must be 'anthropic' or 'azure-openai' — got '${ai.provider}'`);
+  }
+
+  const anyComponentEnabled = Object.values(ai.components ?? {}).some(Boolean);
+  if (!anyComponentEnabled) {
+    errors.push(`aiEnrichment.enabled is true but no components are opted in under aiEnrichment.components`);
+  }
+
+  if (errors.length > 0) {
+    throw new Error(
+      `Invalid aiEnrichment configuration:\n` +
+      errors.map(e => `  - ${e}`).join('\n') +
+      `\n  → Fix doc-gen.config.yml, or set aiEnrichment.enabled: false to disable AI summaries.`
+    );
+  }
 }
 
 /**
@@ -125,6 +188,9 @@ export function loadConfig(configDir: string = process.cwd()): DocGenConfig {
       );
     }
   }
+
+  // Fail-fast on a misconfigured AI enrichment block — see validateAiEnrichmentConfig.
+  validateAiEnrichmentConfig(merged);
 
   console.log(`Loaded config from: ${configPath}`);
   return merged;

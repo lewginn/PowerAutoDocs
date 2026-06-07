@@ -110,6 +110,48 @@ components:
 
 
 # -----------------------------------------------------------------------------
+# AI ENRICHMENT (optional)
+# Generates short AI summaries for selected component types and embeds them
+# on the relevant detail pages (hidden automatically when no summary exists).
+#
+# Cache-first: summaries are cached in `aiEnrichment.cacheFile` (JSON, commit
+# it to your repo) keyed by a hash of each component's content. Re-runs only
+# call the AI for components that changed — keeping output deterministic and
+# cost low. Bumping promptVersion internally forces a full regeneration.
+#
+# Secrets follow the same pattern as wiki.pat/WIKI_PAT — name the env var here,
+# inject the real value via your ADO pipeline secret variables. Never commit
+# API keys or endpoints to this file.
+# -----------------------------------------------------------------------------
+# aiEnrichment:
+#   enabled: true
+#   provider: anthropic                 # anthropic | azure-openai
+#   cacheFile: .powerautodocs-ai-cache.json
+#
+#   # Required when provider: anthropic
+#   anthropic:
+#     apiKeyEnv: ANTHROPIC_API_KEY      # Name of the env var holding the API key
+#     model: claude-sonnet-4-5
+#
+#   # Required when provider: azure-openai
+#   # azureOpenAI:
+#   #   endpointEnv: AZURE_OPENAI_ENDPOINT
+#   #   apiKeyEnv: AZURE_OPENAI_API_KEY # Omit if useManagedIdentity: true
+#   #   useManagedIdentity: false       # Preferred enterprise path — zero secrets to rotate
+#   #   deployment: gpt-4o-summariser
+#   #   apiVersion: '2024-10-21'
+#
+#   # Opt in per component — deliberately a subset (complex/code-like artefacts
+#   # benefit most from a plain-English summary). All default to false.
+#   components:
+#     flows: true
+#     classicWorkflows: true
+#     businessRules: true
+#     plugins: true
+#     webResources: true
+
+
+# -----------------------------------------------------------------------------
 # WIKI
 # Required if output.wiki is true.
 # The PAT must be injected at pipeline runtime — never commit a real value here.

@@ -52,4 +52,6 @@ export interface FlowModel {
   connectionReferences: string[];
   /** Mermaid flowchart diagram string — generated at parse time */
   mermaidDiagram?: string;
+  /** AI-generated summary — populated by enrichment when aiEnrichment.components.flows is enabled */
+  aiSummary?: string;
 }

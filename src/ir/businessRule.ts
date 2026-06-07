@@ -34,4 +34,6 @@ export interface BusinessRuleModel {
   /** allForms = runs on all forms, specificForm = tied to one form, entity = server-side */
   scope: BusinessRuleScope;
   conditions: BusinessRuleCondition[];
+  /** AI-generated summary — populated by enrichment when aiEnrichment.components.businessRules is enabled */
+  aiSummary?: string;
 }

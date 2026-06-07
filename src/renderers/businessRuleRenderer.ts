@@ -3,6 +3,7 @@
 import type { BusinessRuleModel, BusinessRuleAction, BusinessRuleCondition } from '../ir/businessRule.js';
 import type { DocNode, InlineNode } from '../docmodel/nodes.js';
 import { h, pt, p, t, c, b, table, ct, cc, bulletList, bullet } from '../docmodel/nodes.js';
+import { aiSummaryBlock } from './rendererUtils.js';
 
 // -----------------------------------------------
 // Action group — groups actions by type
@@ -46,6 +47,7 @@ export function renderBusinessRule(rule: BusinessRuleModel): DocNode[] {
   const nodes: DocNode[] = [];
 
   nodes.push(h(1, rule.name));
+  nodes.push(...aiSummaryBlock(rule.aiSummary));
 
   const scopeLabel =
     rule.scope === 'specificForm' ? 'Specific Form' :

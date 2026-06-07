@@ -18,6 +18,7 @@ import type {
   SecurityRoleModel, EnvironmentVariableModel, ConnectionReferenceModel,
   GlobalChoiceModel, EmailTemplateModel, ModelDrivenAppModel,
 } from './ir/index.js';
+import { enrichWithAiSummaries } from './enrichment/aiSummariser.js';
 import { publishToWiki } from './publisher/wikiPublisher.js';
 import { buildWikiPages } from './publisher/wikiAssembler.js';
 import { buildWordDocument } from './publisher/docAssembler.js';
@@ -71,12 +72,13 @@ export async function main(configDir?: string): Promise<void> {
   const argv     = process.argv.slice(2);
   const flagWord = argv.includes('--word');
   const flagWiki = argv.includes('--wiki');
+  const flagRegenerateAi = argv.includes('--regenerate-ai');
 
-  const KNOWN_FLAGS = new Set(['--word', '--wiki']);
+  const KNOWN_FLAGS = new Set(['--word', '--wiki', '--regenerate-ai']);
   const unknownFlags = argv.filter(a => a.startsWith('--') && !KNOWN_FLAGS.has(a));
   if (unknownFlags.length > 0) {
     console.error(`✗ Unknown flag(s): ${unknownFlags.join(', ')}`);
-    console.error('  Valid flags: --word  --wiki');
+    console.error('  Valid flags: --word  --wiki  --regenerate-ai');
     console.error('  Or set output.wiki / output.word in doc-gen.config.yml instead.');
     process.exit(1);
   }
@@ -282,6 +284,34 @@ export async function main(configDir?: string): Promise<void> {
       const reason = err?.message ?? String(err);
       log('error', `Unexpected failure — ${reason}`);
       summary.solutionsSkipped.push({ name: solutionLabel, reason });
+    }
+  }
+
+  // ---- AI enrichment ----
+  // Runs after all solutions are parsed, before rendering — populates
+  // `aiSummary` on supported IR models in place. No-op if disabled in config.
+  if (config.aiEnrichment?.enabled) {
+    logHeader('AI Enrichment');
+    try {
+      if (flagRegenerateAi) {
+        log('info', '--regenerate-ai flag set — ignoring cached AI summaries and regenerating all');
+      }
+      await enrichWithAiSummaries(
+        config,
+        configDir ?? process.env.DOC_GEN_CONFIG_DIR ?? process.cwd(),
+        {
+          flows: allFlows,
+          classicWorkflows: allClassicWorkflows,
+          businessRules: allBusinessRules,
+          pluginAssemblies: allPluginAssemblies,
+          webResources: allWebResources,
+        },
+        summary,
+        flagRegenerateAi
+      );
+    } catch (err: any) {
+      log('error', `AI enrichment failed — ${err?.message ?? err}`);
+      summary.aiSummaryFailures.push({ component: 'enrichment', name: '(run)', reason: err?.message ?? String(err) });
     }
   }
 
