@@ -119,6 +119,9 @@ const layers = [
       { name: "Mermaid ER Diagram Generator", icon: "🗺️", detail: "Generates erDiagram from TableModels and RelationshipModels. Filters to custom entities via publisher prefix. Two-tier exclusion: excludeStandardRelationships flag kills all OOB noise; erd.excludeEntities/excludeRelationships config for per-solution fine-tuning. Self-referential edges skipped. Entity names SafeMermaidName-encoded. ADO :::mermaid fence.", tags: ["Diagram"], done: true, moscow: "S" },
       { name: "Mermaid Flow Generator", icon: "📈", detail: "Recursive action tree walker. flowchart TD with ADO :::mermaid syntax. Node shapes per type (If=diamond, Scope=subroutine, Foreach=loop, Terminate=circle). Yes/No edge labels, ⚠ Error path for Catch. Compatible with ADO Mermaid v8.14.", tags: ["Diagram"], done: true, moscow: "S" },
       { name: "Expression Serialiser", icon: "🔣", detail: "Converts Power Automate condition expression objects into human-readable strings. Handles and/or/not, equals/greater/less, contains, startsWith. Cleans @outputs()/@triggerBody() references to field names.", tags: ["Analysis"], done: true, moscow: "S" },
+      { name: "AI Summary Cache Manager", icon: "💾", detail: "Committed .powerautodocs-ai-cache.json file stores AI-generated summaries. SHA-256 hash of component IR for cache invalidation. --regenerate-ai flag for manual full refresh. Cache entries reviewed in PRs before publication.", tags: ["AI", "Cache"], done: true, moscow: "C" },
+      { name: "AI Provider Interface", icon: "🤖", detail: "Thin abstraction layer (AiProvider interface) for pluggable AI providers. Initially Claude/Anthropic. Config specifies provider + model. Future: add OpenAI, other providers without touching enrichment logic.", tags: ["AI", "Pluggable"], done: true, moscow: "C" },
+      { name: "Component Summarizer", icon: "✍️", detail: "Generates human-readable summaries for flows, plugins, business rules, tables, security roles. Optional per-component in config. Audience-aware (technical/functional/executive). Injects summaries into DocNode output alongside raw extracted content.", tags: ["AI", "Enrichment"], done: true, moscow: "C" },
       { name: "Dependency Resolver", icon: "🔗", detail: "Resolves plugin → entity, flow → table links. Surfaces in docs as 'Used By' / 'Related' sections.", tags: ["Analysis"], done: false, moscow: "C" },
       { name: "Complexity Scorer", icon: "📏", detail: "Flags high-complexity flows/plugins. Highlights what needs most attention in handover docs.", tags: ["Analysis"], done: false, moscow: "C" },
       { name: "Change Detector", icon: "📝", detail: "Git diff between commits → 'What changed since last release'. Generates change log wiki pages.", tags: ["Optional"], done: false, moscow: "C" },
@@ -182,6 +185,7 @@ const pages = [
   { emoji: "📨", name: "Routing Rule Sets", desc: "Rule set index + per-rule conditions and queue assignments", done: false, moscow: "S" },
   { emoji: "🔗", name: "Custom Connectors", desc: "Connector index + per-connector operations list", done: false, moscow: "S" },
   { emoji: "🌐", name: "Power Pages", desc: "Site overview, pages, web templates, entity forms and lists", done: false, moscow: "C" },
+  { emoji: "🤖", name: "AI Enrichment", desc: "Optional AI-generated summaries for components. Per-component toggle in config. Cache-first approach with .powerautodocs-ai-cache.json. Pluggable provider interface.", done: true, moscow: "C" },
 ];
 
 const decisions = [
@@ -198,6 +202,14 @@ const decisions = [
   { q: "Security page structure?", a: "Security container → sublevel pages", reason: "Security is a container page with [[_TOSP_]]. Security Roles is a sublevel — not the top page itself — leaving room for Column Security Profiles and other future additions without restructuring the wiki hierarchy." },
   { q: "Word output?", a: "DocNode layer + DocxSerializer", reason: "Renderers now emit DocNode[] (format-agnostic). MarkdownSerializer converts to ADO Wiki markdown; DocxSerializer converts to docx Paragraph/Table elements. A4 fixed-width tables (TableLayoutType.FIXED + DXA column widths) ensure consistent rendering in Word and Word Online. Output mode controlled by output.word in config.yml or --word CLI flag. Mermaid blocks skipped in Word — ADO-only rendering." },
   { q: "PDF output?", a: "Treated as a separate future feature", reason: "PDF rendering requires a different approach to Word (headless browser or dedicated PDF library) and has different use cases. Splitting them avoids conflating two distinct delivery formats. Word covers the primary client use case. PDF deferred." },
+  { q: "AI summaries — stable across runs?", a: "Cache-first: committed JSON file", reason: "A CI documentation pipeline must produce stable, reviewable output. Without a cache every run regenerates different text, creating constant noisy wiki diffs. The cache file (.powerautodocs-ai-cache.json) is committed alongside doc-gen.config.yml so AI-written summaries are reviewed in PRs before they're published — same discipline as any other code change." },
+  { q: "AI summary cache invalidation?", a: "SHA-256 hash of component IR + --regenerate-ai flag", reason: "Each cache entry stores a SHA-256 of the serialised IR for that component. If the IR hasn't changed the cached summary is reused — controls API cost and prevents surprise rewrites on unchanged components. --regenerate-ai flag gives a manual escape hatch for a full fresh pass." },
+  { q: "Which AI provider(s)?", a: "Claude (Anthropic) behind a thin AiProvider interface", reason: "Claude is the natural fit given the toolchain. The summariser sits behind a thin AiProvider interface (summarise(prompt): Promise<string>) so other providers can be added later without touching enrichment logic. Config takes provider: anthropic — explicit, not inferred." },
+  { q: "Which AI model?", a: "Configurable, defaulting to claude-haiku-4-5", reason: "Haiku is fast and cheap — ideal for batch-summarising many components per run. Clients who want higher quality can bump to Sonnet in their config. Pinning a specific model ID (not 'latest') ensures summaries don't silently change when Anthropic releases a new default." },
+  { q: "Which components can be AI-summarised?", a: "All rendered components eligible; each toggled individually in config", reason: "Mirrors the existing components: toggle pattern users already understand. Flows are the highest-value target (complex, long, hard to skim at a glance) but tables, plugins, business rules and security roles all benefit. Opt-in per component so clients only pay API cost for what they enable." },
+  { q: "AI call failure handling?", a: "Skip-and-continue — summary omitted, warning logged", reason: "Consistent with the existing error handling strategy. A rate-limit or bad API key should not halt documentation of everything else. The end-of-run summary lists how many AI summaries were skipped so failures are visible without being fatal to the pipeline." },
+  { q: "AI API key handling?", a: "apiKeyEnv points to an env var name; key never in the config file", reason: "Same pattern as WIKI_PAT. The committed config contains apiKeyEnv: ANTHROPIC_API_KEY; the actual key is an ADO secret variable injected at pipeline runtime via the pipeline variables. Nothing sensitive ever touches the repo." },
+  { q: "AI summary section — conditional rendering?", a: "Renderer emits no DocNode if aiSummary is absent", reason: "If a component has no cached summary (AI disabled, or skipped due to failure) the renderer simply does not emit the summary section DocNode — no empty heading, no placeholder text. This is a renderer guard before the h() call, not conditional template logic. Output is identical to pre-AI pages when enrichment is off." },
 ];
 
 const progress = [
@@ -276,6 +288,9 @@ const progress = [
     phase: "Phase 5 — Advanced & Delivery", color: "#0891b2", status: "PLANNED",
     items: [
       { label: "CLI entry point (--word / --wiki flags, unknown flag detection)", done: true },
+      { label: "AI Summary Cache Manager", done: true },
+      { label: "AI Provider Interface (Anthropic/Claude)", done: true },
+      { label: "Component Summarizer (flows, plugins, rules, tables, roles)", done: true },
       { label: "Auto-trigger pipeline (push/scheduled)", done: false },
       { label: "Change log (git-diff driven)", done: false },
       { label: "IR JSON artifact publishing", done: false },
