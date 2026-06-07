@@ -6,6 +6,7 @@ import type { FlowModel, FlowActionModel } from '../ir/index.js';
 import type { DocNode, InlineNode } from '../docmodel/nodes.js';
 import { h, pt, p, t, c, b, i, lnk, table, ct, cc, cell, bulletList, bullet, mermaid } from '../docmodel/nodes.js';
 import { serialize } from '../docmodel/MarkdownSerializer.js';
+import { aiSummaryBlock } from './rendererUtils.js';
 
 // -----------------------------------------------
 // Summary page
@@ -69,6 +70,7 @@ export function renderSingleFlow(flow: FlowModel): DocNode[] {
   const nodes: DocNode[] = [];
 
   nodes.push(h(1, flow.name));
+  nodes.push(...aiSummaryBlock(flow.aiSummary));
 
   const metaRows: InlineNode[][][] = [
     [ct('Status'), ct(flow.isActive ? 'Active' : 'Inactive')],

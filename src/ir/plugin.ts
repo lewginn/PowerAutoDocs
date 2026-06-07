@@ -37,4 +37,6 @@ export interface PluginAssemblyModel {
     isolationMode: 'Sandbox' | 'None';
     pluginTypeNames: string[];
     steps: PluginStepModel[];
+    /** AI-generated summary — populated by enrichment when aiEnrichment.components.plugins is enabled */
+    aiSummary?: string;
 }

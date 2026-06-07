@@ -21,6 +21,62 @@ export interface EnvironmentVariablesConfig {
   showCurrentValue: boolean;
 }
 
+// -----------------------------------------------
+// AI Enrichment
+// -----------------------------------------------
+
+export type AiProviderType = 'anthropic' | 'azure-openai';
+
+export interface AnthropicProviderConfig {
+  /** Name of the env var holding the Anthropic API key (e.g. 'ANTHROPIC_API_KEY') */
+  apiKeyEnv: string;
+  /** Model identifier e.g. 'claude-sonnet-4-5'. Defaults to 'claude-haiku-4-5' (fast/cheap, ideal for batch summarisation) if omitted. */
+  model?: string;
+}
+
+export const DEFAULT_ANTHROPIC_MODEL = 'claude-haiku-4-5';
+
+export interface AzureOpenAIProviderConfig {
+  /** Name of the env var holding the Azure OpenAI endpoint URL */
+  endpointEnv: string;
+  /** Name of the env var holding the API key. Omit when using managed identity. */
+  apiKeyEnv?: string;
+  /** Use Azure managed identity instead of an API key. Default: false */
+  useManagedIdentity?: boolean;
+  /** Deployment name configured in the Azure OpenAI resource */
+  deployment: string;
+  /** Azure OpenAI REST API version e.g. '2024-10-21' */
+  apiVersion: string;
+}
+
+export interface AiEnrichmentComponentsConfig {
+  /** Summarise Power Automate Flows. Default: false */
+  flows: boolean;
+  /** Summarise Classic Workflows. Default: false */
+  classicWorkflows: boolean;
+  /** Summarise Business Rules. Default: false */
+  businessRules: boolean;
+  /** Summarise Plugin Assemblies / steps. Default: false */
+  plugins: boolean;
+  /** Summarise JavaScript Web Resources. Default: false */
+  webResources: boolean;
+}
+
+export interface AiEnrichmentConfig {
+  /** Master switch for AI enrichment. Default: false */
+  enabled: boolean;
+  /** Which provider to use when enabled */
+  provider: AiProviderType;
+  /** Required when provider: 'anthropic' */
+  anthropic?: AnthropicProviderConfig;
+  /** Required when provider: 'azure-openai' */
+  azureOpenAI?: AzureOpenAIProviderConfig;
+  /** Per-component opt-in toggles — all default to false (deliberately not mirroring `components`) */
+  components: AiEnrichmentComponentsConfig;
+  /** Path to the cache file, relative to the config file. Default: '.powerautodocs-ai-cache.json' */
+  cacheFile?: string;
+}
+
 export interface DocGenConfig {
   solutions: SolutionEntry[];
 
@@ -71,6 +127,7 @@ export interface DocGenConfig {
 
   wiki?: WikiConfig;
   erd?: ErdConfig;
+  aiEnrichment?: AiEnrichmentConfig;
 }
 export interface ErdConfig {
   /** Entity logical names to exclude entirely from the diagram */

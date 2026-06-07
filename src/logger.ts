@@ -60,6 +60,17 @@ export function logSummary(summary: RunSummary): void {
     }
   }
 
+  if (summary.aiSummariesGenerated > 0 || summary.aiSummariesCached > 0 || summary.aiSummaryFailures.length > 0) {
+    console.log(`\n  AI summaries generated: ${summary.aiSummariesGenerated}`);
+    console.log(`  AI summaries cached   : ${summary.aiSummariesCached}`);
+    if (summary.aiSummaryFailures.length > 0) {
+      console.log(`  AI summary failures   : ${summary.aiSummaryFailures.length}`);
+      for (const f of summary.aiSummaryFailures) {
+        console.log(`    ✗ [${f.component}] ${f.name} — ${f.reason}`);
+      }
+    }
+  }
+
   const hasErrors = summary.solutionsSkipped.length > 0 || summary.publishFailures.length > 0;
   const hasWarnings = summary.parseWarnings.length > 0;
 
@@ -79,6 +90,9 @@ export interface RunSummary {
   parseWarnings: { solution: string; component: string; reason: string }[];
   pagesPublished: number;
   publishFailures: { path: string; reason: string }[];
+  aiSummariesGenerated: number;
+  aiSummariesCached: number;
+  aiSummaryFailures: { component: string; name: string; reason: string }[];
 }
 
 export function createSummary(): RunSummary {
@@ -88,5 +102,8 @@ export function createSummary(): RunSummary {
     parseWarnings: [],
     pagesPublished: 0,
     publishFailures: [],
+    aiSummariesGenerated: 0,
+    aiSummariesCached: 0,
+    aiSummaryFailures: [],
   };
 }

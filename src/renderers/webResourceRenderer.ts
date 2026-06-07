@@ -6,6 +6,7 @@ import type { WebResourceModel, WebResourceFunction } from '../ir/index.js';
 import type { DocNode, InlineNode } from '../docmodel/nodes.js';
 import { h, pt, p, t, c, b, lnk, table, ct, cc, cell, bulletList, bullet } from '../docmodel/nodes.js';
 import { serialize } from '../docmodel/MarkdownSerializer.js';
+import { aiSummaryBlock } from './rendererUtils.js';
 
 // -----------------------------------------------
 // Summary page
@@ -70,6 +71,7 @@ export function renderWebResourceDetail(resource: WebResourceModel): DocNode[] {
   const title = resource.name.split('/').pop() ?? resource.name;
 
   nodes.push(h(1, title));
+  nodes.push(...aiSummaryBlock(resource.aiSummary));
   nodes.push(h(2, 'Metadata'));
   nodes.push(table(
     ['Property', 'Value'],
@@ -123,7 +125,7 @@ function renderFunctionTable(fns: WebResourceFunction[]): DocNode {
       ct(f.name),
       ct(f.isAsync ? 'Yes' : 'No'),
       ct(f.params.length > 0 ? f.params.join(', ') : '—'),
-      ct(f.jsDoc ?? '—'),
+      ct(f.aiSummary ?? f.jsDoc ?? '—'),
     ])
   );
 }
