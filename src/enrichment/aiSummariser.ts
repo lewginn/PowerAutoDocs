@@ -35,7 +35,7 @@ import type { RunSummary } from '../logger.js';
 // materially. Folded into the cache hash, so bumping it forces every
 // summary to regenerate on the next run (deliberate full invalidation).
 // -----------------------------------------------
-const PROMPT_VERSION = 1;
+const PROMPT_VERSION = 2;
 
 // -----------------------------------------------
 // Cache shape
@@ -189,6 +189,32 @@ const COMPONENT_LENSES: Record<ComponentKind, string> = {
 type ComponentKind = 'flows' | 'classicWorkflows' | 'businessRules' | 'plugins' | 'webResources';
 
 function buildPrompt(kind: ComponentKind, view: unknown): string {
+  // Web resources get a structured-output prompt — we want both a file-level
+  // summary AND a short per-function summary (replaces the near-always-empty
+  // jsDoc column in the rendered Functions table) from a single call, so the
+  // cost stays exactly what it already was.
+  if (kind === 'webResources') {
+    return [
+      SYSTEM_FRAMING,
+      '',
+      COMPONENT_LENSES.webResources,
+      '',
+      'Respond with ONLY a JSON object — no markdown code fences, no commentary ' +
+        'before or after — in exactly this shape:',
+      '{',
+      '  "fileSummary": "2-4 sentence summary of the file as a whole",',
+      '  "functionSummaries": {',
+      '    "<functionName>": "one short, plain-English sentence describing what this specific function does"',
+      '  }',
+      '}',
+      'Include one entry in functionSummaries for every function listed in the data below, ' +
+        'keyed by its exact name. Keep each function summary to a single sentence.',
+      '',
+      'Component data (JSON):',
+      JSON.stringify(view, null, 2),
+    ].join('\n');
+  }
+
   return [
     SYSTEM_FRAMING,
     '',
@@ -197,6 +223,26 @@ function buildPrompt(kind: ComponentKind, view: unknown): string {
     'Component data (JSON):',
     JSON.stringify(view, null, 2),
   ].join('\n');
+}
+
+/**
+ * Parses a (possibly fenced) JSON object out of an AI response.
+ * Returns null if the text isn't valid JSON — callers fall back gracefully.
+ */
+function tryParseJsonObject(text: string): Record<string, unknown> | null {
+  const cleaned = text.trim()
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/```\s*$/i, '')
+    .trim();
+  try {
+    const parsed = JSON.parse(cleaned);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 // -----------------------------------------------
@@ -370,7 +416,31 @@ export async function enrichWithAiSummaries(
       models: models.webResources.filter(w => w.resourceType === 'JavaScript'),
       uniqueName: w => w.name,
       buildView: webResourceView,
-      setSummary: (m, s) => { m.aiSummary = s; },
+      // The provider returns (and the cache stores) a JSON string shaped like
+      // { fileSummary, functionSummaries: { <name>: <summary> } } — parsed here
+      // and fanned out to both the file-level aiSummary and each function's
+      // aiSummary. Falls back to treating the raw text as the file summary if
+      // it isn't valid JSON (e.g. a stale pre-v2 cache entry or a provider that
+      // ignored the format instruction) so nothing breaks ungracefully.
+      setSummary: (m, s) => {
+        const parsed = tryParseJsonObject(s);
+        if (parsed) {
+          if (typeof parsed.fileSummary === 'string') {
+            m.aiSummary = parsed.fileSummary;
+          }
+          const fnSummaries = parsed.functionSummaries;
+          if (fnSummaries && typeof fnSummaries === 'object' && m.functions) {
+            for (const fn of m.functions) {
+              const fnSummary = (fnSummaries as Record<string, unknown>)[fn.name];
+              if (typeof fnSummary === 'string' && fnSummary.trim()) {
+                fn.aiSummary = fnSummary.trim();
+              }
+            }
+          }
+        } else {
+          m.aiSummary = s;
+        }
+      },
     }, forceRegenerate, seenKeys);
   }
 

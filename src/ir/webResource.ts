@@ -37,6 +37,8 @@ export interface WebResourceFunction {
   params: string[];
   /** JSDoc description if present (first @description or leading comment) */
   jsDoc?: string;
+  /** AI-generated one-line summary of what this function does — populated by enrichment when aiEnrichment.components.webResources is enabled */
+  aiSummary?: string;
 }
 
 export interface WebResourceModel {

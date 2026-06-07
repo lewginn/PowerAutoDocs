@@ -37,5 +37,11 @@ Thumbs.db
 #yml config file, required for client project, but should not be committed to source control as it may contain environment-specific settings
 *doc-gen.config.yml
 
+# AI enrichment cache — local/per-client artifact (contains real component names
+# and AI-generated summaries from the client's solution). Regenerates automatically.
+# Note: the architecture decision to "commit the cache for PR review" applies to a
+# *client project repo* using powerautodocs, not to this tool's own repo.
+.powerautodocs-ai-cache.json
+
 #claude code project instructions
 *claude.md

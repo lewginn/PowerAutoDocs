@@ -18,6 +18,17 @@
 # Optional pipeline variables:
 #   POWERAUTODOCS_VERSION — npm version tag to pin (default: latest)
 #                           Set in the ADO pipeline UI to lock a specific version
+#
+#   If you've enabled aiEnrichment in doc-gen.config.yml, also add:
+#   ANTHROPIC_API_KEY (secret)      — required when aiEnrichment.provider: anthropic
+#   AZURE_OPENAI_ENDPOINT / AZURE_OPENAI_API_KEY — required when provider: azure-openai
+#   (the exact names must match whatever you set as apiKeyEnv/endpointEnv in
+#    doc-gen.config.yml — these are just the defaults used in the sample config)
+#
+#   IMPORTANT: secret pipeline variables are NOT automatically exposed as
+#   environment variables to script steps — they must be explicitly mapped
+#   via an `env:` block on the step that runs powerautodocs (see step 3 below),
+#   exactly like WIKI_PAT is mapped in step 2.
 # =============================================================================
 
 trigger: none
@@ -56,11 +67,19 @@ steps:
   # 3. Run powerautodocs
   # Output (wiki, Word, or both) is controlled by output.wiki / output.word
   # in doc-gen.config.yml. Override at runtime with --wiki or --word flags.
+  #
+  # The env block maps secret pipeline variables through to the process —
+  # required for any AI provider keys referenced via apiKeyEnv/endpointEnv
+  # in doc-gen.config.yml. Remove the lines for providers you don't use.
   # ---------------------------------------------------------------------------
   - script: |
       npx powerautodocs@$(POWERAUTODOCS_VERSION)
     displayName: Generate documentation
     workingDirectory: $(Build.SourcesDirectory)
+    env:
+      ANTHROPIC_API_KEY: $(ANTHROPIC_API_KEY)
+      AZURE_OPENAI_ENDPOINT: $(AZURE_OPENAI_ENDPOINT)
+      AZURE_OPENAI_API_KEY: $(AZURE_OPENAI_API_KEY)
 
   # ---------------------------------------------------------------------------
   # 4. Publish Word document as a downloadable pipeline artifact

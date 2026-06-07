@@ -16,10 +16,10 @@ export function toADOWikiLink(fullPath: string): string {
 }
 
 /**
- * Renders an "AI Summary" callout for a component detail page.
+ * Renders a "Summary" callout (AI-generated) for a component detail page.
  *
  * Returns an empty array when no summary is present — the section simply
- * doesn't appear (output layer decision: no AI summary section is emitted
+ * doesn't appear (output layer decision: no summary section is emitted
  * when aiEnrichment is disabled or a summary couldn't be generated/cached).
  * Centralising this here keeps the hide-when-absent behaviour consistent
  * across every renderer that supports AI summaries.
@@ -27,7 +27,7 @@ export function toADOWikiLink(fullPath: string): string {
 export function aiSummaryBlock(aiSummary?: string): DocNode[] {
   if (!aiSummary) return [];
   return [
-    h(2, 'AI Summary'),
+    h(2, 'Summary'),
     bqt(aiSummary),
   ];
 }

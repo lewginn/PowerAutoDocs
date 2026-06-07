@@ -125,7 +125,7 @@ function renderFunctionTable(fns: WebResourceFunction[]): DocNode {
       ct(f.name),
       ct(f.isAsync ? 'Yes' : 'No'),
       ct(f.params.length > 0 ? f.params.join(', ') : '—'),
-      ct(f.jsDoc ?? '—'),
+      ct(f.aiSummary ?? f.jsDoc ?? '—'),
     ])
   );
 }
