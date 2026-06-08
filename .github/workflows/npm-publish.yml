@@ -2,7 +2,13 @@ name: Publish to npm
 
 on:
   release:
-    types: [created]
+    # `created` fires when a release object is first created — including
+    # drafts. `published` fires when a release becomes publicly available,
+    # which is what actually matters for triggering an npm publish — this
+    # covers both releases created directly as published *and* drafts
+    # published later via the UI (the latter only fires `published`, not
+    # `created` — this is what caused v1.4.0 to silently skip npm publish).
+    types: [created, published]
 
 jobs:
   publish:
