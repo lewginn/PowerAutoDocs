@@ -9,6 +9,10 @@ on:
     # published later via the UI (the latter only fires `published`, not
     # `created` — this is what caused v1.4.0 to silently skip npm publish).
     types: [created, published]
+  # Manual escape hatch — lets us (re)trigger an npm publish from the Actions
+  # tab or `gh workflow run "Publish to npm"` without needing a release event
+  # at all (e.g. if a release event is ever missed again, or to republish).
+  workflow_dispatch:
 
 jobs:
   publish:
