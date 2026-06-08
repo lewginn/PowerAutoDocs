@@ -137,7 +137,7 @@ const layers = [
       { name: "Markdown Renderer", icon: "✍️", detail: "Primary output. All renderers emit markdown strings directly — string builder pattern with markdownTable() helper. toADOWikiLink() encodes all internal links (spaces→hyphens, parens escaped, hyphens→%2D). [[_TOSP_]] on container pages only.", tags: ["Primary"], done: true, moscow: "M" },
       { name: "ADO Wiki Publisher", icon: "🌐", detail: "Azure DevOps REST API. Creates/updates wiki pages in correct hierarchy. Top-down parent creation. Page name sanitisation via s() helper. Auth pre-validation. Z→A publish order for A→Z sidebar display.", tags: ["ADO"], done: true, moscow: "S" },
       { name: "Word Renderer", icon: "📄", detail: "DocNode format-agnostic document model layer (src/docmodel/nodes.ts). Renderers emit DocNode[] via MarkdownSerializer (ADO Wiki) or DocxSerializer (Word). DocxSerializer → docx library: A4 page, proportional fixed-width column tables, TOC, page-number footer. Output controlled by output.word in config or --word CLI flag. Mermaid skipped in Word (ADO-only).", tags: ["Optional"], done: true, moscow: "C" },
-      { name: "PDF Renderer", icon: "📑", detail: "Standalone PDF output separate from Word. Would reuse the DocNode layer — needs a headless rendering strategy (e.g. Puppeteer, Playwright, or a dedicated PDF library). Deferred: Word covers the primary use case.", tags: ["Optional"], done: false, moscow: "W" },
+      { name: "PDF Renderer", icon: "📑", detail: "Standalone PDF output reusing the DocNode layer — PdfSerializer (src/docmodel/PdfSerializer.ts) emits pdfmake content: A4 page, proportional fixed-width column tables (pt-based, scales the minimum down for wide tables like the security-role privilege matrix), TOC with page numbers, page-number footer. Standard 14 PDF fonts only (Helvetica/Courier) — no font files bundled; a glyph-fallback map substitutes WinAnsi-safe equivalents for symbols renderers emit outside that range (e.g. ●○ privilege dots → •°). pdfAssembler.ts mirrors docAssembler.ts section-by-section. Output controlled by output.pdf in config or --pdf CLI flag, local file only (not published to ADO Wiki). Mermaid skipped, matching Word.", tags: ["Optional"], done: true, moscow: "C" },
       { name: "Confluence Renderer", icon: "🔵", detail: "Same IR → Confluence storage format. For clients not on ADO. Low priority — most clients use ADO.", tags: ["Optional"], done: false, moscow: "W" },
     ]
   },
@@ -201,7 +201,7 @@ const decisions = [
   { q: "Package name?", a: "powerautodocs (renamed from powerautodoc)", reason: "Original package powerautodoc was published with client references in source file comments. npm does not allow full package deletion after 72 hours. Renamed to powerautodocs on a clean repository (lewginn/PowerAutoDocs) with no client data in history. Old package deprecated." },
   { q: "Security page structure?", a: "Security container → sublevel pages", reason: "Security is a container page with [[_TOSP_]]. Security Roles is a sublevel — not the top page itself — leaving room for Column Security Profiles and other future additions without restructuring the wiki hierarchy." },
   { q: "Word output?", a: "DocNode layer + DocxSerializer", reason: "Renderers now emit DocNode[] (format-agnostic). MarkdownSerializer converts to ADO Wiki markdown; DocxSerializer converts to docx Paragraph/Table elements. A4 fixed-width tables (TableLayoutType.FIXED + DXA column widths) ensure consistent rendering in Word and Word Online. Output mode controlled by output.word in config.yml or --word CLI flag. Mermaid blocks skipped in Word — ADO-only rendering." },
-  { q: "PDF output?", a: "Treated as a separate future feature", reason: "PDF rendering requires a different approach to Word (headless browser or dedicated PDF library) and has different use cases. Splitting them avoids conflating two distinct delivery formats. Word covers the primary client use case. PDF deferred." },
+  { q: "PDF output?", a: "DocNode layer + PdfSerializer (pdfmake)", reason: "Reuses the same format-agnostic DocNode[] layer as Word — PdfSerializer converts it to pdfmake content using the standard 14 PDF fonts (Helvetica/Courier), so no font files or native binaries need bundling. Mirrors DocxSerializer's structure and decisions (A4, 1\" margins, proportional column widths, Mermaid skipped) for a self-contained file. pdfAssembler.ts mirrors docAssembler.ts section-by-section with identical heading offsets. Self-contained PDFs have no subpages, so internal links degrade gracefully to plain/code-styled text — same pattern as Word. Output controlled by output.pdf in config.yml or --pdf CLI flag; local file only, not published to the ADO Wiki." },
   { q: "AI summaries — stable across runs?", a: "Cache-first: committed JSON file", reason: "A CI documentation pipeline must produce stable, reviewable output. Without a cache every run regenerates different text, creating constant noisy wiki diffs. The cache file (.powerautodocs-ai-cache.json) is committed alongside doc-gen.config.yml so AI-written summaries are reviewed in PRs before they're published — same discipline as any other code change." },
   { q: "AI summary cache invalidation?", a: "SHA-256 hash of component IR + --regenerate-ai flag", reason: "Each cache entry stores a SHA-256 of the serialised IR for that component. If the IR hasn't changed the cached summary is reused — controls API cost and prevents surprise rewrites on unchanged components. --regenerate-ai flag gives a manual escape hatch for a full fresh pass." },
   { q: "Which AI provider(s)?", a: "Anthropic (Claude) + Azure OpenAI day-one; factory-extensible", reason: "Anthropic/Claude is the natural fit given the toolchain. But most D365/Power Platform shops on ADO are deep in Azure and already have Azure OpenAI provisioned — Azure-hosted AI with data residency compliance and no new vendor procurement. Both providers implement the AiProvider interface (summarise(prompt): Promise<string>). The factory pattern in providers/index.ts means new providers (OpenAI direct, Bedrock, etc.) only need a new file — aiSummariser stays completely provider-agnostic." },
@@ -218,93 +218,93 @@ const decisions = [
   { q: "Configurable summary tone/length per client?", a: "Deferred — not in v1 scope", reason: "Adding a tone: 'technical' | 'executive' or maxSentences config knob before knowing whether clients actually want it would add config surface and prompt-variation complexity speculatively. The fixed technical-handover tone and 2-3 sentence cap covers the primary use case. Tracked as a backlog candidate — straightforward to bolt on as an optional override once the core feature is proven in real use." },
 ];
 
+// Mirrors the phase groupings tracked on the PowerAutoDocs Roadmap GitHub
+// Project (github.com/users/lewginn/projects/3) — Lewis tracks/updates issue
+// status and phase assignment there as the source of truth; this list is kept
+// in sync with it (issue numbers noted per item for traceability).
 const progress = [
   {
-    phase: "Phase 1 — Core Data Model", color: "#2563eb", status: "COMPLETE",
+    phase: "Phase 1 — Core Pipeline & Data Model", color: "#2563eb", status: "COMPLETE",
     items: [
-      { label: "Solution manifest parser", done: true },
-      { label: "Entity / table parser", done: true },
-      { label: "Column type mapping + filtering", done: true },
-      { label: "Relationship parser (1:N)", done: true },
-      { label: "IR models split by domain", done: true },
-      { label: "Barrel exports (parsers + renderers)", done: true },
-      { label: "Config system with defaults", done: true },
-      { label: "Markdown renderer", done: true },
-      { label: "Solution overview page", done: true },
-      { label: "Per-table documentation pages", done: true },
+      { label: "Solution manifest parser (#71)", done: true },
+      { label: "Entity / table parser (#72)", done: true },
+      { label: "Column type mapping + filtering (#73)", done: true },
+      { label: "Relationship parser (1:N) (#74)", done: true },
+      { label: "IR models split by domain (#75)", done: true },
+      { label: "Barrel exports — parsers + renderers (#76)", done: true },
+      { label: "Config system with defaults (#77)", done: true },
+      { label: "Markdown renderer (#78)", done: true },
+      { label: "Solution overview page (#79)", done: true },
+      { label: "Per-table documentation pages (#80)", done: true },
     ]
   },
   {
     phase: "Phase 2 — Forms, Views & Filters", color: "#7c3aed", status: "COMPLETE",
     items: [
-      { label: "Form parser (Main, Quick Create, Card)", done: true },
-      { label: "View parser with type detection", done: true },
-      { label: "View filter condition extraction", done: true },
-      { label: "Nested join filter hierarchy + depth", done: true },
-      { label: "Linked entity column prefixing", done: true },
-      { label: "Compact / detailed form layout toggle", done: true },
-      { label: "OOTB column exclusion defaults", done: true },
-      { label: "Base currency field filtering", done: true },
+      { label: "Form parser — Main, Quick Create, Card (#81)", done: true },
+      { label: "View parser with type detection (#82)", done: true },
+      { label: "View filter condition extraction (#83)", done: true },
+      { label: "Nested join filter hierarchy + depth (#84)", done: true },
+      { label: "Linked entity column prefixing (#85)", done: true },
+      { label: "Compact / detailed form layout toggle (#86)", done: true },
+      { label: "OOTB column exclusion defaults (#87)", done: true },
+      { label: "Base currency field filtering (#88)", done: true },
     ]
   },
   {
-    phase: "Phase 3 — Automation, Code & Pipeline", color: "#9333ea", status: "COMPLETE",
+    phase: "Phase 3 — Component IR Models & Renderers", color: "#9333ea", status: "COMPLETE",
     items: [
-      { label: "Flow parser — trigger types + recursive action tree", done: true },
-      { label: "Flow parser — expression serialiser for conditions", done: true },
-      { label: "Mermaid diagram generator (ADO v8.14 compatible)", done: true },
-      { label: "Classic workflow parser (XAML)", done: true },
-      { label: "Business rule parser — if/else branch extraction", done: true },
-      { label: "Table pages split into subpages (Columns/Views/Forms/Relationships/Business Rules)", done: true },
-      { label: "Plugin step parser", done: true },
-      { label: "Web Resource parser (JS)", done: true },
-      { label: "ADO Wiki REST publisher", done: true },
-      { label: "Page name sanitisation + ADO wiki link encoding", done: true },
-      { label: "npm package (powerautodocs)", done: true },
-      { label: "ADO pipeline YAML", done: true },
-      { label: "Multi-solution manifest parsing (all roles)", done: true },
-      { label: "Security role privilege matrix", done: true },
-      { label: "Environment variables parser", done: true },
-      { label: "Global choice (option set) parser", done: true },
-      { label: "Connection references parser", done: true },
-      { label: "Email template parser", done: true },
-      { label: "Model-driven app parser", done: true },
-      { label: "Mermaid ER diagram generator", done: true },
-      { label: "Run logger + summary (logger.ts)", done: true },
-      { label: "GitHub Actions npm publish workflow", done: true },
-      { label: "PCF control parser", done: false },
+      { label: "Solution Model (#37)", done: true },
+      { label: "Table & Column Model (#38)", done: true },
+      { label: "Relationship Model (#39)", done: true },
+      { label: "Form Model & Parser (#40)", done: true },
+      { label: "View Model & Parser (#41)", done: true },
+      { label: "Flow Model & Renderer (#42)", done: true },
+      { label: "Classic Workflow Model & Renderer (#43)", done: true },
+      { label: "Business Rule Model & Renderer (#44)", done: true },
+      { label: "Plugin Model & Renderer (#45)", done: true },
+      { label: "Web Resource Model & Renderer (#46)", done: true },
+      { label: "Security Role Model & Renderer (#47)", done: true },
+      { label: "Environment Variable Model & Renderer (#48)", done: true },
+      { label: "Global Choice Model & Renderer (#49)", done: true },
+      { label: "Connection Reference Model & Renderer (#50)", done: true },
+      { label: "Email Template Model & Renderer (#51)", done: true },
+      { label: "Model-Driven App Model & Renderer (#52)", done: true },
     ]
   },
   {
-    phase: "Phase 4 — Extended Components", color: "#db2777", status: "PLANNED",
+    phase: "Phase 4 — AI Enrichment & Delivery Formats", color: "#db2777", status: "IN PROGRESS",
     items: [
-      { label: "Business process flow parser", done: false },
-      { label: "Column security profile parser", done: false },
-      { label: "Routing rule set parser", done: false },
-      { label: "Custom connector parser", done: false },
-      { label: "Duplicate detection rule parser", done: false },
-      { label: "SLA parser", done: false },
-      { label: "Dashboard parser", done: false },
-      { label: "Service endpoint parser", done: false },
-      { label: "Power Pages parser", done: false },
-      { label: "PCF control parser", done: false },
+      { label: "Dependency resolver — flow ↔ table cross-links (#69)", done: true },
+      { label: "AI Enrichment Layer — summaries, caching, providers (#1) — in progress", done: false },
+      { label: "PDF renderer — DocNode + PdfSerializer + pdfAssembler, pdfmake (#67) — in progress", done: false },
     ]
   },
   {
-    phase: "Phase 5 — Advanced & Delivery", color: "#0891b2", status: "PLANNED",
+    phase: "Phase 5 — Extended Components & Configuration", color: "#0891b2", status: "PLANNED",
     items: [
-      { label: "CLI entry point (--word / --wiki flags, unknown flag detection)", done: true },
-      { label: "AI Summary Cache Manager", done: true },
-      { label: "AI Provider Interface (Anthropic/Claude)", done: true },
-      { label: "Component Summarizer (flows, plugins, rules, tables, roles)", done: false },
-      { label: "Auto-trigger pipeline (push/scheduled)", done: false },
-      { label: "Change log (git-diff driven)", done: false },
-      { label: "IR JSON artifact publishing", done: false },
-      { label: "Word renderer (DocNode layer + DocxSerializer + docAssembler)", done: true },
-      { label: "PDF renderer (headless rendering — separate from Word)", done: false },
-      { label: "Mermaid → PNG for static formats (mmdc)", done: false },
-      { label: "Dependency resolver (flow → table links)", done: false },
-      { label: "Complexity scorer", done: false },
+      { label: "Business Process Flow Model & Parser & Renderer (#54)", done: false },
+      { label: "Column Security Profile Model & Parser & Renderer (#55)", done: false },
+      { label: "Routing Rule Set Model & Parser & Renderer (#56)", done: false },
+      { label: "Custom Connector Model & Parser & Renderer (#57)", done: false },
+      { label: "Duplicate Detection Rule Model & Parser & Renderer (#58)", done: false },
+      { label: "SLA Model & Parser & Renderer (#59)", done: false },
+      { label: "Service Endpoint Model & Parser & Renderer (#61)", done: false },
+      { label: "CLI flags with commander (#63)", done: false },
+      { label: "AI Enrichment — configurable summary tone/length per client (#90)", done: false },
+    ]
+  },
+  {
+    phase: "Backlog — Future Enhancements", color: "#64748b", status: "BACKLOG",
+    items: [
+      { label: "PCF Control Model & Parser & Renderer (#53)", done: false },
+      { label: "Dashboard Model & Parser & Renderer (#60)", done: false },
+      { label: "Power Pages Model & Parser & Renderer (#62)", done: false },
+      { label: "Auto-trigger pipeline — push/scheduled (#64)", done: false },
+      { label: "Git-based changelog (#65)", done: false },
+      { label: "IR JSON artifact export (#66)", done: false },
+      { label: "Mermaid → PNG conversion (#68)", done: false },
+      { label: "Complexity scorer (#70)", done: false },
     ]
   },
 ];
@@ -354,7 +354,7 @@ export default function App() {
         <div style={{ padding: "28px 40px 0", borderBottom: "1px solid #e2e8f0", background: "#ffffff", boxShadow: "0 1px 8px rgba(0,0,0,0.06)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
             <div style={{ background: "#0f172a", color: "white", fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, fontSize: 11, padding: "3px 10px", borderRadius: 2, letterSpacing: "0.12em" }}>POWERAUTODOCS</div>
-            <span style={{ fontSize: 9, color: "#64748b", letterSpacing: "0.1em", fontFamily: "'IBM Plex Mono', monospace" }}>v1.2.0</span>
+            <span style={{ fontSize: 9, color: "#64748b", letterSpacing: "0.1em", fontFamily: "'IBM Plex Mono', monospace" }}>v1.3.0</span>
             <a href="https://github.com/users/lewginn/projects/3" style={{ fontSize: 9, color: "#2563eb", marginLeft: "auto", textDecoration: "none" }}>→ Track in GitHub Project</a>
           </div>
           <h1 style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 22, fontWeight: 300, color: "#0f172a", letterSpacing: "-0.01em", marginBottom: 6 }}>
@@ -374,7 +374,7 @@ export default function App() {
               <span style={{ color: "#0f172a", fontWeight: 600 }}>{doneComponents}</span>
               <span style={{ color: "#94a3b8" }}>/{totalComponents}</span>
               <span> components built &nbsp;·&nbsp; </span>
-              <span style={{ color: "#059669", fontWeight: 600 }}>Phases 1, 2 & 3 complete · Phase 4 planned</span>
+              <span style={{ color: "#059669", fontWeight: 600 }}>Phases 1, 2 & 3 complete · Phase 4 in progress · Phase 5 & Backlog planned</span>
             </span>
           </div>
           <div style={{ display: "flex", gap: 0 }}>

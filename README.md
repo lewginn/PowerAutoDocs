@@ -36,6 +36,30 @@ powerautodocs covers the full stack of a Dataverse/Power Platform solution:
 
 ---
 
+## How it works
+
+powerautodocs uses a layered IR (Intermediate Representation) pipeline:
+
+```
+Unpacked Solution XML/JSON
+        ↓
+    Parsers (one per component type)
+        ↓
+    IR (typed TypeScript interfaces)
+        ↓
+    Enrichment (ERD, Mermaid diagrams, optional AI summaries)
+        ↓
+    Renderers (emit format-agnostic DocNode[])
+        ↓
+    MarkdownSerializer → ADO Wiki Publisher (REST API)
+    DocxSerializer     → Word .docx file
+    PdfSerializer      → PDF file
+```
+
+Parsers only produce IR. Renderers only consume IR. Neither knows about the other — swap or add output formats without touching the parsing logic.
+
+---
+
 ## Quick Start
 
 **1. Unpack your solution**
@@ -50,27 +74,35 @@ pac solution unpack --zipfile MySolution.zip --folder ./unpacked/MySolution
 npx powerautodocs@latest
 ```
 
-Output is controlled by `output.wiki` and `output.word` in your config, or via CLI flags:
+Output is controlled by `output.wiki`, `output.word` and `output.pdf` in your config, or via CLI flags:
 
 ```bash
-npx powerautodocs@latest --wiki          # Wiki only
-npx powerautodocs@latest --word          # Word only
-npx powerautodocs@latest --wiki --word   # Both
-npx powerautodocs@latest --regenerate-ai # Force a full AI summary refresh, ignoring the cache
+npx powerautodocs@latest --wiki                 # Wiki only
+npx powerautodocs@latest --word                 # Word only
+npx powerautodocs@latest --pdf                  # PDF only
+npx powerautodocs@latest --wiki --word --pdf    # Any combination
+npx powerautodocs@latest --regenerate-ai        # Force a full AI summary refresh, ignoring the cache
 ```
 
 ---
 
 ## Output modes
 
-powerautodocs supports two output formats, configurable independently:
+powerautodocs supports three output formats, configurable independently:
 
 | Mode | Config flag | CLI flag | Output |
 | --- | --- | --- | --- |
 | ADO Wiki | `output.wiki: true` | `--wiki` | Pages published to Azure DevOps Wiki via REST API |
 | Word document | `output.word: true` | `--word` | `.docx` file written to `output/` folder |
+| PDF document | `output.pdf: true` | `--pdf` | `.pdf` file written to `output/` folder (local only — not published to ADO Wiki) |
 
-CLI flags override the config file. If no flags are passed, the config drives everything.
+CLI flags override the config file — passing any one of `--wiki` / `--word` / `--pdf` treats the
+set you pass as the explicit output selection (unlisted formats are suppressed for that run, even
+if enabled in config). If no flags are passed, the config drives everything.
+
+Like the Word document, the PDF is a single self-contained file mirroring the wiki structure.
+Mermaid diagrams (ERD, flow charts) are omitted from both Word and PDF output — they're rendered
+in the ADO Wiki only.
 
 ---
 
@@ -179,6 +211,8 @@ output:
   wiki: true
   word: true
   wordFilename: solution-documentation.docx
+  pdf: false
+  pdfFilename: solution-documentation.pdf
 
 wiki:
   organisation: MyOrg
@@ -255,30 +289,7 @@ If your config lives outside the repo root, pass its location via environment va
 
 - Node.js 18+
 - Power Platform CLI (`pac`) — for unpacking solutions
-- Azure DevOps Wiki — for wiki output (optional if using Word only)
-
----
-
-## How it works
-
-powerautodocs uses a layered IR (Intermediate Representation) pipeline:
-
-```
-Unpacked Solution XML/JSON
-        ↓
-    Parsers (one per component type)
-        ↓
-    IR (typed TypeScript interfaces)
-        ↓
-    Enrichment (ERD, Mermaid diagrams, optional AI summaries)
-        ↓
-    Renderers (emit format-agnostic DocNode[])
-        ↓
-    MarkdownSerializer → ADO Wiki Publisher (REST API)
-    DocxSerializer     → Word .docx file
-```
-
-Parsers only produce IR. Renderers only consume IR. Neither knows about the other — swap or add output formats without touching the parsing logic.
+- Azure DevOps Wiki — for wiki output (optional if using Word and/or PDF only)
 
 ---
 

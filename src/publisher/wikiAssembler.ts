@@ -6,6 +6,7 @@ import type {
 } from '../ir/index.js';
 import type { WikiPage } from './wikiPublisher.js';
 import { generateERDiagram } from '../enrichment/erdGenerator.js';
+import { resolveFlowTableDependencies } from '../enrichment/dependencyResolver.js';
 import { serialize } from '../docmodel/MarkdownSerializer.js';
 import { h, toc, mermaid, pt } from '../docmodel/nodes.js';
 import {
@@ -14,6 +15,7 @@ import {
   renderTableForms, renderTableRelationships,
   renderTableBusinessRules, renderSingleBusinessRule,
   renderFlowSummary, renderSingleFlow,
+  renderTableUsedByFlows,
   renderPluginSummary, renderAssemblyIndex, renderSinglePluginType,
   renderWebResourceSummary, renderWebResourceDetail,
   renderClassicWorkflow, renderClassicWorkflowsOverview,
@@ -80,11 +82,15 @@ export function buildWikiPages(
       : serialize([h(1, 'Data Model'), toc()]),
   });
 
+  const flowsBasePath = `${base}/Automation/Flows`;
+  const flowDeps = resolveFlowTableDependencies(flows, mergedSolution.tables);
+
   for (const table of mergedSolution.tables) {
     const tablePath = `${base}/Data Model/${s(table.displayName)}`;
     const tableRules = businessRules.filter(
       r => r.entity.toLowerCase() === table.logicalName.toLowerCase()
     );
+    const tableFlows = flowDeps.tableToFlows.get(table.logicalName.toLowerCase()) ?? [];
 
     pages.push({ path: tablePath,                   content: serialize(renderTableIndex(table)) });
     pages.push({ path: `${tablePath}/Columns`,      content: serialize(renderTableColumns(table)) });
@@ -97,6 +103,9 @@ export function buildWikiPages(
     }
     if (config.components.relationships) {
       pages.push({ path: `${tablePath}/Relationships`, content: serialize(renderTableRelationships(table)) });
+    }
+    if (tableFlows.length > 0) {
+      pages.push({ path: `${tablePath}/Used By Flows`, content: serialize(renderTableUsedByFlows(table, tableFlows, flowsBasePath)) });
     }
 
     const brBasePath = `${tablePath}/Business Rules`;
@@ -119,16 +128,16 @@ export function buildWikiPages(
     });
 
     if (hasFlows) {
-      const flowsBasePath = `${base}/Automation/Flows`;
       pages.push({ path: flowsBasePath, content: serialize(renderFlowSummary(flows, flowsBasePath)) });
       for (const flow of flows) {
-        pages.push({ path: `${flowsBasePath}/${s(flow.name)}`, content: serialize(renderSingleFlow(flow)) });
+        const relatedTables = flowDeps.flowToTables.get(flow.id) ?? [];
+        pages.push({ path: `${flowsBasePath}/${s(flow.name)}`, content: serialize(renderSingleFlow(flow, relatedTables, `${base}/Data Model`)) });
       }
     }
 
     if (hasClassicWorkflows) {
       const cwBasePath = `${base}/Automation/Classic Workflows`;
-      pages.push({ path: cwBasePath, content: serialize(renderClassicWorkflowsOverview(classicWorkflows)) });
+      pages.push({ path: cwBasePath, content: serialize(renderClassicWorkflowsOverview(classicWorkflows, cwBasePath)) });
       for (const wf of classicWorkflows) {
         pages.push({ path: `${cwBasePath}/${s(wf.name)}`, content: serialize(renderClassicWorkflow(wf)) });
       }

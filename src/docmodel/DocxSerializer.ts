@@ -188,9 +188,16 @@ export function serializeBlock(node: DocNode, headingOffset: number): DocxBlock 
     case 'heading': {
       const absLevel  = Math.min(node.level + headingOffset, 4);
       const spacing   = HEADING_SPACING[absLevel] ?? HEADING_SPACING[4];
+      // Forcing a page break before every top-level section heading left large
+      // dead zones whenever the prior section ended partway down a page (e.g.
+      // the Overview's Solutions table finishing a third of the way down, then
+      // "Data Model" punting the rest of the page to whitespace). Letting
+      // sections flow naturally — same as everything else in the document —
+      // removes that wasted space; Word still keeps headings from being
+      // orphaned at the bottom of a page via `keepNext` below.
       return new Paragraph({
         heading: resolveHeadingLevel(node.level, headingOffset),
-        pageBreakBefore: absLevel === 1,
+        keepNext: true,
         children: [new TextRun({ text: node.text, italics: false })],
         spacing,
       });

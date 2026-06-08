@@ -26,6 +26,7 @@
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^25.3.3",
+    "@types/pdfmake": "^0.2.13",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   },
@@ -39,6 +40,7 @@
     "handlebars": "^4.7.8",
     "js-yaml": "^4.1.1",
     "openai": "^6.42.0",
+    "pdfmake": "^0.2.23",
     "zod": "^4.3.6"
   },
   "scripts": {
