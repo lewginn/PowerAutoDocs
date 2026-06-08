@@ -22,6 +22,7 @@ import { enrichWithAiSummaries } from './enrichment/aiSummariser.js';
 import { publishToWiki } from './publisher/wikiPublisher.js';
 import { buildWikiPages } from './publisher/wikiAssembler.js';
 import { buildWordDocument } from './publisher/docAssembler.js';
+import { buildPdfDocument } from './publisher/pdfAssembler.js';
 import { log, logHeader, logSummary, createSummary } from './logger.js';
 import type { RunSummary } from './logger.js';
 
@@ -72,14 +73,15 @@ export async function main(configDir?: string): Promise<void> {
   const argv     = process.argv.slice(2);
   const flagWord = argv.includes('--word');
   const flagWiki = argv.includes('--wiki');
+  const flagPdf  = argv.includes('--pdf');
   const flagRegenerateAi = argv.includes('--regenerate-ai');
 
-  const KNOWN_FLAGS = new Set(['--word', '--wiki', '--regenerate-ai']);
+  const KNOWN_FLAGS = new Set(['--word', '--wiki', '--pdf', '--regenerate-ai']);
   const unknownFlags = argv.filter(a => a.startsWith('--') && !KNOWN_FLAGS.has(a));
   if (unknownFlags.length > 0) {
     console.error(`✗ Unknown flag(s): ${unknownFlags.join(', ')}`);
-    console.error('  Valid flags: --word  --wiki  --regenerate-ai');
-    console.error('  Or set output.wiki / output.word in doc-gen.config.yml instead.');
+    console.error('  Valid flags: --word  --wiki  --pdf  --regenerate-ai');
+    console.error('  Or set output.wiki / output.word / output.pdf in doc-gen.config.yml instead.');
     process.exit(1);
   }
 
@@ -95,14 +97,17 @@ export async function main(configDir?: string): Promise<void> {
   }
 
   // Apply CLI flag overrides (local dev convenience — pipeline uses config only).
-  // If either flag is passed, treat them as the explicit output selection:
-  //   --word        → Word only, suppress wiki even if config.wiki is set
-  //   --wiki        → Wiki only, suppress Word even if config has output.word: true
-  //   --word --wiki → both
-  //   (no flags)    → fall through to whatever the config says
-  if (flagWord || flagWiki) {
+  // If any output flag is passed, treat them as the explicit output selection —
+  // unlisted formats are suppressed even if enabled in config:
+  //   --word               → Word only
+  //   --wiki               → Wiki only
+  //   --pdf                → PDF only
+  //   --word --wiki --pdf  → any combination
+  //   (no flags)           → fall through to whatever the config says
+  if (flagWord || flagWiki || flagPdf) {
     config.output.word = flagWord;
     config.output.wiki = flagWiki;
+    config.output.pdf  = flagPdf;
     if (flagWiki && !config.wiki) {
       log('warn', '--wiki flag set but no wiki config in doc-gen.config.yml — skipping wiki publish');
     }
@@ -396,6 +401,36 @@ export async function main(configDir?: string): Promise<void> {
     } catch (err: any) {
       log('error', `Word document generation failed — ${err?.message ?? err}`);
       summary.publishFailures.push({ path: wordOutputPath, reason: err?.message ?? String(err) });
+    }
+  }
+
+  // ---- PDF document ----
+  if (config.output.pdf && mergedSolution) {
+    logHeader('Generating PDF document');
+    const pdfFilename = config.output.pdfFilename ?? 'solution-documentation.pdf';
+    const pdfOutputPath = path.join(config.output.path, pdfFilename);
+    try {
+      await buildPdfDocument(
+        config,
+        allSolutions,
+        mergedSolution,
+        allFlows,
+        allPluginAssemblies,
+        allWebResources,
+        allClassicWorkflows,
+        allBusinessRules,
+        allSecurityRoles,
+        allEnvVars,
+        allConnectionReferences,
+        allGlobalChoices,
+        allEmailTemplates,
+        allModelDrivenApps,
+        pdfOutputPath,
+      );
+      log('success', `PDF document written: ${pdfOutputPath}`);
+    } catch (err: any) {
+      log('error', `PDF document generation failed — ${err?.message ?? err}`);
+      summary.publishFailures.push({ path: pdfOutputPath, reason: err?.message ?? String(err) });
     }
   }
 

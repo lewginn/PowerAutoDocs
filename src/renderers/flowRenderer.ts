@@ -2,7 +2,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import type { FlowModel, FlowActionModel } from '../ir/index.js';
+import type { FlowModel, FlowActionModel, TableModel } from '../ir/index.js';
 import type { DocNode, InlineNode } from '../docmodel/nodes.js';
 import { h, pt, p, t, c, b, i, lnk, table, ct, cc, cell, bulletList, bullet, mermaid } from '../docmodel/nodes.js';
 import { serialize } from '../docmodel/MarkdownSerializer.js';
@@ -66,7 +66,7 @@ function buildActionItems(actions: FlowActionModel[]): ReturnType<typeof bullet>
 // Single flow detail page
 // -----------------------------------------------
 
-export function renderSingleFlow(flow: FlowModel): DocNode[] {
+export function renderSingleFlow(flow: FlowModel, relatedTables?: TableModel[], tablesBasePath?: string): DocNode[] {
   const nodes: DocNode[] = [];
 
   nodes.push(h(1, flow.name));
@@ -103,6 +103,15 @@ export function renderSingleFlow(flow: FlowModel): DocNode[] {
   } else {
     const sorted = sortActionsByOrder(flow.actions);
     nodes.push(bulletList(buildActionItems(sorted)));
+  }
+
+  // ---- Tables Used ----
+  if (relatedTables && relatedTables.length > 0) {
+    nodes.push(h(2, 'Tables Used'));
+    nodes.push(bulletList(relatedTables.map(tbl => bullet(
+      0,
+      tablesBasePath ? lnk(tbl.displayName, `${tablesBasePath}/${tbl.displayName}`) : c(tbl.displayName)
+    ))));
   }
 
   // ---- Diagram ----

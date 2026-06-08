@@ -1,8 +1,8 @@
-// src/publisher/docAssembler.ts
+// src/publisher/pdfAssembler.ts
 //
-// Assembles all IR into a single Word document.
-// Mirrors the section structure of wikiAssembler, but instead of WikiPage[]
-// it produces one flat array of docx blocks — one continuous document.
+// Assembles all IR into a single PDF document.
+// Mirrors docAssembler.ts section-by-section — same structure, same heading
+// offsets — but emits pdfmake content via PdfSerializer instead of docx blocks.
 //
 // Heading offsets:
 //   depth 0 (section titles: Data Model, Automation, etc.)  → offset 0  → h1 stays h1
@@ -19,10 +19,10 @@ import type {
 } from '../ir/index.js';
 import { generateERDiagram } from '../enrichment/erdGenerator.js';
 import { resolveFlowTableDependencies } from '../enrichment/dependencyResolver.js';
-import { serializeBlocks, buildDocument, buildToc, toBuffer } from '../docmodel/DocxSerializer.js';
-import { h, toc, mermaid, pt } from '../docmodel/nodes.js';
+import { serializeBlocks, buildDocDefinition, buildToc, toBuffer } from '../docmodel/PdfSerializer.js';
+import { h, mermaid, pt } from '../docmodel/nodes.js';
 import type { DocNode } from '../docmodel/nodes.js';
-import type { Paragraph, Table, TableOfContents } from 'docx';
+import type { Content } from 'pdfmake/interfaces.js';
 import {
   renderOverview,
   renderTableIndex, renderTableColumns, renderTableViews,
@@ -40,25 +40,23 @@ import {
   renderModelDrivenAppsIndex, renderModelDrivenAppPage,
 } from '../renderers/index.js';
 
-type Block = Paragraph | Table | TableOfContents;
-
 /**
- * Mermaid diagrams are skipped in Word output (DocxSerializer returns [] for
- * `mermaid` nodes). Renderers shared with the wiki — e.g. renderSingleFlow's
- * "Diagram" section — emit a heading immediately before the diagram, which
- * would otherwise be left dangling with nothing beneath it. Drop any heading
- * that's directly followed by a mermaid node.
+ * Mermaid diagrams are skipped in PDF output (PdfSerializer returns null for
+ * `mermaid` nodes, matching Word). Renderers shared with the wiki — e.g.
+ * renderSingleFlow's "Diagram" section — emit a heading immediately before
+ * the diagram, which would otherwise be left dangling with nothing beneath it.
+ * Drop any heading that's directly followed by a mermaid node.
  */
 function dropOrphanedDiagramHeadings(nodes: DocNode[]): DocNode[] {
   return nodes.filter((node, i) => !(node.type === 'heading' && nodes[i + 1]?.type === 'mermaid'));
 }
 
-/** Add nodes to the block array at a given heading offset. */
-function push(blocks: Block[], nodes: DocNode[], offset: number): void {
-  blocks.push(...serializeBlocks(dropOrphanedDiagramHeadings(nodes), offset));
+/** Add nodes to the content array at a given heading offset. */
+function push(content: Content[], nodes: DocNode[], offset: number): void {
+  content.push(...serializeBlocks(dropOrphanedDiagramHeadings(nodes), offset));
 }
 
-export async function buildWordDocument(
+export async function buildPdfDocument(
   config: DocGenConfig,
   solutions: SolutionModel[],
   mergedSolution: SolutionModel,
@@ -75,13 +73,13 @@ export async function buildWordDocument(
   modelDrivenApps: ModelDrivenAppModel[] = [],
   outputPath: string,
 ): Promise<void> {
-  const blocks: Block[] = [];
+  const content: Content[] = [];
 
   // ---- Table of Contents ----
-  blocks.push(buildToc());
+  content.push(buildToc());
 
   // ---- Overview ---- (depth 0)
-  push(blocks, renderOverview(
+  push(content, renderOverview(
     solutions, flows, pluginAssemblies.filter(a => a.assemblyName.trim() !== ''),
     webResources, classicWorkflows, businessRules,
     securityRoles, envVars, globalChoices,
@@ -93,8 +91,8 @@ export async function buildWordDocument(
     ? generateERDiagram(mergedSolution.tables, solutions[0]?.publisher?.prefix ?? '', config.erd)
     : generateERDiagram(mergedSolution.tables, undefined, config.erd);
 
-  push(blocks, [h(1, 'Data Model')], 0);
-  if (erdDiagram) push(blocks, [mermaid(erdDiagram)], 0);
+  push(content, [h(1, 'Data Model')], 0);
+  if (erdDiagram) push(content, [mermaid(erdDiagram)], 0);
 
   const flowDeps = resolveFlowTableDependencies(flows, mergedSolution.tables);
 
@@ -105,26 +103,26 @@ export async function buildWordDocument(
     const tableFlows = flowDeps.tableToFlows.get(table.logicalName.toLowerCase()) ?? [];
 
     // Table index (drop toc_placeholder — content follows inline)
-    push(blocks, renderTableIndex(table).filter(n => n.type !== 'toc_placeholder'), 1);
-    push(blocks, renderTableColumns(table), 2);
+    push(content, renderTableIndex(table).filter(n => n.type !== 'toc_placeholder'), 1);
+    push(content, renderTableColumns(table), 2);
 
     if (config.components.views) {
-      push(blocks, renderTableViews(table), 2);
+      push(content, renderTableViews(table), 2);
     }
     if (config.components.forms) {
-      push(blocks, renderTableForms(table, config), 2);
+      push(content, renderTableForms(table, config), 2);
     }
     if (config.components.relationships) {
-      push(blocks, renderTableRelationships(table), 2);
+      push(content, renderTableRelationships(table), 2);
     }
     if (tableFlows.length > 0) {
-      push(blocks, renderTableUsedByFlows(table, tableFlows), 2);
+      push(content, renderTableUsedByFlows(table, tableFlows), 2);
     }
 
     if (tableRules.length > 0) {
-      push(blocks, renderTableBusinessRules(table, tableRules).filter(n => n.type !== 'toc_placeholder'), 2);
+      push(content, renderTableBusinessRules(table, tableRules).filter(n => n.type !== 'toc_placeholder'), 2);
       for (const rule of tableRules) {
-        push(blocks, renderSingleBusinessRule(rule), 3);
+        push(content, renderSingleBusinessRule(rule), 3);
       }
     }
   }
@@ -136,33 +134,33 @@ export async function buildWordDocument(
   const hasClassicWorkflows = classicWorkflows.length > 0;
 
   if (hasFlows || hasPlugins || hasClassicWorkflows) {
-    push(blocks, [h(1, 'Automation'), pt('Power Automate flows, classic workflows and plugins in this solution.')], 0);
+    push(content, [h(1, 'Automation'), pt('Power Automate flows, classic workflows and plugins in this solution.')], 0);
 
     if (hasFlows) {
-      push(blocks, renderFlowSummary(flows), 1);
+      push(content, renderFlowSummary(flows), 1);
       for (const flow of flows) {
         const relatedTables = flowDeps.flowToTables.get(flow.id) ?? [];
-        push(blocks, renderSingleFlow(flow, relatedTables), 2);
+        push(content, renderSingleFlow(flow, relatedTables), 2);
       }
     }
 
     if (hasClassicWorkflows) {
-      push(blocks, [h(1, 'Classic Workflows'), ...renderClassicWorkflowsOverview(classicWorkflows)], 1);
+      push(content, [h(1, 'Classic Workflows'), ...renderClassicWorkflowsOverview(classicWorkflows)], 1);
       for (const wf of classicWorkflows) {
-        push(blocks, renderClassicWorkflow(wf), 2);
+        push(content, renderClassicWorkflow(wf), 2);
       }
     }
 
     if (hasPlugins) {
-      push(blocks, renderPluginSummary(validAssemblies), 1);
+      push(content, renderPluginSummary(validAssemblies), 1);
       for (const assembly of validAssemblies) {
-        push(blocks, renderAssemblyIndex(assembly, ''), 2);
+        push(content, renderAssemblyIndex(assembly, ''), 2);
         for (const fullName of assembly.pluginTypeNames) {
           const shortName = fullName.startsWith(assembly.assemblyName + '.')
             ? fullName.slice(assembly.assemblyName.length + 1)
             : fullName;
           const steps = assembly.steps.filter(st => st.className === shortName);
-          push(blocks, renderSinglePluginType(shortName, steps, assembly), 3);
+          push(content, renderSinglePluginType(shortName, steps, assembly), 3);
         }
       }
     }
@@ -171,55 +169,54 @@ export async function buildWordDocument(
   // ---- Custom Code / Web Resources ----
   const jsResources = webResources.filter(r => r.resourceType === 'JavaScript');
   if (jsResources.length > 0) {
-    push(blocks, [h(1, 'Custom Code')], 0);
-    push(blocks, renderWebResourceSummary(jsResources), 1);
+    push(content, [h(1, 'Custom Code')], 0);
+    push(content, renderWebResourceSummary(jsResources), 1);
     for (const resource of jsResources) {
-      push(blocks, renderWebResourceDetail(resource), 2);
+      push(content, renderWebResourceDetail(resource), 2);
     }
   }
 
   // ---- Security Roles ----
   if (securityRoles.length > 0) {
-    push(blocks, renderSecurityRolesIndex(securityRoles, ''), 0);
+    push(content, renderSecurityRolesIndex(securityRoles, ''), 0);
     for (const role of securityRoles) {
-      push(blocks, renderSecurityRolePage(role), 1);
+      push(content, renderSecurityRolePage(role), 1);
     }
   }
 
   // ---- Integrations ----
   if (envVars.length > 0 || connectionRefs.length > 0) {
-    push(blocks, [h(1, 'Integrations')], 0);
-    if (envVars.length > 0)    push(blocks, renderEnvironmentVariablesPage(envVars), 1);
-    if (connectionRefs.length > 0) push(blocks, renderConnectionReferencesPage(connectionRefs), 1);
+    push(content, [h(1, 'Integrations')], 0);
+    if (envVars.length > 0)    push(content, renderEnvironmentVariablesPage(envVars), 1);
+    if (connectionRefs.length > 0) push(content, renderConnectionReferencesPage(connectionRefs), 1);
   }
 
   // ---- Global Choices ----
   if (globalChoices.length > 0) {
-    push(blocks, renderGlobalChoicesIndex(globalChoices, ''), 0);
+    push(content, renderGlobalChoicesIndex(globalChoices, ''), 0);
     for (const choice of globalChoices) {
-      push(blocks, renderGlobalChoicePage(choice), 1);
+      push(content, renderGlobalChoicePage(choice), 1);
     }
   }
 
   // ---- Email Templates ----
   if (emailTemplates.length > 0) {
-    push(blocks, renderEmailTemplatesIndex(emailTemplates, ''), 0);
+    push(content, renderEmailTemplatesIndex(emailTemplates, ''), 0);
     for (const template of emailTemplates) {
-      push(blocks, renderEmailTemplatePage(template), 1);
+      push(content, renderEmailTemplatePage(template), 1);
     }
   }
 
   // ---- Model-Driven Apps ----
   if (modelDrivenApps.length > 0) {
-    push(blocks, renderModelDrivenAppsIndex(modelDrivenApps, ''), 0);
+    push(content, renderModelDrivenAppsIndex(modelDrivenApps, ''), 0);
     for (const app of modelDrivenApps) {
-      push(blocks, renderModelDrivenAppPage(app), 1);
+      push(content, renderModelDrivenAppPage(app), 1);
     }
   }
 
   // ---- Write to disk ----
-  const doc    = buildDocument(blocks);
-  const buffer = await toBuffer(doc);
+  const buffer = await toBuffer(buildDocDefinition(content));
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, buffer);
 }

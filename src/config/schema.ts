@@ -89,6 +89,10 @@ export interface DocGenConfig {
     word?: boolean;
     /** Filename for the Word document (default: 'solution-documentation.docx') */
     wordFilename?: string;
+    /** Generate a PDF document. Default: false */
+    pdf?: boolean;
+    /** Filename for the PDF document (default: 'solution-documentation.pdf') */
+    pdfFilename?: string;
   };
 
   parse: {

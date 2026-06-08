@@ -30,6 +30,8 @@ export const CONFIG_DEFAULTS: DocGenConfig = {
     wiki: true,
     word: true,
     wordFilename: 'solution-documentation.docx',
+    pdf: false,
+    pdfFilename: 'solution-documentation.pdf',
   },
   parse: {
     customColumnsOnly: false,

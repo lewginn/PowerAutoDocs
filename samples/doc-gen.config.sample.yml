@@ -10,7 +10,7 @@
 # -----------------------------------------------------------------------------
 # SOLUTIONS
 # List every unpacked Power Platform solution you want to document.
-# All solutions are merged into a single output (wiki and/or Word).
+# All solutions are merged into a single output (wiki, Word and/or PDF).
 # -----------------------------------------------------------------------------
 solutions:
   - path: ./unpacked/MySolution       # Path to the unpacked solution folder
@@ -25,8 +25,8 @@ solutions:
 
 # -----------------------------------------------------------------------------
 # OUTPUT
-# Control what gets generated. You can enable wiki, Word, or both.
-# CLI flags --wiki and --word override these settings at runtime.
+# Control what gets generated. You can enable wiki, Word, PDF, or any combination.
+# CLI flags --wiki, --word and --pdf override these settings at runtime.
 # -----------------------------------------------------------------------------
 output:
   path: ./output                      # Local folder for generated files
@@ -34,6 +34,9 @@ output:
   wiki: true                          # Publish to Azure DevOps Wiki
   word: true                          # Generate a Word (.docx) document
   wordFilename: solution-documentation.docx  # Word output filename
+
+  pdf: false                          # Generate a PDF document (local file only — not published to ADO Wiki)
+  pdfFilename: solution-documentation.pdf    # PDF output filename
 
 
 # -----------------------------------------------------------------------------

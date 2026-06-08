@@ -2,11 +2,11 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import type { TableModel, ColumnModel, RelationshipModel } from '../ir/index.js';
+import type { TableModel, ColumnModel, RelationshipModel, FlowModel } from '../ir/index.js';
 import type { DocGenConfig } from '../config/index.js';
 import type { BusinessRuleModel } from '../ir/businessRule.js';
 import type { DocNode, InlineNode } from '../docmodel/nodes.js';
-import { h, pt, p, t, c, b, table, ct, cc, bulletList, bullet, toc } from '../docmodel/nodes.js';
+import { h, pt, p, t, c, b, lnk, table, ct, cc, cell, bulletList, bullet, toc } from '../docmodel/nodes.js';
 import { serialize } from '../docmodel/MarkdownSerializer.js';
 
 // -----------------------------------------------
@@ -217,7 +217,11 @@ export function renderTableRelationships(table_: TableModel): DocNode[] {
   function relRows(relationships: RelationshipModel[]): InlineNode[][][] {
     return relationships.map(rel => {
       const isParent   = rel.referencedEntity.toLowerCase() === table_.logicalName.toLowerCase();
-      const direction  = isParent ? 'One (this) → Many' : 'Many → One (this)';
+      // referencedEntity is always the "one" side (parent); referencingEntity is the
+      // "many" side that holds the lookup. Keep "this" on its correct side of the
+      // arrow in both cases — the previous labels swapped this for the child side,
+      // making it read as if "this" table were always the "one".
+      const direction  = isParent ? 'One (this) → Many' : 'Many (this) → One';
       const otherTable = isParent ? rel.referencingEntity : rel.referencedEntity;
       return [
         ct(rel.name),
@@ -274,6 +278,36 @@ export function renderTableBusinessRules(
   ));
 
   nodes.push(toc());
+
+  return nodes;
+}
+
+// -----------------------------------------------
+// Used By Flows — flows that reference this table
+// -----------------------------------------------
+
+export function renderTableUsedByFlows(
+  table_: TableModel,
+  flows: FlowModel[],
+  basePath?: string
+): DocNode[] {
+  const nodes: DocNode[] = [];
+
+  nodes.push(h(1, `${table_.displayName} — Used By Flows`));
+
+  if (flows.length === 0) {
+    nodes.push(pt('No flows reference this table.'));
+    return nodes;
+  }
+
+  nodes.push(table(
+    ['Flow', 'Trigger Type', 'Status'],
+    flows.map(f => [
+      basePath ? cell(lnk(f.name, `${basePath}/${f.name}`)) : ct(f.name),
+      ct(f.trigger.type),
+      ct(f.isActive ? 'Active' : 'Inactive'),
+    ])
+  ));
 
   return nodes;
 }

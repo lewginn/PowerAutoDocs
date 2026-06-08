@@ -3,6 +3,7 @@ export {
   renderTableIndex, renderTableColumns, renderTableViews,
   renderTableForms, renderTableRelationships,
   renderTableBusinessRules, renderSingleBusinessRule,
+  renderTableUsedByFlows,
 } from './tableRenderer.js';
 export { renderOverview, writeOverviewMarkdown } from './overviewRenderer.js';
 export { renderFlowMarkdown, renderFlowSummary, renderSingleFlow, writeFlowMarkdown } from './flowRenderer.js';
