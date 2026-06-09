@@ -273,11 +273,12 @@ const progress = [
     ]
   },
   {
-    phase: "Phase 4 — AI Enrichment & Delivery Formats", color: "#db2777", status: "IN PROGRESS",
+    phase: "Phase 4 — AI Enrichment & Delivery Formats", color: "#db2777", status: "COMPLETE",
     items: [
       { label: "Dependency resolver — flow ↔ table cross-links (#69)", done: true },
-      { label: "AI Enrichment Layer — summaries, caching, providers (#1) — in progress", done: false },
-      { label: "PDF renderer — DocNode + PdfSerializer + pdfAssembler, pdfmake (#67) — in progress", done: false },
+      { label: "AI Enrichment Layer — summaries, caching, providers (#1)", done: true },
+      { label: "Word renderer — DocNode + DocxSerializer + docAssembler (#94)", done: true },
+      { label: "PDF renderer — DocNode + PdfSerializer + pdfAssembler, pdfmake (#67)", done: true },
     ]
   },
   {
@@ -354,7 +355,7 @@ export default function App() {
         <div style={{ padding: "28px 40px 0", borderBottom: "1px solid #e2e8f0", background: "#ffffff", boxShadow: "0 1px 8px rgba(0,0,0,0.06)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
             <div style={{ background: "#0f172a", color: "white", fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, fontSize: 11, padding: "3px 10px", borderRadius: 2, letterSpacing: "0.12em" }}>POWERAUTODOCS</div>
-            <span style={{ fontSize: 9, color: "#64748b", letterSpacing: "0.1em", fontFamily: "'IBM Plex Mono', monospace" }}>v1.3.0</span>
+            <span style={{ fontSize: 9, color: "#64748b", letterSpacing: "0.1em", fontFamily: "'IBM Plex Mono', monospace" }}>v1.4.0</span>
             <a href="https://github.com/users/lewginn/projects/3" style={{ fontSize: 9, color: "#2563eb", marginLeft: "auto", textDecoration: "none" }}>→ Track in GitHub Project</a>
           </div>
           <h1 style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 22, fontWeight: 300, color: "#0f172a", letterSpacing: "-0.01em", marginBottom: 6 }}>
@@ -374,7 +375,7 @@ export default function App() {
               <span style={{ color: "#0f172a", fontWeight: 600 }}>{doneComponents}</span>
               <span style={{ color: "#94a3b8" }}>/{totalComponents}</span>
               <span> components built &nbsp;·&nbsp; </span>
-              <span style={{ color: "#059669", fontWeight: 600 }}>Phases 1, 2 & 3 complete · Phase 4 in progress · Phase 5 & Backlog planned</span>
+              <span style={{ color: "#059669", fontWeight: 600 }}>Phases 1–4 complete · Phase 5 & Backlog planned</span>
             </span>
           </div>
           <div style={{ display: "flex", gap: 0 }}>
@@ -509,10 +510,10 @@ export default function App() {
                 );
               })}
               <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderLeft: "3px solid #2563eb", borderRadius: 6, padding: 14, fontSize: 11, color: "#1e40af", lineHeight: 1.7 }}>
-                <strong>Phases 1, 2 & 3 are producing real output on live client solutions.</strong> The full pipeline
+                <strong>Phases 1–4 are complete and producing real output on live client solutions.</strong> The full pipeline
                 — data model, flows, classic workflows, business rules, plugins, web resources, security roles,
                 environment variables, global choices, email templates, model-driven apps and ER diagrams — publishes end-to-end via ADO pipeline.
-                Phase 4 adds extended D365 components. Phase 5 adds delivery formats and advanced analysis.
+                AI enrichment, Word (.docx) and PDF output are all shipped. Phase 5 adds extended D365 components and advanced analysis.
               </div>
             </div>
           )}
