@@ -373,7 +373,7 @@ All four `dev*` scripts redirect stdout **and** stderr into `dev.log` (gitignore
 | `bin` | `powerautodocs` → `dist/index.js` (package.json:6-8) |
 | `files` | `dist` only |
 | `type` | `module` |
-| `engines.node` | `>=18` — but **nothing exercises 18**: the publish workflow and the sample pipeline both use Node 20. Treat the floor as declared, not verified. |
+| `engines.node` | `>=22`, and **tested**: `ci.yml` runs the whole gate on a `[22, 24]` matrix. 18 and 20 are both EOL. Publish, Pages and the sample ADO pipeline all use 24. |
 | Shebang | injected post-build by `scripts/addShebang.mjs`, then `chmod +x` |
 | `prepublishOnly` | runs `npm run build` |
 | Tests in the tarball | none — tests live in `tests/` at the root, outside `tsconfig.json`'s `src/` scope, so `tsc` never emits them into `dist/` |

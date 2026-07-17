@@ -129,7 +129,7 @@ PowerAutoDocs can be run locally or triggered automatically via an Azure DevOps 
 
 ## Requirements
 
-- Node.js 18+
+- Node.js 22+ (Node 24 LTS recommended — it is what CI and the sample pipeline use)
 - Power Platform CLI (`pac`) for unpacking solutions
 - Azure DevOps Wiki for wiki output (optional if using Word/PDF only)
 

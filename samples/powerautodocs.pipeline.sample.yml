@@ -44,11 +44,15 @@ steps:
 
   # ---------------------------------------------------------------------------
   # 1. Setup Node.js
+  #
+  # 24.x is the current Node LTS (supported until April 2028) and is what CI
+  # tests against. The package needs >=22; 20 and 18 are both end-of-life and
+  # are no longer supported here.
   # ---------------------------------------------------------------------------
   - task: NodeTool@0
     displayName: Setup Node.js
     inputs:
-      versionSpec: '20.x'
+      versionSpec: '24.x'
 
   # ---------------------------------------------------------------------------
   # 2. Inject PAT into config
