@@ -222,7 +222,16 @@ Added under issue #102, once the product was close enough to a solid release tha
 
 ### What the suite covers, and what it refuses to
 
-Covered: `MarkdownSerializer` (DocNode → markdown), `rendererUtils`, `erdGenerator`, and the parsers with fixtures. These are pure or path-taking-and-fixture-satisfiable — no mocks anywhere in the suite.
+Covered: **all 17 parsers** (against hand-authored `ContosoDemo` fixtures), **all 14 renderers** (against the `ir.ts` factories), `MarkdownSerializer`, `wordTheme`, `erdGenerator` and `config/loader`. These are pure, or path-taking-and-fixture-satisfiable — **no mocks anywhere in the suite**, which is the property worth protecting.
+
+Still uncovered, and *not* for want of a seam — these are simply gaps:
+
+| Gap | Size | Note |
+|---|---|---|
+| `DocxSerializer` | 690 lines | The largest untested file in the repo. Its `renderMermaid` parameter is already an injection seam, and the `.docx` can be unzipped and asserted on — see the Word/PDF row above. |
+| `PdfSerializer` | 419 lines | Same shape. |
+| `publisher/*` | 4 modules | `wikiAssembler`/`docAssembler`/`pdfAssembler` are orchestration over tested parts; `wikiPublisher` needs an HTTP seam. |
+| `mermaidGenerator`, `dependencyResolver` | pure | No excuse — both are pure functions. Cheap wins for whoever picks this up next. |
 
 **Deliberately not covered — the seams don't exist yet:**
 
@@ -240,7 +249,9 @@ Covered: `MarkdownSerializer` (DocNode → markdown), `rendererUtils`, `erdGener
 
 `unpacked/` holds 314 real client XML files that already parse — it is the obvious fixture source and it is forbidden. `tests/fixtures/` is committed and public; pointing tests at client data, or copying it in, launders it into git history. That is the failure that renamed the package. Fixtures are hand-written for a fictional Contoso solution. See [constraints.md](constraints.md) and `tests/fixtures/README.md`.
 
-The cost is real: it is why the suite covers two parsers rather than seventeen. Fixtures get written as coverage extends, one component at a time.
+The cost is real, and it was paid: all seventeen parsers now have hand-authored fixtures under `tests/fixtures/solutions/ContosoDemo/`. Writing them found six parser defects that had been shipping — the fixtures earned their cost several times over.
+
+**The rule has one non-obvious trap.** `.gitignore` patterns apply to fixtures too. `*.txt` silently swallowed six fixtures whose entire purpose was to prove a parser skips non-XML files — ignored, they vanish on a fresh clone and those tests pass **vacuously** in CI. There is now a `!tests/fixtures/**` negation; keep it, and be suspicious of any fixture whose absence would still leave its test green.
 
 ---
 

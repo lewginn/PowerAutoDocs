@@ -129,24 +129,31 @@ describe('parseEntityXml', () => {
     expect(() => entity('contoso_broken')).toThrow(/Could not find entity node/);
   });
 
-  // --- Known defects, asserted so they are visible rather than forgotten -------
-  // These three all trace to one cause: getEnglishLabel() only ever looks for a
-  // <displayname> child, but is handed blocks whose children are <Description> and
-  // <LocalizedCollectionName>. Sibling parsers in this repo (relationshipParser,
-  // solutionManifestParser) read <Descriptions><Description> correctly, so the shape
-  // is not in doubt. Flip these assertions when the parser is fixed.
+  // --- Localised label blocks ---------------------------------------------------
+  // These three shared one bug: getEnglishLabel() hardcoded a <displayname> child
+  // lookup while being handed blocks whose children are <Description> and
+  // <LocalizedCollectionName>, so all three came back empty. For a documentation
+  // tool, silently blanking every description is about as bad as it gets — hence
+  // one test per block rather than one for the helper.
 
-  it('currently loses every column description (defect)', () => {
-    expect(column('contoso_widget', 'contoso_name').description).toBe('');
+  it('reads a column description from its <Descriptions><Description> block', () => {
+    expect(column('contoso_widget', 'contoso_name').description)
+      .toBe('The name shown on the widget record.');
   });
 
-  it('currently loses the entity description (defect)', () => {
-    expect(entity('contoso_widget').description).toBe('');
-    expect(entity('account').description).toBe('');
+  it('reads the entity description', () => {
+    expect(entity('contoso_widget').description).toBe('A fictional widget assembled from parts.');
   });
 
-  it('currently loses the plural display name (defect)', () => {
-    expect(entity('contoso_widget').pluralDisplayName).toBe('');
+  it('reads the plural display name from <LocalizedCollectionNames>', () => {
+    expect(entity('contoso_widget').pluralDisplayName).toBe('Widgets');
+  });
+
+  it('still returns empty for a block that is absent or has no 1033 entry', () => {
+    // contoso_part is the sparse fixture: no Descriptions block at all. Absent must
+    // stay '' rather than throwing — most standard columns carry no description.
+    expect(entity('contoso_part').description).toBe('');
+    expect(entity('contoso_part').pluralDisplayName).toBe('');
   });
 
   it('does not yet resolve lookup targets', () => {
