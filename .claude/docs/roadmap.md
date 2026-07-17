@@ -101,6 +101,12 @@ CLI flags are **already shipped** — flag parsing is hand-rolled off `process.a
 | #65 | Git-based changelog | C |
 | #66 | IR JSON artifact export | C |
 | #70 | Complexity scorer | C |
+| #115 | Virtual Table Model & Parser & Renderer | C |
+| #116 | Scheduled Flow Model & Parser & Renderer | C |
+| #117 | Custom Page Model & Parser & Renderer | C |
+| #118 | Agent Model & Parser & Renderer | C |
+| #119 | Settings Model & Parser & Renderer | C |
+| #120 | Masking Rule Model & Parser & Renderer (Secured/Attribute) | C |
 
 **Canvas App Source** is marked `moscow: "W"` (won't) in `docs/architecture.jsx:40` and has no issue — deliberately out of scope. **Confluence Renderer** is likewise `W` (`architecture.jsx:141`) — low priority, most clients are on ADO.
 

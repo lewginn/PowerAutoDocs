@@ -97,11 +97,17 @@ export function renderOverview(
     return nodes;
 }
 
-// Local file writer — kept for local dev output
-export function writeOverviewMarkdown(solution: SolutionModel, outputDir: string): void {
+// Local file writer — kept for local dev output.
+//
+// Takes every solution, not one — main() used to call this once PER solution
+// inside its processing loop, with a hardcoded 'overview.md' filename, so a
+// multi-solution config had each solution silently overwrite the last one's
+// file. It is now called once, after the loop, with the full accumulated
+// list — the same "write once at the end" shape wiki/Word already use.
+export function writeOverviewMarkdown(solutions: SolutionModel[], outputDir: string): void {
     fs.mkdirSync(outputDir, { recursive: true });
     const filepath = path.join(outputDir, 'overview.md');
-    const content = serialize(renderOverview([solution], [], [])).replace(/\r\n/g, '\n');
+    const content = serialize(renderOverview(solutions, [], [])).replace(/\r\n/g, '\n');
     fs.writeFileSync(filepath, content, 'utf-8');
     console.log(`Written: ${filepath}`);
 }
