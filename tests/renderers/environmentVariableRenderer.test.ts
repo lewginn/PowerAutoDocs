@@ -86,15 +86,53 @@ describe('renderEnvironmentVariablesPage', () => {
     for (const row of tbl.rows) expect(row).toHaveLength(tbl.headers.length);
   });
 
-  it('KNOWN BUG: showCurrentValue adds a header with no matching cell', () => {
-    // currentValueCell is commented out in the renderer while the header push is
-    // not, so every row is one cell short of the headers. No assembler passes
-    // options today, so this is latent — pinned here so the fix is visible.
-    const tbl = firstTable(renderEnvironmentVariablesPage([anEnvironmentVariable()], toggles({
-      showDefaultValue: true, showCurrentValue: true,
-    })));
+  it('adds a Current Value cell to match the Current Value header', () => {
+    // The header push and the cell push must move together. The cell was once
+    // commented out while the header push was left in, so every row came out one
+    // cell short of the headers whenever the option was on.
+    const tbl = firstTable(renderEnvironmentVariablesPage([
+      anEnvironmentVariable({ currentValue: 'https://uat.example.invalid/api' }),
+    ], toggles({ showDefaultValue: true, showCurrentValue: true })));
+
     expect(tbl.headers).toContain('Current Value');
-    expect(tbl.rows[0]).toHaveLength(tbl.headers.length - 1);
+    expect(tbl.rows[0]).toHaveLength(tbl.headers.length);
+    expect(tbl.rows[0][tbl.headers.indexOf('Current Value')])
+      .toEqual([{ type: 'code', value: 'https://uat.example.invalid/api' }]);
+  });
+
+  it('stays aligned for every combination of the two toggles', () => {
+    // The alignment bug only appeared on one of four paths, so sweep all four.
+    for (const showDefaultValue of [true, false]) {
+      for (const showCurrentValue of [true, false]) {
+        const tbl = firstTable(renderEnvironmentVariablesPage(
+          [anEnvironmentVariable(), anEnvironmentVariable({ secretStore: 1, currentValue: undefined })],
+          toggles({ showDefaultValue, showCurrentValue }),
+        ));
+        for (const row of tbl.rows) {
+          expect(row, `showDefaultValue=${showDefaultValue} showCurrentValue=${showCurrentValue}`)
+            .toHaveLength(tbl.headers.length);
+        }
+      }
+    }
+  });
+
+  it('says Not set rather than leaving the current value blank', () => {
+    const tbl = firstTable(renderEnvironmentVariablesPage([
+      anEnvironmentVariable({ currentValue: undefined }),
+    ], toggles({ showDefaultValue: true, showCurrentValue: true })));
+    expect(tbl.rows[0][tbl.headers.indexOf('Current Value')])
+      .toEqual([{ type: 'italic', value: 'Not set' }]);
+  });
+
+  it('masks a secret-store current value instead of printing it', () => {
+    // A current value is live environment data — for a Key Vault variable it must
+    // never be printed, however the toggle is set.
+    const tbl = firstTable(renderEnvironmentVariablesPage([
+      anEnvironmentVariable({ secretStore: 1, currentValue: 'live-secret-do-not-print' }),
+    ], toggles({ showDefaultValue: true, showCurrentValue: true })));
+    expect(tbl.rows[0][tbl.headers.indexOf('Current Value')])
+      .toEqual([{ type: 'italic', value: '[secret — stored externally]' }]);
+    expect(JSON.stringify(tbl)).not.toContain('live-secret-do-not-print');
   });
 
   it('masks the default value when it lives in a secret store', () => {

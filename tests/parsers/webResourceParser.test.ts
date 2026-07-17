@@ -160,32 +160,34 @@ describe('parseAllWebResources', () => {
     expect(resources().filter(r => r.name !== '').map(r => r.name)).toHaveLength(5);
   });
 
-  // ---------------------------------------------------------------------------
-  // KNOWN BUG — pinned so the fix is a deliberate, visible change.
-  //
-  // WebResources/Scripts/contoso_broken.js.data.xml is truncated mid-document. Rather
-  // than being skipped, fast-xml-parser hands back a truthy object, so `parsed?.WebResource`
-  // passes the guard and an entirely empty resource — no id, no name, type Unknown — is
-  // published into the docs. The `if (!wr) return null` guard needs to check that a name
-  // or id actually came back.
-  // ---------------------------------------------------------------------------
-  it('BUG: a truncated .data.xml yields a nameless ghost resource instead of being skipped', () => {
-    const ghosts = resources().filter(r => r.name === '');
-    expect(ghosts).toHaveLength(1);
-    expect(ghosts[0]).toMatchObject({ id: '', displayName: '', resourceType: 'Unknown' });
+  it('skips a truncated .data.xml rather than publishing a nameless resource', () => {
+    // WebResources/Scripts/contoso_broken.js.data.xml is truncated mid-document.
+    // fast-xml-parser is not validating, so it returns a truthy but empty
+    // WebResource and the `!wr` guard never fires — the name check is what stops
+    // an empty ghost row reaching the docs.
+    expect(resources().filter(r => r.name === '')).toHaveLength(0);
+    expect(resources().every(r => r.name.length > 0)).toBe(true);
   });
 
-  // ---------------------------------------------------------------------------
-  // KNOWN BUG — pinned so the fix is a deliberate, visible change.
-  //
-  // When a JSDoc block has no @description tag, extractJsDocBefore falls back to "the
-  // first substantive line". Its line cleaner strips a leading `*`, but the block's own
-  // opening line is `/**`, which the cleaner does not strip and the filter does not drop
-  // — so the fallback always returns the literal "/**" instead of the description text.
-  // Most hand-written Power Platform JSDoc omits @description, so this hits the common case.
-  // ---------------------------------------------------------------------------
-  it('BUG: JSDoc without an @description tag yields "/**" rather than the summary line', () => {
-    expect(fn('refreshGadgets').jsDoc).toBe('/**');
-    // Should be: 'Refreshes the gadget subgrid from the Contoso service.'
+  it('reads the summary line of a JSDoc block that has no @description tag', () => {
+    // Most hand-written Power Platform JSDoc omits @description, so this is the
+    // common path. The fallback used to return the literal '/**' — the block's own
+    // opening delimiter — because the per-line cleaner only strips leading '*'.
+    expect(fn('refreshGadgets').jsDoc)
+      .toBe('Refreshes the gadget subgrid from the Contoso service.');
+  });
+
+  it('never returns a JSDoc delimiter as the description', () => {
+    // The general invariant behind the case above.
+    const allDocs = resources()
+      .flatMap(r => r.functions ?? [])
+      .map(f => f.jsDoc)
+      .filter((d): d is string => d !== undefined);
+
+    expect(allDocs.length).toBeGreaterThan(0); // guard against asserting over nothing
+    for (const doc of allDocs) {
+      expect(doc.startsWith('/*')).toBe(false);
+      expect(doc).not.toMatch(/^\*+\/?$/);
+    }
   });
 });

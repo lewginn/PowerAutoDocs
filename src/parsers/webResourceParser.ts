@@ -42,11 +42,19 @@ function extractJsDocBefore(src: string, offset: number): string | undefined {
   const descMatch = block.match(/@description\s+([^\n*@]+)/);
   if (descMatch) return descMatch[1].trim();
 
-  // Fall back to the first substantive line after /**
+  // Fall back to the first substantive line.
+  //
+  // Strip the block's own delimiters explicitly. The per-line cleaner below only
+  // removes a leading run of '*', which never matched the opening '/**' — so it
+  // survived as the "first substantive line" and every tagless JSDoc block
+  // documented itself as the literal '/**'. Most hand-written Power Platform
+  // JSDoc omits @description, so that was the common path, not an edge case.
   const lines = block
+    .replace(/^\/\*\*/, '')
+    .replace(/\*\/\s*$/, '')
     .split('\n')
     .map(l => l.replace(/^\s*\*+\s?/, '').trim())
-    .filter(l => l && !l.startsWith('@') && l !== '/');
+    .filter(l => l && !l.startsWith('@'));
   return lines[0] ?? undefined;
 }
 
@@ -191,9 +199,17 @@ function parseDataXml(filePath: string): RawWebResourceMeta | null {
     const wr = parsed?.WebResource;
     if (!wr) return null;
 
+    // A truncated file still parses: fast-xml-parser is not validating, so it
+    // hands back a truthy but empty WebResource object and `!wr` never fires.
+    // Without a name there is nothing to title, link or write a page for, so the
+    // resource is unusable downstream — skip it rather than publish a nameless
+    // ghost row into the docs.
+    const name = wr.Name ?? wr.n ?? '';
+    if (!name) return null;
+
     return {
       id: (wr.WebResourceId ?? '').replace(/[{}]/g, ''),
-      name: wr.Name ?? wr.n ?? '',
+      name,
       displayName: wr.DisplayName ?? wr.Name ?? wr.n ?? '',
       typeCode: Number(wr.WebResourceType ?? 0),
       introducedVersion: String(wr.IntroducedVersion ?? '1.0'),
