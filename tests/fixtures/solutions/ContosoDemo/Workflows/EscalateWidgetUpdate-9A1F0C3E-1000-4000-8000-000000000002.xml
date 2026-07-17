@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Workflow WorkflowId="{9a1f0c3e-1000-4000-8000-000000000002}" Name="EscalateWidgetUpdate">
+  <JsonFileName>/Workflows/EscalateWidgetUpdate-9A1F0C3E-1000-4000-8000-000000000002.json</JsonFileName>
+  <Category>5</Category>
+  <Mode>0</Mode>
+  <StateCode>0</StateCode>
+  <StatusCode>1</StatusCode>
+  <LocalizedNames>
+    <LocalizedName description="Escalate widget update" languagecode="1033" />
+  </LocalizedNames>
+</Workflow>

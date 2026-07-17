@@ -1,0 +1,64 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_commondataserviceforapps": {
+        "connection": { "connectionReferenceLogicalName": "contoso_sharedcommondataserviceforapps_ab12c" }
+      }
+    },
+    "definition": {
+      "triggers": {
+        "When_a_widget_is_updated": {
+          "type": "OpenApiConnectionWebhook",
+          "inputs": {
+            "host": { "operationId": "SubscribeWebhookTrigger" },
+            "parameters": {
+              "subscriptionRequest/message": 4,
+              "subscriptionRequest/entityname": "contoso_widget",
+              "subscriptionRequest/filteringattributes": "contoso_status,contoso_owner",
+              "subscriptionRequest/filterexpression": "contoso_status eq 100000001"
+            }
+          }
+        }
+      },
+      "actions": {
+        "List_escalations": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": { "operationId": "ListRecords" },
+            "parameters": { "entityName": "contoso_escalations" }
+          },
+          "runAfter": {}
+        },
+        "For_each_escalation": {
+          "type": "Foreach",
+          "foreach": "@outputs('List_escalations')?['body/value']",
+          "actions": {
+            "Route_by_tier": {
+              "type": "Switch",
+              "expression": "@outputs('List_escalations')?['body/contoso_tier']",
+              "cases": {
+                "Tier_one": {
+                  "case": "tier1",
+                  "actions": {
+                    "Notify_tier_one": {
+                      "type": "OpenApiConnection",
+                      "inputs": { "host": { "operationId": "SendEmailV2" } },
+                      "runAfter": {}
+                    }
+                  }
+                }
+              },
+              "default": {
+                "actions": {
+                  "Log_unknown_tier": { "type": "Compose", "runAfter": {} }
+                }
+              },
+              "runAfter": {}
+            }
+          },
+          "runAfter": { "List_escalations": ["Succeeded"] }
+        }
+      }
+    }
+  }
+}

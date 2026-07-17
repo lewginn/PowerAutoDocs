@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<SdkMessageProcessingStep SdkMessageProcessingStepId="{c1111111-1111-4111-8111-111111111111}" Name="Contoso.Crm.Plugins.WidgetPostOperation: Update of contoso_widget">
+  <Description>Recalculates widget totals after an update.</Description>
+  <FilteringAttributes>contoso_name, contoso_status,contoso_quantity</FilteringAttributes>
+  <Mode>0</Mode>
+  <PluginTypeName>Contoso.Crm.Plugins.WidgetPostOperation, Contoso.Crm.Plugins, Version=2.4.1.0, Culture=neutral, PublicKeyToken=3f8a1c9d0e2b4a67</PluginTypeName>
+  <PrimaryEntity>contoso_widget</PrimaryEntity>
+  <Rank>1</Rank>
+  <Stage>40</Stage>
+  <SupportedDeployment>0</SupportedDeployment>
+  <SdkMessageProcessingStepImages>
+    <SdkMessageProcessingStepImage Name="PreWidgetImage">
+      <SdkMessageProcessingStepImageId>{d1111111-1111-4111-8111-111111111111}</SdkMessageProcessingStepImageId>
+      <Attributes>contoso_name,contoso_status</Attributes>
+      <EntityAlias>PreWidgetImage</EntityAlias>
+      <ImageType>0</ImageType>
+    </SdkMessageProcessingStepImage>
+    <SdkMessageProcessingStepImage Name="PostWidgetImage">
+      <SdkMessageProcessingStepImageId>{d2222222-2222-4222-8222-222222222222}</SdkMessageProcessingStepImageId>
+      <Attributes></Attributes>
+      <EntityAlias>PostWidgetImage</EntityAlias>
+      <ImageType>1</ImageType>
+    </SdkMessageProcessingStepImage>
+  </SdkMessageProcessingStepImages>
+</SdkMessageProcessingStep>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Entity>
+  <Name>contoso_part</Name>
+  <EntityInfo>
+    <entity Name="contoso_part">
+      <IsActivity>0</IsActivity>
+      <attributes>
+        <attribute PhysicalName="contoso_partId">
+          <Type>primarykey</Type>
+          <Name>contoso_partid</Name>
+          <LogicalName>contoso_partid</LogicalName>
+          <RequiredLevel>systemrequired</RequiredLevel>
+          <IsCustomField>1</IsCustomField>
+          <displaynames>
+            <displayname description="Part" languagecode="1033" />
+          </displaynames>
+        </attribute>
+      </attributes>
+    </entity>
+  </EntityInfo>
+</Entity>

@@ -164,7 +164,7 @@ export function loadConfig(configDir: string = process.cwd()): DocGenConfig {
 
   if (!fs.existsSync(configPath)) {
     console.warn(`No doc-gen.config.yml found at ${configPath} — using defaults.`);
-    return CONFIG_DEFAULTS;
+    return structuredClone(CONFIG_DEFAULTS);
   }
 
   const raw = fs.readFileSync(configPath, 'utf-8');
@@ -180,7 +180,11 @@ export function loadConfig(configDir: string = process.cwd()): DocGenConfig {
     throw new Error('doc-gen.config.yml must be a YAML object at the top level.');
   }
 
-  const merged = deepMerge(CONFIG_DEFAULTS, parsed as Partial<DocGenConfig>);
+  // Clone first: deepMerge shallow-copies, so any block the file does not override
+  // (and every array) would otherwise still point at CONFIG_DEFAULTS' own objects.
+  // src/index.ts assigns straight into config.output.* for the --word/--wiki/--pdf
+  // flags, which would then rewrite the exported defaults for the whole process.
+  const merged = deepMerge(structuredClone(CONFIG_DEFAULTS), parsed as Partial<DocGenConfig>);
 
   // Validate each solution entry has a publisherPrefix
   for (const sol of merged.solutions) {

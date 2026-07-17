@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Entity>
+  <Name LocalizedName="Inspection">contoso_inspection</Name>
+  <EntityInfo>
+    <entity Name="contoso_inspection">
+      <LocalizedCollectionNames>
+        <LocalizedCollectionName description="Inspections" languagecode="1033" />
+      </LocalizedCollectionNames>
+      <IsActivity>1</IsActivity>
+      <attributes>
+        <attribute PhysicalName="ActivityId">
+          <Type>primarykey</Type>
+          <Name>activityid</Name>
+          <LogicalName>activityid</LogicalName>
+          <RequiredLevel>systemrequired</RequiredLevel>
+          <IsCustomField>0</IsCustomField>
+          <displaynames>
+            <displayname description="Inspection" languagecode="1033" />
+          </displaynames>
+        </attribute>
+        <attribute PhysicalName="Subject">
+          <Type>nvarchar</Type>
+          <Name>subject</Name>
+          <LogicalName>subject</LogicalName>
+          <RequiredLevel>none</RequiredLevel>
+          <MaxLength>200</MaxLength>
+          <IsCustomField>0</IsCustomField>
+          <displaynames>
+            <displayname description="Subject" languagecode="1033" />
+          </displaynames>
+        </attribute>
+      </attributes>
+    </entity>
+  </EntityInfo>
+</Entity>

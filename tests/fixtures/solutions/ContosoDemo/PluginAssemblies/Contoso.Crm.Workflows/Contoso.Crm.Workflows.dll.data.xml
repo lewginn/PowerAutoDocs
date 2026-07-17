@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PluginAssembly FullName="Contoso.Crm.Workflows, Culture=neutral, PublicKeyToken=null" PluginAssemblyId="{a2222222-2222-4222-8222-222222222222}">
+  <Culture>neutral</Culture>
+  <Description>Custom workflow activities. Registered outside the sandbox.</Description>
+  <FileName>/PluginAssemblies/Contoso.Crm.Workflows/Contoso.Crm.Workflows.dll</FileName>
+  <IsolationMode>1</IsolationMode>
+  <Name>Contoso.Crm.Workflows</Name>
+  <SourceType>0</SourceType>
+  <PluginTypes>
+    <PluginType Name="Contoso.Crm.Workflows.CalculateWidgetTotal, Contoso.Crm.Workflows, Culture=neutral, PublicKeyToken=null" PluginTypeId="{b4444444-4444-4444-8444-444444444444}">
+      <FriendlyName>Calculate Widget Total</FriendlyName>
+      <Name>Contoso.Crm.Workflows.CalculateWidgetTotal</Name>
+      <TypeName>Contoso.Crm.Workflows.CalculateWidgetTotal</TypeName>
+    </PluginType>
+  </PluginTypes>
+</PluginAssembly>

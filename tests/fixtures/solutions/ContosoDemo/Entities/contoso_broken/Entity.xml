@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Deliberately malformed: the <Entity>/<EntityInfo>/<entity> spine the parser
+  navigates is missing, so parseEntityXml throws. Present so the sweep is proven
+  to survive one unreadable entity rather than losing the whole solution.
+-->
+<Entity>
+  <Name LocalizedName="Broken">contoso_broken</Name>
+  <NotEntityInfo>
+    <attributes />
+  </NotEntityInfo>
+</Entity>

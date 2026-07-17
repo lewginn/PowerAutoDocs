@@ -1,0 +1,80 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_commondataserviceforapps": {
+        "connection": { "connectionReferenceLogicalName": "contoso_sharedcommondataserviceforapps_ab12c" }
+      },
+      "shared_office365": {
+        "connection": { "connectionReferenceLogicalName": "contoso_sharedoffice365_de34f" }
+      },
+      "shared_orphaned": {
+        "connection": {}
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "triggers": {
+        "When_a_widget_is_created": {
+          "type": "OpenApiConnectionWebhook",
+          "inputs": {
+            "host": {
+              "connectionName": "shared_commondataserviceforapps",
+              "operationId": "SubscribeWebhookTrigger"
+            },
+            "parameters": {
+              "subscriptionRequest/message": 1,
+              "subscriptionRequest/entityname": "contoso_widget",
+              "subscriptionRequest/scope": 4
+            }
+          }
+        }
+      },
+      "actions": {
+        "Get_widget_owner": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "GetItem" },
+            "parameters": { "entityName": "systemusers" }
+          },
+          "runAfter": {}
+        },
+        "Check_widget_amount": {
+          "type": "If",
+          "expression": {
+            "and": [
+              { "greater": ["@triggerOutputs()?['body/contoso_amount']", 1000] },
+              { "equals": ["@triggerOutputs()?['body/contoso_status']", "Pending"] }
+            ]
+          },
+          "actions": {
+            "Send_approval_email": {
+              "type": "OpenApiConnection",
+              "inputs": { "host": { "connectionName": "shared_office365", "operationId": "SendEmailV2" } },
+              "runAfter": {}
+            },
+            "Protect_the_update": {
+              "type": "Scope",
+              "actions": {
+                "Update_widget": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": { "connectionName": "shared_commondataserviceforapps", "operationId": "UpdateRecord" },
+                    "parameters": { "entityName": "contoso_widgets" }
+                  },
+                  "runAfter": { "Send_approval_email": ["Succeeded"] }
+                }
+              },
+              "runAfter": { "Send_approval_email": ["Succeeded"] }
+            }
+          },
+          "else": {
+            "actions": {
+              "Terminate_quietly": { "type": "Terminate", "runAfter": {} }
+            }
+          },
+          "runAfter": { "Get_widget_owner": ["Succeeded", "Failed"] }
+        }
+      }
+    }
+  }
+}
