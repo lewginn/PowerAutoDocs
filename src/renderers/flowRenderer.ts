@@ -6,7 +6,7 @@ import type { FlowModel, FlowActionModel, TableModel } from '../ir/index.js';
 import type { DocNode, InlineNode } from '../docmodel/nodes.js';
 import { h, pt, p, t, c, b, i, lnk, table, ct, cc, cell, bulletList, bullet, mermaid } from '../docmodel/nodes.js';
 import { serialize } from '../docmodel/MarkdownSerializer.js';
-import { aiSummaryBlock } from './rendererUtils.js';
+import { aiSummaryBlock, encodePageSegment } from './rendererUtils.js';
 
 // -----------------------------------------------
 // Summary page
@@ -26,7 +26,7 @@ export function renderFlowSummary(flows: FlowModel[], basePath?: string): DocNod
   nodes.push(table(
     ['Flow Name', 'Trigger Type', 'Entity', 'Actions', 'Status'],
     flows.map(f => [
-      basePath ? cell(lnk(f.name, `${basePath}/${f.name}`)) : ct(f.name),
+      basePath ? cell(lnk(f.name, `${basePath}/${encodePageSegment(f.name)}`)) : ct(f.name),
       ct(f.trigger.type),
       f.trigger.entity ? cc(f.trigger.entity) : ct('—'),
       ct(f.actions.length.toString()),
@@ -110,7 +110,7 @@ export function renderSingleFlow(flow: FlowModel, relatedTables?: TableModel[], 
     nodes.push(h(2, 'Tables Used'));
     nodes.push(bulletList(relatedTables.map(tbl => bullet(
       0,
-      tablesBasePath ? lnk(tbl.displayName, `${tablesBasePath}/${tbl.displayName}`) : c(tbl.displayName)
+      tablesBasePath ? lnk(tbl.displayName, `${tablesBasePath}/${encodePageSegment(tbl.displayName)}`) : c(tbl.displayName)
     ))));
   }
 

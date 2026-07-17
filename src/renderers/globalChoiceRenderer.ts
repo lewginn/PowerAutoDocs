@@ -28,7 +28,7 @@ export function renderGlobalChoicesIndex(
         : String(totalCount);
 
       return [
-        cell(lnk(c_.displayName, `${basePath}/${c_.displayName}`)),
+        cell(lnk(c_.displayName, `${basePath}/${encodeChoiceName(c_.displayName)}`)),
         cc(c_.schemaName),
         ct(c_.optionSetType),
         ct(countLabel),

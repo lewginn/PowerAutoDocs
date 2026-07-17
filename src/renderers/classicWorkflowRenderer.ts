@@ -4,7 +4,7 @@ import type { ClassicWorkflowModel, ClassicWorkflowStepModel } from '../ir/class
 import type { DocNode, InlineNode } from '../docmodel/nodes.js';
 import { h, pt, p, t, c, b, i, lnk, table, ct, cc, cell, bulletList, bullet } from '../docmodel/nodes.js';
 import { serialize } from '../docmodel/MarkdownSerializer.js';
-import { aiSummaryBlock } from './rendererUtils.js';
+import { aiSummaryBlock, encodePageSegment } from './rendererUtils.js';
 
 // -----------------------------------------------
 // Step list — nested bullet items
@@ -161,7 +161,7 @@ export function renderClassicWorkflowsOverview(workflows: ClassicWorkflowModel[]
       if (wf.triggers.onDemand) triggerParts.push('On Demand');
 
       return [
-        basePath ? cell(lnk(wf.name, `${basePath}/${wf.name}`)) : ct(wf.name),
+        basePath ? cell(lnk(wf.name, `${basePath}/${encodePageSegment(wf.name)}`)) : ct(wf.name),
         cc(wf.entity),
         ct(wf.category === 'action' ? 'Custom Action' : 'Workflow'),
         ct(wf.mode === 'realtime' ? 'Real-time' : 'Background'),

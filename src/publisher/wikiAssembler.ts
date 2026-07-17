@@ -26,16 +26,66 @@ import {
   renderEmailTemplatesIndex, renderEmailTemplatePage,
   renderModelDrivenAppsIndex, renderModelDrivenAppPage,
 } from '../renderers/index.js';
+import { encodePageSegment as s } from '../renderers/rendererUtils.js';
 
 /**
- * Sanitise a string for use as an ADO Wiki page path segment.
+ * Disambiguates colliding page paths after the full tree is built.
+ *
+ * s() (and encodeRoleName/encodeChoiceName) are many-to-one — 'A/B' and
+ * 'A-B' both sanitise to 'A-B' — so two distinct components can compute the
+ * identical page path. displayName is not unique in Dataverse; only
+ * logicalName is, and logicalName is never used in a page path. Without this
+ * pass, wikiPublisher's last-write-wins semantics mean the second one
+ * silently overwrites the first's pages on publish: no error, no warning, a
+ * whole component's documentation gone from the client's wiki.
+ *
+ * Runs once, after the full tree is built, rather than at each of the ~10
+ * call sites that derive a path from a sanitised name — one pass catches
+ * every entity type uniformly, and cascades to a renamed entity's own
+ * sub-pages automatically because it rewrites by PATH PREFIX, not just an
+ * exact match. This relies on the pre-existing invariant that a parent page
+ * is always pushed before its children — the publish ordering already
+ * depends on it (see the "full page tree" test).
+ *
+ * Accepted limitation: a handful of renderers build a cross-link to a page
+ * from the entity's own name, independent of this pass (e.g. a flow's
+ * "related tables" link — see rendererUtils.ts). If the table on the far end
+ * of that link happens to ALSO be the one disambiguated here, the link still
+ * points at the pre-rename path. That is a rare compound case, and a strictly
+ * better failure mode than the silent overwrite this pass exists to prevent
+ * — the page is not lost, only a stray cross-link might 404 — so it is left
+ * as a known gap rather than threading the rename map into the renderer
+ * layer, which would break the IR/renderer separation for one edge case.
  */
-function s(name: string): string {
-  return name
-    .replace(/\//g, '-')
-    .replace(/\?/g, '')
-    .replace(/[#%]/g, '')
-    .trim();
+function dedupePagePaths(pages: WikiPage[]): WikiPage[] {
+  const seen = new Set<string>();
+  const renames: [string, string][] = [];
+
+  return pages.map(page => {
+    let path = page.path;
+
+    for (const [oldPrefix, newPrefix] of renames) {
+      if (path === oldPrefix || path.startsWith(`${oldPrefix}/`)) {
+        path = newPrefix + path.slice(oldPrefix.length);
+        break;
+      }
+    }
+
+    if (seen.has(path)) {
+      const original = path;
+      let n = 2;
+      while (seen.has(`${original} (${n})`)) n++;
+      path = `${original} (${n})`;
+      renames.push([original, path]);
+      console.warn(
+        `  ⚠ Wiki page path collision: two components both sanitise to "${original}" — ` +
+        `publishing the second as "${path}" instead of silently overwriting the first.`
+      );
+    }
+
+    seen.add(path);
+    return path === page.path ? page : { ...page, path };
+  });
 }
 
 export function buildWikiPages(
@@ -71,8 +121,13 @@ export function buildWikiPages(
   });
 
   // ---- Data Model ----
+  // Every solution's own publisher prefix, not just solutions[0]'s — a merged
+  // multi-solution ERD used to test every table against a single prefix, so
+  // every relationship belonging to a solution other than the first failed
+  // the custom-entity check and silently vanished from the diagram.
+  const publisherPrefixes = solutions.map(sol => sol.publisher?.prefix).filter((p): p is string => !!p);
   const erdDiagram = config.parse.excludeStandardRelationships
-    ? generateERDiagram(mergedSolution.tables, solutions[0]?.publisher?.prefix ?? '', config.erd)
+    ? generateERDiagram(mergedSolution.tables, publisherPrefixes, config.erd)
     : generateERDiagram(mergedSolution.tables, undefined, config.erd);
 
   pages.push({
@@ -108,10 +163,17 @@ export function buildWikiPages(
       pages.push({ path: `${tablePath}/Used By Flows`, content: serialize(renderTableUsedByFlows(table, tableFlows, flowsBasePath)) });
     }
 
-    const brBasePath = `${tablePath}/Business Rules`;
-    pages.push({ path: brBasePath, content: serialize(renderTableBusinessRules(table, tableRules)) });
-    for (const rule of tableRules) {
-      pages.push({ path: `${brBasePath}/${s(rule.name)}`, content: serialize(renderSingleBusinessRule(rule)) });
+    // Guarded like every other content-derived section ('Used By Flows' right
+    // above it is guarded by tableFlows.length > 0). This page used to be
+    // pushed unconditionally — for a solution with no business rules that was
+    // one empty "No business rules found for this table." page per table, and
+    // one wasted ADO write per table on every pipeline run.
+    if (tableRules.length > 0) {
+      const brBasePath = `${tablePath}/Business Rules`;
+      pages.push({ path: brBasePath, content: serialize(renderTableBusinessRules(table, tableRules)) });
+      for (const rule of tableRules) {
+        pages.push({ path: `${brBasePath}/${s(rule.name)}`, content: serialize(renderSingleBusinessRule(rule)) });
+      }
     }
   }
 
@@ -233,5 +295,5 @@ export function buildWikiPages(
     }
   }
 
-  return pages;
+  return dedupePagePaths(pages);
 }

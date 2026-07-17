@@ -87,8 +87,11 @@ export async function buildPdfDocument(
   ), 0);
 
   // ---- Data Model ---- (section at depth 0, tables at depth 1, subpages at depth 2)
+  // Every solution's own publisher prefix, not just solutions[0]'s — see the
+  // identical fix and comment in wikiAssembler.ts (#110).
+  const publisherPrefixes = solutions.map(sol => sol.publisher?.prefix).filter((p): p is string => !!p);
   const erdDiagram = config.parse.excludeStandardRelationships
-    ? generateERDiagram(mergedSolution.tables, solutions[0]?.publisher?.prefix ?? '', config.erd)
+    ? generateERDiagram(mergedSolution.tables, publisherPrefixes, config.erd)
     : generateERDiagram(mergedSolution.tables, undefined, config.erd);
 
   push(content, [h(1, 'Data Model')], 0);

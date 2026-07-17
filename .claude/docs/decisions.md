@@ -56,7 +56,7 @@ PdfSerializer      → pdfmake content
 
 **The rule that falls out of it:** every DocNode carries *semantic* content only. All format syntax — fences, escapes, indent staircases — belongs in a serializer. See [Mermaid generators return raw DSL](#mermaid-generators-return-raw-dsl--the-serializer-owns-the-fence) for what happens when this is violated.
 
-Builder helpers (`h`, `p`, `pt`, `table`, `cell`, `ct`, `cc`, `bulletList`, `bullet`, `toc`, `mermaid`, `codeBlock`, `bq`, `bqt`, `t`, `c`, `b`, `i`, `lnk`) live in **`src/docmodel/nodes.ts`**, not `rendererUtils.ts`. `src/renderers/rendererUtils.ts` holds exactly two things: `toADOWikiLink()` and `aiSummaryBlock()`.
+Builder helpers (`h`, `p`, `pt`, `table`, `cell`, `ct`, `cc`, `bulletList`, `bullet`, `toc`, `mermaid`, `codeBlock`, `bq`, `bqt`, `t`, `c`, `b`, `i`, `lnk`) live in **`src/docmodel/nodes.ts`**, not `rendererUtils.ts`. `src/renderers/rendererUtils.ts` held exactly two things — `toADOWikiLink()` and `aiSummaryBlock()` — until `encodePageSegment()` joined them (#110): the ADO-page-path sanitiser, needed by both `wikiAssembler.ts` (which builds the path) and every renderer building an `lnk()` href to it (which has to compute the identical path or the link 404s). Before it existed, four renderers built hrefs from the raw, unsanitised name while `wikiAssembler.ts` sanitised the real path — a flow, global choice, email template or model-driven app whose name needed sanitising got a page at one path and every link to it pointing at another. The rule stands: this file holds shared cross-renderer *behaviour*, never a `DocNode` builder.
 
 ### The legacy string path is real and is not deprecated-by-accident
 
