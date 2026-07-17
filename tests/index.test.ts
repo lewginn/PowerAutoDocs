@@ -431,7 +431,7 @@ describe('main — happy path', () => {
     expect(fs.statSync(docx).size).toBeGreaterThan(0);
   });
 
-  it('KNOWN GAP: the local markdown overview only ever describes the LAST solution', async () => {
+  it('BUG: the local markdown overview only ever describes the LAST solution', async () => {
     // PINNED, NOT A SPEC. writeOverviewMarkdown() writes a fixed 'overview.md' and
     // main() calls it once per solution inside the loop (src/index.ts:179), so with
     // two solutions the second silently overwrites the first. The same shape applies
@@ -594,35 +594,25 @@ describe('main — wiki publish', () => {
     expect(exit).toHaveBeenCalledWith(1);
   });
 
-  it('KNOWN GAP: a rejected publish aborts the run, losing the summary and the Word doc', async () => {
-    // PINNED, NOT A SPEC. Two real defects, both visible from one config.
+  it('catches a whitespace PAT in main(), and still writes the Word doc', async () => {
+    // Was pinned as a bug covering two defects; the old pin predicted this
+    // exact test ("should then assert the summary prints and the .docx is written
+    // anyway"). Both are now fixed:
     //
-    // 1. main()'s PAT check (src/index.ts:331) is `!pat || pat === 'REDACTED'`.
-    //    publishToWiki's own check (wikiPublisher.ts:179) also trims and case-folds.
-    //    So a whitespace-only PAT — or 'redacted' in lowercase — sails past main()'s
-    //    friendly "inject it via your pipeline secret" error and is rejected deeper in
-    //    instead, as a throw.
-    // 2. That throw is the point. EVERY other fallible step in main() is guarded —
-    //    tryParse, the AI block (:318), Word (:402), PDF (:432) — but the
-    //    publishToWiki call at :355 is bare. So the throw escapes main() entirely:
-    //    logSummary() at :439 never runs, and the Word document at :379 — which
-    //    output.word: true below asks for, and which does not depend on the wiki in
-    //    any way — is never built. A client hitting a transient ADO 500 or an expired
-    //    PAT loses their Word doc and their run summary, and sees only "Fatal error"
-    //    from the CLI catch at :457.
+    // 1. main()'s PAT check was `!pat || pat === 'REDACTED'` while publishToWiki's
+    //    also trimmed and case-folded, so a whitespace-only PAT — a common ADO
+    //    variable-substitution failure — sailed past main()'s friendly, actionable
+    //    error and was rejected deeper in as a throw. main() now uses the same guard.
+    // 2. The publishToWiki call was the only unguarded fallible step in main(), so
+    //    that throw escaped: no run summary, and no Word document despite
+    //    output.word being true and the .docx not depending on the wiki at all.
     //
     // SAFETY — this is the one wiki block in this file that is not pat: 'REDACTED',
     // so read this before touching it. A whitespace PAT is network-proof for a
-    // STRONGER reason than the REDACTED ones, not a weaker one: REDACTED relies on
-    // main()'s check (the thing under test elsewhere), whereas '   ' is rejected by
-    // publishToWiki itself at wikiPublisher.ts:179 — six lines before the first
-    // doFetch at :185, and after main() has already waved it through. Both of the
-    // source's own guards would have to be deleted for this to reach the network.
-    // Do not give it a realistic-looking value.
-    //
-    // If the bare call gets a try/catch (it should — a publish failure belongs in
-    // summary.publishFailures like every other one), this test SHOULD fail, and
-    // should then assert the summary prints and the .docx is written anyway.
+    // STRONGER reason than the REDACTED ones: it is now rejected by main()'s own
+    // guard before the publisher is even called, and publishToWiki rejects it again
+    // before its first doFetch. Both guards would have to be deleted to reach the
+    // network. Do not give it a realistic-looking value.
     const cfg = writeConfig(baseConfig({
       output: { path: outDir, wiki: true, word: true, pdf: false, wordDiagrams: false },
       wiki: {
@@ -631,18 +621,20 @@ describe('main — wiki publish', () => {
       },
     }));
 
-    await expect(main(cfg)).rejects.toThrow(/PAT is missing or REDACTED/);
+    // No longer throws out of main().
+    await main(cfg);
 
-    // main()'s own PAT branch was NOT the thing that caught it — it let this through.
-    expect(errors.join('\n')).not.toContain('wiki.pat is not set');
-    // ← the bug: the run dies mid-flight. No summary...
-    expect(output()).not.toContain('Run Summary');
-    expect(exit).not.toHaveBeenCalled();
-    // ...and the Word document is collateral damage, despite output.word: true.
-    expect(outputFiles()).not.toContain('solution-documentation.docx');
-    // The markdown written before the wiki step did survive, which is what makes the
-    // loss of the .docx an inconsistency rather than an all-or-nothing run.
+    // main()'s own PAT branch now catches it, with the actionable message.
+    expect(errors.join('\n')).toContain('wiki.pat is not set');
+    // The run completes: summary prints, and the failure is recorded as one.
+    expect(output()).toContain('Run Summary');
+    expect(output()).toContain('PAT not configured');
+    // The Word document is no longer collateral damage.
+    expect(outputFiles()).toContain('solution-documentation.docx');
     expect(outputFiles()).toContain('overview.md');
+    // A publish failure is a hard error, so the pipeline still fails — loudly and
+    // after doing all the work it could, rather than silently mid-flight.
+    expect(exit).toHaveBeenCalledWith(1);
   });
 
   it('does not attempt a publish when every solution was skipped', async () => {

@@ -124,9 +124,14 @@ describe('publishToWiki — PAT guard', () => {
 
   it('proceeds with a PAT that merely looks odd', async () => {
     // Only empty/REDACTED are rejected — no other validation should be invented.
+    // 'not really redacted' contains 'redacted' as a substring; the guard must
+    // match the whole trimmed value, not test for containment.
     const fake = makeFake();
-    await expect(publishToWiki(aWikiConfig({ pat: 'not really redacted' }), [], fake.fetch))
-      .resolves.toBeUndefined();
+    const results = await publishToWiki(aWikiConfig({ pat: 'not really redacted' }), [], fake.fetch);
+
+    // No pages in, so no results out — but it got past the guard and made the
+    // auth check, which is what this asserts.
+    expect(results).toEqual([]);
     expect(fake.calls).toHaveLength(1);
   });
 });
@@ -257,7 +262,7 @@ describe('publishToWiki — parent pages', () => {
 
     // Exactly one PUT per path: the content pages were not also stubbed.
     //
-    // KNOWN GAP, pinned deliberately — not a spec. Two orderings here are wrong:
+    // BUG: pinned deliberately — not a spec. Two orderings here are wrong:
     //  1. the /Root/Data Model/Widget placeholder is PUT while its own parent
     //     /Root/Data Model does not exist yet, because the ensure pass skips
     //     ancestors that are content pages and publishes them later;
@@ -314,7 +319,7 @@ describe('publishToWiki — parent pages', () => {
   });
 
   it('creates placeholder siblings in first-seen order, not Z→A', async () => {
-    // KNOWN GAP, pinned deliberately — not a spec. sortPagesForPublish goes to
+    // BUG: pinned deliberately — not a spec. sortPagesForPublish goes to
     // real trouble to publish content siblings Z→A so ADO's newest-first sidebar
     // displays them A→Z, but placeholder parents never go through it: they are
     // sorted by depth only, and Set insertion order (stable sort) then decides
@@ -497,7 +502,7 @@ describe('publishToWiki — sibling ordering', () => {
   });
 
   it('drops all but the first page when two pages share a path', async () => {
-    // KNOWN GAP, pinned deliberately — not a spec. sortPagesForPublish dedupes on
+    // BUG: pinned deliberately — not a spec. sortPagesForPublish dedupes on
     // path via its `visited` set, and the safety-net loop re-checks the same set,
     // so a second WikiPage at an already-visited path is never published and
     // never reported: no PUT, no console.error, and index.ts still counts it in
@@ -577,34 +582,57 @@ describe('publishToWiki — degradation', () => {
     expect(String((failure?.[1] as Error).message)).toContain('TF401019');
   });
 
-  it('resolves rather than throwing when every single page fails', async () => {
-    // KNOWN GAP, pinned deliberately — not a spec. publishToWiki returns
-    // Promise<void> and swallows every per-page error into console.error, so a
-    // run where nothing published is indistinguishable from a clean one to the
-    // caller. src/index.ts guards on `Array.isArray(results)` to collect
-    // per-page outcomes, but void is never an array — that branch is dead and
-    // the run summary always reports 0 published / 0 failed. Reported.
+  it('reports every page as failed when every page fails', async () => {
+    // Was pinned: publishToWiki returned Promise<void> and swallowed every error
+    // into console.error, so a run where nothing published was indistinguishable
+    // from a clean one — index.ts counted all N as published and exited 0.
     const fake = makeFake({ put: () => new Response('nope', { status: 500 }) });
 
-    await expect(publishToWiki(aWikiConfig(), [aPage('/A'), aPage('/B')], fake.fetch))
-      .resolves.toBeUndefined();
+    const results = await publishToWiki(aWikiConfig(), [aPage('/A'), aPage('/B')], fake.fetch);
 
-    expect(error.mock.calls).toHaveLength(2);
+    expect(results).toHaveLength(2);
+    expect(results.every(r => !r.success)).toBe(true);
+    expect(results.map(r => r.path).sort()).toEqual(['/A', '/B']);
+    // The reason is carried through, not just the fact of failure — it is what
+    // the client reads in the run summary.
+    expect(results[0].reason).toContain('PUT wiki page failed [500]');
+    // Still resolves: one bad page must not cost the rest.
     expect(logged()).toContain('Publish complete.');
   });
 
-  it('aborts the whole run when a parent placeholder fails', async () => {
-    // KNOWN GAP, pinned deliberately — not a spec. Parent creation sits outside
-    // the try/catch that protects content pages, so the same transient 500 that
-    // is tolerated on a page is fatal on a placeholder, and no content page is
-    // published at all. Reported.
+  it('reports a mixed run honestly rather than all-or-nothing', async () => {
+    // The case that matters most: partial failure must be visible. This is what
+    // made 'Published 340 pages' a lie when 339 of them 409'd.
+    const fake = makeFake({
+      put: path => (path === '/B' ? new Response('conflict', { status: 409 }) : json(200)),
+    });
+
+    const results = await publishToWiki(aWikiConfig(), [aPage('/A'), aPage('/B'), aPage('/C')], fake.fetch);
+
+    expect(results.filter(r => r.success).map(r => r.path).sort()).toEqual(['/A', '/C']);
+    const failed = results.filter(r => !r.success);
+    expect(failed).toHaveLength(1);
+    expect(failed[0].path).toBe('/B');
+    expect(failed[0].reason).toContain('409');
+  });
+
+  it('degrades rather than aborting when a parent placeholder fails', async () => {
+    // Was pinned: parent creation sat outside the try/catch protecting content
+    // pages, so the same transient 500 tolerated on a page was fatal on a
+    // placeholder and no content page published at all.
     const fake = makeFake({
       put: path => (path === '/Root' ? new Response('boom', { status: 500 }) : json(200)),
     });
 
-    await expect(publishToWiki(aWikiConfig(), [aPage('/Root/A'), aPage('/Root/B')], fake.fetch))
-      .rejects.toThrow(/PUT wiki page failed \[500\] "\/Root"/);
+    const results = await publishToWiki(aWikiConfig(), [aPage('/Root/A'), aPage('/Root/B')], fake.fetch);
 
-    expect(putPaths(fake)).toEqual(['/Root']);
+    // The placeholder failure is reported...
+    const rootResult = results.find(r => r.path === '/Root');
+    expect(rootResult?.success).toBe(false);
+    expect(rootResult?.reason).toContain('PUT wiki page failed [500]');
+
+    // ...and the content pages beneath it still published, which is the point.
+    expect(putPaths(fake)).toEqual(expect.arrayContaining(['/Root', '/Root/A', '/Root/B']));
+    expect(results.filter(r => r.success).map(r => r.path).sort()).toEqual(['/Root/A', '/Root/B']);
   });
 });

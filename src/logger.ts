@@ -72,7 +72,16 @@ export function logSummary(summary: RunSummary): void {
   }
 
   const hasErrors = summary.solutionsSkipped.length > 0 || summary.publishFailures.length > 0;
-  const hasWarnings = summary.parseWarnings.length > 0;
+
+  // AI summary failures grade as warnings. They used to count for nothing here,
+  // so a run in which every single AI summary failed printed '✓ Completed
+  // successfully' and exited 0 — the failures were listed in the block above and
+  // contradicted by the status line four lines later.
+  //
+  // Warnings deliberately do NOT drive index.ts's exit code: a missing AI
+  // summary is a degraded document, not a failed run, and failing the client's
+  // pipeline over a flaky model call would be worse than the gap it reports.
+  const hasWarnings = summary.parseWarnings.length > 0 || summary.aiSummaryFailures.length > 0;
 
   console.log('\n  Status: ' + (
     hasErrors ? '✗ Completed with errors' :
