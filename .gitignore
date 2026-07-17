@@ -46,5 +46,11 @@ Thumbs.db
 # Rendered Mermaid diagram cache — same reasoning as the AI cache above.
 .powerautodocs-diagram-cache/
 
-#claude code project instructions
-*claude.md
+# Claude Code project instructions (.claude/CLAUDE.md + .claude/docs/) are
+# deliberately COMMITTED — they document architecture, process and constraints,
+# contain no client data, and should be versioned alongside the code they
+# describe. Machine-local agent settings (.claude/settings.local.json) are
+# ignored via the global gitignore, not here.
+#
+# Client-specific data must never be committed — see the entries above
+# (doc-gen.config.yml, output/, unpacked/, dev.log, the caches).
