@@ -105,7 +105,7 @@ describe('renderBusinessRule', () => {
       conditions: [aCondition({ description: undefined }), aCondition({ description: undefined })],
     }));
     const condHeadings = nodes.filter(n => n.type === 'heading' && n.level === 3).map(n => (n as { text: string }).text);
-    expect(condHeadings).toEqual(['If `acme_tier` — Condition 1', 'If `acme_tier` — Condition 2']);
+    expect(condHeadings).toEqual(['If acme_tier — Condition 1', 'If acme_tier — Condition 2']);
   });
 
   it('prefers the parsed description over the ordinal when one exists', () => {
@@ -113,7 +113,7 @@ describe('renderBusinessRule', () => {
       conditions: [aCondition({ conditionField: 'acme_tier', description: 'Tier is Premium' })],
     }));
     const condHeading = nodes.find(n => n.type === 'heading' && n.level === 3) as { text: string };
-    expect(condHeading.text).toBe('If `acme_tier` — Tier is Premium');
+    expect(condHeading.text).toBe('If acme_tier — Tier is Premium');
   });
 
   it('treats an empty description string as missing', () => {
@@ -123,7 +123,7 @@ describe('renderBusinessRule', () => {
       conditions: [aCondition({ description: '' })],
     }));
     const condHeading = nodes.find(n => n.type === 'heading' && n.level === 3) as { text: string };
-    expect(condHeading.text).toBe('If `acme_tier` — Condition 1');
+    expect(condHeading.text).toBe('If acme_tier — Condition 1');
   });
 
   it('groups multiple fields sharing an action type into one paragraph', () => {
