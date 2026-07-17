@@ -28,7 +28,18 @@ function inlineRuns(inlines: InlineNode[]): TextRun[] {
       case 'text':
         return new TextRun({ text: node.value, italics: false });
       case 'code':
-        return new TextRun({ text: node.value, font: 'Courier New', size: 18, italics: false });
+        // Light shading mimics the wiki's code "chip". Without it, Courier New
+        // alone doesn't separate logical names from prose strongly enough —
+        // a flow step like **Name** — List records on `tasks` reads as one
+        // undifferentiated run of text, which is most of what made the Word
+        // action lists feel mushy next to the wiki's.
+        return new TextRun({
+          text: node.value,
+          font: 'Courier New',
+          size: 18,
+          italics: false,
+          shading: { type: ShadingType.SOLID, color: 'auto', fill: 'F2F2F2' },
+        });
       case 'bold':
         return new TextRun({ text: node.value, bold: true, italics: false });
       case 'italic':
@@ -37,14 +48,6 @@ function inlineRuns(inlines: InlineNode[]): TextRun[] {
         // Render as plain text — no subpage hyperlinks in a self-contained Word doc
         return new TextRun({ text: node.text });
     }
-  });
-}
-
-/** Muted, small-size caption runs (e.g. bullet meta lines) — always italic regardless of source markup. */
-function mutedCaptionRuns(inlines: InlineNode[]): TextRun[] {
-  return inlines.map(node => {
-    const text = node.type === 'link' ? node.text : node.value;
-    return new TextRun({ text, size: 18, color: '808080', italics: true });
   });
 }
 
@@ -164,42 +167,28 @@ function serializeTable(headers: string[], rows: InlineNode[][][]): Table {
 // Bullet list serialisation
 // -----------------------------------------------
 
-// Deep action/step trees (flow actions, workflow steps) need the staircase
-// indentation to actually be visible per depth — that's the structural cue that
-// reads as a tree, and what was lost when this was flattened. Native Word
-// multilevel numbering (`bullet: {level}`) gives that staircase but doesn't
-// give wrapped continuation lines a hanging indent that lines up under the
-// bullet glyph, so long descriptions wrap back to the page margin — that's
-// the "clunky" part. Fix: explicit per-depth indent with a matching hanging
-// indent, one consistent bullet glyph at every depth (varying it made deep
-// levels look unindented), and the "runs after" caption demoted to its own
-// tight, muted sub-line instead of crammed onto the same busy sentence.
-const BULLET_INDENT_STEP = 400;
-const BULLET_BASE_INDENT = 160;
-const BULLET_HANGING     = 220;
-
+// Word's native multilevel bullets — the same thing the wiki's nested markdown
+// lists get from the browser: a real indent staircase, a distinct glyph per
+// level (●/○/▪), and hanging indents so wrapped text lines up under the text
+// rather than falling back to the margin.
+//
+// A previous attempt hand-rolled this with explicit per-depth `indent`
+// values. Don't: hand-rolled indents are a plain paragraph wearing a bullet
+// costume, so they carry no list semantics and renderers are free to lay them
+// out however they like — Pages flattened them into a near-vertical column,
+// which is what made nesting look broken. Native lists render consistently in
+// Word, Word Online, Pages and LibreOffice alike.
+//
+// Spacing is deliberately tight (no `before`) so a long action tree reads as
+// one dense block, like the wiki's list, instead of a sparse page of stripes.
 function bulletItems(items: BulletItem[]): Paragraph[] {
-  const paragraphs: Paragraph[] = [];
-
-  for (const item of items) {
-    const left = BULLET_INDENT_STEP * item.depth + BULLET_BASE_INDENT + BULLET_HANGING;
-
-    paragraphs.push(new Paragraph({
-      children: [new TextRun({ text: '●  ', color: '808080' }), ...inlineRuns(item.inlines)],
-      indent: { left, hanging: BULLET_HANGING },
-      spacing: { before: 40, after: item.meta ? 0 : 40 },
-    }));
-
-    if (item.meta) {
-      paragraphs.push(new Paragraph({
-        children: mutedCaptionRuns(item.meta),
-        indent: { left },
-        spacing: { before: 0, after: 100 },
-      }));
-    }
-  }
-
-  return paragraphs;
+  return items.map(item =>
+    new Paragraph({
+      children: inlineRuns(item.inlines),
+      bullet: { level: item.depth },
+      spacing: { after: 40 },
+    })
+  );
 }
 
 // -----------------------------------------------

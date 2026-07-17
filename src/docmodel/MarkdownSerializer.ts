@@ -58,8 +58,7 @@ function serializeTable(headers: string[], rows: InlineNode[][][]): string {
 function serializeBulletList(items: BulletItem[]): string {
   return items.map(item => {
     const indent = '  '.repeat(item.depth);
-    const meta = item.meta ? ` · ${serializeInlines(item.meta)}` : '';
-    return `${indent}- ${serializeInlines(item.inlines)}${meta}`;
+    return `${indent}- ${serializeInlines(item.inlines)}`;
   }).join('\n');
 }
 
