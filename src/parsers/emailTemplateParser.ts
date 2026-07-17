@@ -56,7 +56,12 @@ function extractFromXsl(xslPath: string): { text: string; dynamicFields: string[
         .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
         .replace(/[ \t]+/g, ' ')
         .replace(/\n[ \t]+/g, '\n')
-        .trim();
+        // Trim only newline-delimited edges — that is XSL source indentation.
+        // A bare space at an edge is NOT noise: it is the space on either side of
+        // a merge field ("order " + {number} + " has shipped"). Trimming those and
+        // then joining with '' is what produced "order{number}has shipped".
+        .replace(/^[ \t]*\n+[ \t]*/, '')
+        .replace(/[ \t]*\n+[ \t]*$/, '');
       if (text) parts.push(text);
     } else if (m[2] && !m[2].startsWith('/')) {
       // Dynamic field reference — format as {fieldName}
@@ -68,7 +73,8 @@ function extractFromXsl(xslPath: string): { text: string; dynamicFields: string[
     }
   }
 
-  const text = parts.join('').replace(/\n{3,}/g, '\n\n').trim();
+  // Collapse any double space introduced where two runs each kept an edge space.
+  const text = parts.join('').replace(/[ \t]{2,}/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
   return { text, dynamicFields };
 }
 

@@ -231,8 +231,8 @@ Covered: `MarkdownSerializer` (DocNode → markdown), `rendererUtils`, `erdGener
 | Mermaid → PNG (`mermaidRenderer.ts`) | Launches a real browser through a module-level `browserPromise` singleton. Slow, flaky in CI, and hostile to per-test isolation. |
 | AI providers | `AiProvider` is already a clean one-method seam, but `enrichWithAiSummaries` resolves its own provider via `createProvider`. Injecting it is a prerequisite, not a test. |
 | Wiki publisher | Bare `fetch()` against hardcoded `dev.azure.com` URLs, no injected client. Stubbing global `fetch` mostly asserts the stub works. |
-| Word / PDF binary output | Byte-comparison is meaningless — zip ordering and timestamps churn. The `DocNode` AST is the real assertion boundary, and it *is* tested. |
-| `main()` | Reads `process.argv` directly and calls `process.exit(1)`; not drivable in-process. |
+| Word / PDF binary output | Comparing whole files is meaningless — zip ordering and timestamps churn. The `DocNode` AST is the real assertion boundary, and every renderer is now tested at it. *Caveat learned since:* "don't byte-compare" is not "don't look". Unzipping the `.docx` and asserting on a **single** `<w:t>` run in `word/document.xml` is stable and is how the backtick bug in `formatBoundary.test.ts`'s history was proven — the DocNode assertion said what was wrong, the `.docx` said it mattered. `DocxSerializer` (690 lines) is still untested and is the largest gap in the repo. |
+| `main()` | `index.ts:446` calls `main()` at **module load**, so merely importing the module runs the whole pipeline — there is nothing a test can import. It also reads `process.argv` directly and calls `process.exit(1)`. The seam is an `import.meta.url === process.argv[1]` guard, which would make the module importable; that is a change to the published bin entry, so it wants its own PR and a real `npx` smoke test, not a drive-by. |
 
 **The principle:** a test that needs a mock to exist is usually asking for a refactor first. Writing the mock instead buys a green tick that asserts the mock works. If one of these becomes worth testing, fix the seam in its own PR and the test becomes easy.
 
