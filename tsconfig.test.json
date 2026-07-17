@@ -1,0 +1,14 @@
+// Typecheck-only config covering src/ *and* tests/.
+//
+// The root tsconfig.json deliberately scopes to src/ with rootDir ./src, because
+// it is the build — anything it sees lands in dist/ and ships to npm. Tests must
+// never do that, so they are typechecked here instead, with noEmit.
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["src/**/*", "tests/**/*", "vitest.config.ts"]
+}

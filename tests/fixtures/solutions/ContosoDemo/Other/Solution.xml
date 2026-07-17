@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ImportExportXml version="9.2.24051.196" SolutionPackageVersion="9.2" languagecode="1033" generatedBy="CrmLive">
+  <SolutionManifest>
+    <UniqueName>ContosoDemo</UniqueName>
+    <LocalizedNames>
+      <LocalizedName description="Contoso Demo" languagecode="1033" />
+      <LocalizedName description="Démonstration Contoso" languagecode="1036" />
+    </LocalizedNames>
+    <Descriptions>
+      <Description description="A fictional solution used by the test suite." languagecode="1033" />
+    </Descriptions>
+    <Version>1.2.3.4</Version>
+    <Managed>0</Managed>
+    <Publisher>
+      <UniqueName>contosopublisher</UniqueName>
+      <LocalizedNames>
+        <LocalizedName description="Contoso Ltd" languagecode="1033" />
+      </LocalizedNames>
+      <Descriptions>
+        <Description description="Fictional publisher." languagecode="1033" />
+      </Descriptions>
+      <EMailAddress xsi:nil="true" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"></EMailAddress>
+      <CustomizationPrefix>contoso</CustomizationPrefix>
+      <CustomizationOptionValuePrefix>10000</CustomizationOptionValuePrefix>
+    </Publisher>
+    <RootComponents>
+      <RootComponent type="1" schemaName="contoso_widget" behavior="0" />
+    </RootComponents>
+    <MissingDependencies />
+  </SolutionManifest>
+</ImportExportXml>

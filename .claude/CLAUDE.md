@@ -37,6 +37,10 @@ full autonomy boundary.
    forever — nothing is cached between runs. A dependency is a permanent recurring cost,
    not a one-off. Propose it with that cost stated, and wait.
 
+   A **`devDependency`** is cheaper — `npm ci --omit=dev` on the agent never installs it, and
+   `files: ["dist"]` keeps it out of the tarball — which is why `vitest` was approved. It is
+   still a supply-chain surface, and it is still a 🔴: ask, and say which bucket it lands in.
+
 ---
 
 ## Never — no exceptions

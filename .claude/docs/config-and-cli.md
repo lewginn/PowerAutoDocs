@@ -340,6 +340,9 @@ npm run dev:word   # tsx src/index.ts --word          → dev.log
 npm run dev:wiki   # tsx src/index.ts --wiki          → dev.log
 npm run dev:both   # tsx src/index.ts --word --wiki   → dev.log
 npm run build      # tsc → dist/ ; postbuild adds the shebang + chmod +x
+npm run typecheck  # tsc --noEmit -p tsconfig.test.json  (src/ + tests/)
+npm test           # vitest run
+npm run test:watch # vitest, watch mode
 npm run docs       # cd docs-viewer && npm run build && npx serve dist
 ```
 
@@ -357,7 +360,7 @@ All four `dev*` scripts redirect stdout **and** stderr into `dev.log` (gitignore
 | `doc-gen.config.yml` | local config, **live PAT** | gitignored |
 | `dist/` | build output | gitignored |
 
-There is no test suite and no `test` script. For how a change is actually verified — including how to inspect the generated `.docx`/`.pdf` — see [process.md](process.md).
+`npm test` (Vitest) covers the serializer/renderer-util/ERD/fixtured-parser layers only — it does not touch Word, PDF, diagrams, AI or the wiki publisher. Passing tests are not a verified change. For what verification actually means here — including how to inspect the generated `.docx`/`.pdf` — see [process.md](process.md).
 
 ---
 
@@ -373,6 +376,7 @@ There is no test suite and no `test` script. For how a change is actually verifi
 | `engines.node` | `>=18` — but **nothing exercises 18**: the publish workflow and the sample pipeline both use Node 20. Treat the floor as declared, not verified. |
 | Shebang | injected post-build by `scripts/addShebang.mjs`, then `chmod +x` |
 | `prepublishOnly` | runs `npm run build` |
+| Tests in the tarball | none — tests live in `tests/` at the root, outside `tsconfig.json`'s `src/` scope, so `tsc` never emits them into `dist/` |
 
 Consumed by clients as `npx powerautodocs@latest` — no local install.
 

@@ -28,7 +28,8 @@
     "@types/node": "^25.3.3",
     "@types/pdfmake": "^0.2.13",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.102.0",
@@ -52,6 +53,9 @@
     "dev:both": "tsx src/index.ts --word --wiki > dev.log 2>&1",
     "build": "tsc",
     "postbuild": "node scripts/addShebang.mjs && chmod +x dist/index.js",
+    "typecheck": "tsc --noEmit -p tsconfig.test.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "prepublishOnly": "npm run build",
     "docs": "cd docs-viewer && npm run build && npx serve dist"
   },

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<environmentvariabledefinition schemaname="contoso_enableAudit">
+  <defaultvalue>no</defaultvalue>
+  <displayname default="Audit Enabled" />
+  <description default="Turns on verbose audit logging." />
+  <environmentvariabledefinitionid>{9a1f0c3e-0000-4000-8000-000000000002}</environmentvariabledefinitionid>
+  <introducedversion>1.0.0.0</introducedversion>
+  <isrequired>1</isrequired>
+  <secretstore>0</secretstore>
+  <type>100000002</type>
+  <IsCustomizable>1</IsCustomizable>
+</environmentvariabledefinition>

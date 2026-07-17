@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Deliberately degenerate: no <displayname>, and a `type` code outside TYPE_MAP.
+  Real solutions do carry variables like this, and the parser must degrade rather
+  than throw — so this fixture exists to pin the fallbacks, not to look tidy.
+-->
+<environmentvariabledefinition schemaname="contoso_legacyToggle">
+  <defaultvalue></defaultvalue>
+  <environmentvariabledefinitionid>{9a1f0c3e-0000-4000-8000-000000000003}</environmentvariabledefinitionid>
+  <introducedversion>1.0.0.0</introducedversion>
+  <isrequired>0</isrequired>
+  <secretstore>1</secretstore>
+  <type>999999999</type>
+  <IsCustomizable>1</IsCustomizable>
+</environmentvariabledefinition>

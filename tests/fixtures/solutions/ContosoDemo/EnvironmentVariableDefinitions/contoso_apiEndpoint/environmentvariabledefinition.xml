@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<environmentvariabledefinition schemaname="contoso_apiEndpoint">
+  <defaultvalue>https://api.contoso.example/v1</defaultvalue>
+  <displayname default="Service Endpoint URL" />
+  <description default="Base URL the integration calls." />
+  <environmentvariabledefinitionid>{9a1f0c3e-0000-4000-8000-000000000001}</environmentvariabledefinitionid>
+  <introducedversion>1.0.0.0</introducedversion>
+  <isrequired>0</isrequired>
+  <secretstore>0</secretstore>
+  <type>100000000</type>
+  <IsCustomizable>1</IsCustomizable>
+</environmentvariabledefinition>
