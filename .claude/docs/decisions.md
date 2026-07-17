@@ -222,16 +222,24 @@ Added under issue #102, once the product was close enough to a solid release tha
 
 ### What the suite covers, and what it refuses to
 
-Covered: **all 17 parsers** (against hand-authored `ContosoDemo` fixtures), **all 14 renderers** (against the `ir.ts` factories), `MarkdownSerializer`, `wordTheme`, `erdGenerator` and `config/loader`. These are pure, or path-taking-and-fixture-satisfiable — **no mocks anywhere in the suite**, which is the property worth protecting.
+Covered: **all 17 parsers** (against hand-authored `ContosoDemo` fixtures), **all 14 renderers** (against the `ir.ts` factories), `MarkdownSerializer`, **`DocxSerializer`**, `wordTheme`, `erdGenerator` and `config/loader`. These are pure, path-taking-and-fixture-satisfiable, or reachable through an existing injection seam — **no mocks anywhere in the suite**, which is the property worth protecting.
+
+### How DocxSerializer is tested, and why that way
+
+`tests/docmodel/DocxSerializer.test.ts` builds a real `.docx` and asserts on `word/document.xml`, unzipped with `adm-zip`.
+
+- **Not against the docx library's `Paragraph`/`Table` objects.** They are an opaque builder API whose internals are not a contract; asserting on them pins the library's shape rather than our output. `document.xml` is what Word opens.
+- **Not a golden-file byte compare.** Zip ordering and timestamps churn, so it would fail every run. Reading single elements is stable — and it is how the heading-backtick bug was proven.
+- **No browser.** The `renderMermaid` parameter is the seam; a stub returns a fake PNG. Both degradation paths are pinned (no renderer, and a renderer returning `null`) because those must yield a document *without* diagrams rather than fail the run.
+- **`adm-zip` is a `devDependency`** for exactly this, and `tests/types/adm-zip.d.ts` declares the three members used rather than adding `@types/adm-zip` — the dependency rule covers devDeps too.
 
 Still uncovered, and *not* for want of a seam — these are simply gaps:
 
 | Gap | Size | Note |
 |---|---|---|
-| `DocxSerializer` | 690 lines | The largest untested file in the repo. Its `renderMermaid` parameter is already an injection seam, and the `.docx` can be unzipped and asserted on — see the Word/PDF row above. |
-| `PdfSerializer` | 419 lines | Same shape. |
-| `publisher/*` | 4 modules | `wikiAssembler`/`docAssembler`/`pdfAssembler` are orchestration over tested parts; `wikiPublisher` needs an HTTP seam. |
+| `publisher/*` | 4 modules | **Now the biggest real gap.** `docAssembler` orders sections, applies heading offsets, builds the TOC and drives the *real* Mermaid renderer — none of that is exercised, so nothing assembles a whole document. `wikiPublisher` needs an HTTP seam. |
 | `mermaidGenerator`, `dependencyResolver` | pure | No excuse — both are pure functions. Cheap wins for whoever picks this up next. |
+| `PdfSerializer` | 419 lines | **Deliberately skipped:** PDF output is planned for deprecation (Lewis, 2026-07-17). Do not invest here without checking that decision still holds. |
 
 **Deliberately not covered — the seams don't exist yet:**
 
@@ -283,13 +291,20 @@ The rule — capitalised folder **and** filename segments — is enforced nowher
 
 ---
 
-## Dependencies: five of them are vestigial
+## Dependencies: the five vestigial ones are gone
 
-`package.json` declares `commander`, `handlebars`, `zod`, `adm-zip` and `glob`. **None of the five is imported anywhere in `src/`.** Their presence in `package.json` is not evidence they are the sanctioned approach:
+`package.json` used to declare `commander`, `handlebars`, `zod`, `adm-zip` and `glob`, none of them imported anywhere in `src/`. All five were pruned (2026-07-17, Lewis approved); declared prod deps went 13 → 8.
 
-- **`commander`** — CLI parsing is deliberately hand-rolled off `process.argv` with a `KNOWN_FLAGS` set (`src/index.ts:73-85`). Do not assume a migration has happened.
-- **`handlebars`** — directly contradicts the "no templating engine" rationale behind the TypeScript/IR choice. Do not reach for it.
+**The approaches they implied are still the wrong ones, and that is why this entry stays:**
+
+- **`commander`** — CLI parsing is deliberately hand-rolled off `process.argv` with a `KNOWN_FLAGS` set (`src/index.ts:73-85`).
+- **`handlebars`** — directly contradicts the "no templating engine" rationale behind the TypeScript/IR choice.
 - **`zod`** — config validation is hand-written in `config/loader.ts`.
+
+Re-adding any of them is a 🔴 like any other dependency. Two details worth knowing:
+
+- **What the prune actually bought.** `handlebars`, `glob` and `adm-zip` took 13 packages out of the production tree — real weight, paid by every client on every run. `commander` and `zod` free **no** bytes: they stay installed transitively via `@mermaid-js/mermaid-cli`, `d3-dsv`, `katex` and `chromium-bidi`. Removing that pair bought an honest manifest, not a smaller install. Don't cite it as a weight saving.
+- **`adm-zip` did not leave — it moved to `devDependencies`**, because unzipping the `.docx` is how the Word path is tested. Clients still stop paying for it (`npm ci --omit=dev`, `files: ["dist"]`).
 
 **Adding a new npm dependency requires asking Lewis first — this is a hard stop**, alongside `npm publish` and `package.json` version bumps. Everything else (branching, committing, merging, config/schema changes) you may do autonomously. See [Process](process.md).
 

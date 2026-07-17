@@ -28,13 +28,15 @@ This replaces the older, vaguer "confirm scope with Lewis before making changes 
 
 ### `package.json` deps are not a menu
 
-`commander`, `handlebars`, `zod`, `adm-zip` and `glob` are declared dependencies that are **imported nowhere in `src/`**. Their presence is not sanction to start using them:
+`commander`, `handlebars`, `zod`, `adm-zip` and `glob` were declared but imported nowhere. All five were pruned on 2026-07-17 (`adm-zip` moved to `devDependencies` — it is how the `.docx` is tested). Declared prod deps: 13 → 8.
 
-- **`commander`** — CLI parsing is deliberately hand-rolled in `src/index.ts:73-85` (`process.argv` + a `KNOWN_FLAGS` Set). Issue #63 tracks migrating to commander; until that is agreed, do not import it.
-- **`handlebars`** — directly contradicts the recorded decision "no templating engine". Do not reach for it.
-- **`zod`** — config validation is hand-written (`validateAiEnrichmentConfig`, `src/config/loader.ts:114-149`).
+**The approaches they implied remain wrong**, so if you find yourself wanting one, this is the answer:
 
-Using one of these is functionally the same as adding a new dependency — it converts dead weight into a load-bearing commitment. Ask first. (Pruning them is a good candidate issue.)
+- **`commander`** — CLI parsing is deliberately hand-rolled in `src/index.ts:73-85` (`process.argv` + a `KNOWN_FLAGS` Set).
+- **`handlebars`** — contradicts the recorded decision "no templating engine".
+- **`zod`** — config validation is hand-written (`validateAiEnrichmentConfig`, `src/config/loader.ts`).
+
+Re-adding any of them is a normal 🔴 — ask first. Note `commander` and `zod` are still *present* in `node_modules` as transitive deps of `@mermaid-js/mermaid-cli` and `chromium-bidi`, so importing one would compile locally and then break for clients the moment that transitive path changes. An import must be a declared dep.
 
 ---
 
@@ -169,9 +171,11 @@ Merge it yourself (🟢). Two styles are both in use, and the observable rule is
 
 Vitest, added under issue #102. `npm test` runs it; `.github/workflows/ci.yml` runs typecheck + build + test on **every PR and every push to `main`**. `npm-publish.yml` re-runs the same checks before `npm publish`, because a release can be cut from any ref and a publish cannot be undone.
 
-**This changes what CI catches, not what verification means.** The suite (662 tests) covers the mock-free layers: all 17 parsers, all 14 renderers, DocNode serialisation, `wordTheme`, the ERD generator and `config/loader`. It does **not** cover `DocxSerializer`, `PdfSerializer`, `publisher/*`, Mermaid PNG rendering, the AI providers, the wiki publisher, or `main()`. Green CI means "nothing obviously regressed in the tested fraction". It does not mean the `.docx` is right.
+**This changes what CI catches, not what verification means.** The suite (693 tests) covers the mock-free layers: all 17 parsers, all 14 renderers, `MarkdownSerializer`, `DocxSerializer`, `wordTheme`, the ERD generator and `config/loader`. It does **not** cover `publisher/*`, `PdfSerializer`, real Mermaid PNG rendering, the AI providers, the wiki publisher, or `main()`. Green CI means "nothing obviously regressed in the tested fraction". It does not mean the `.docx` is right.
 
-**Do not read the parser/renderer coverage as broader than it is.** It stops precisely at the `DocNode` boundary — **no test in this repo has ever produced a `.docx`, a `.pdf` or a wiki page.** The clearest demonstration: four renderers baked markdown backticks into heading text, every renderer test passed, and the `.docx` shipped literal backticks. It took unzipping a real `.docx` and reading `word/document.xml` to see it. That gap is exactly the size of the artifact inspection below.
+**Know exactly how far the Word coverage goes.** `DocxSerializer` tests build a real `.docx` and assert on `word/document.xml`, so escaping, heading levels, code chips, bullets, tables and the Mermaid degradation paths are genuinely pinned. But **nothing assembles a whole document**: `docAssembler` — which orders sections, applies heading offsets, builds the TOC and calls the real browser-backed Mermaid renderer — is untested, as is `wikiPublisher`. The suite has never rendered a real diagram, published a page, or produced a document longer than a handful of nodes.
+
+The backtick bug is why this distinction is written down rather than assumed: every renderer test passed while the `.docx` shipped literal backticks, and only unzipping one revealed it. That class of gap is exactly the size of the artifact inspection below.
 
 So: **the end-to-end run and artifact inspection below are still mandatory for anything touching output.** CI is a floor, not a substitute. Everything in "What verified actually means" still applies.
 

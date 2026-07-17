@@ -56,9 +56,10 @@ config/schema without asking. You must ask Lewis before **(a)** any `npm publish
 `package.json` version bump, and **(b)** adding any new npm dependency. Playbook 3 in
 particular usually needs a new dependency — stop and ask before you install it.
 
-> `commander`, `handlebars`, `zod`, `adm-zip` and `glob` are declared in `package.json` but
-> imported nowhere in `src/`. Their presence is **not** evidence they are sanctioned. Do not
-> start using one because you found it in the manifest.
+> The five vestigial deps (`commander`, `handlebars`, `zod`, `adm-zip`, `glob`) were pruned on
+> 2026-07-17. Two of them — `commander` and `zod` — are still in `node_modules` as transitive
+> deps of `@mermaid-js/mermaid-cli` and `chromium-bidi`, so importing one **compiles locally
+> and is still an undeclared dependency**. Finding a module in `node_modules` is not sanction.
 
 ---
 
