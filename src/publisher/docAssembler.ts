@@ -136,8 +136,14 @@ export async function buildWordDocument(
     ? generateERDiagram(mergedSolution.tables, publisherPrefixes, config.erd)
     : generateERDiagram(mergedSolution.tables, undefined, config.erd);
 
-  await push(blocks, [h(1, 'Data Model')], 0, renderMermaid, theme);
-  if (erdDiagram) await push(blocks, [mermaid(erdDiagram)], 0, renderMermaid, theme);
+  // Guarded like every other section — was pushed unconditionally, so a
+  // solution with zero tables and no ERD shipped a "Data Model" TOC entry
+  // pointing at a heading with nothing beneath it, the exact empty-section
+  // defect every other guard in this file exists to prevent.
+  if (mergedSolution.tables.length > 0 || erdDiagram) {
+    await push(blocks, [h(1, 'Data Model')], 0, renderMermaid, theme);
+    if (erdDiagram) await push(blocks, [mermaid(erdDiagram)], 0, renderMermaid, theme);
+  }
 
   const flowDeps = resolveFlowTableDependencies(flows, mergedSolution.tables);
 

@@ -478,18 +478,24 @@ describe('buildWordDocument — empty sections are omitted', () => {
     expect(levelOf(xml, 'Widget — Used By Flows')).toBe(3);
   });
 
-  it('BUG: Data Model is emitted even with no tables and no ERD', async () => {
-    // Pinning current behaviour, NOT endorsing it. Every other section guards on
-    // its IR being non-empty; Data Model is pushed unconditionally
-    // (docAssembler.ts:133). A solution with zero tables therefore ships a
+  it('omits Data Model entirely when there are no tables and no ERD', async () => {
+    // Was pinned: every other section guards on its IR being non-empty; Data
+    // Model was pushed unconditionally. A solution with zero tables shipped a
     // "Data Model" TOC entry pointing at a heading with nothing beneath it —
-    // exactly the empty-section defect the other guards exist to prevent.
-    // Reported rather than fixed: changing it is a source change.
+    // exactly the empty-section defect every other guard in this file exists
+    // to prevent.
     const xml = await buildXml({ solutions: [aSolution({ tables: [] })] });
+    expect(sectionTitles(xml)).not.toContain('Data Model');
+    expect(sectionTitles(xml)).toEqual(['Overview']);
+  });
+
+  it('still emits Data Model when there are tables, even with no qualifying ERD relationships', async () => {
+    // The guard must not over-fire: tables alone are reason enough for the
+    // section to exist, independent of whether an ERD diagram qualifies.
+    const xml = await buildXml({
+      mergedSolution: aSolution({ tables: [widget()] }),
+    });
     expect(sectionTitles(xml)).toContain('Data Model');
-    // It is the last heading in the document — literally nothing beneath it.
-    const texts = headingTexts(xml);
-    expect(texts[texts.length - 1]).toBe('Data Model');
   });
 });
 

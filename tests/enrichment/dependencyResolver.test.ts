@@ -345,25 +345,18 @@ describe('resolveFlowTableDependencies — duplicate references', () => {
     expect(tableNames(deps, 'f1')).toEqual(['acme_widget']);
   });
 
-  // KNOWN DEFECT — pinned, not a spec. The dedupe Set holds RAW entity strings,
-  // but two different raw strings can resolve to the SAME TableModel: a trigger
-  // uses the logical name ('acme_widget') while a Dataverse connector action uses
-  // the entity-set name ('acme_widgets'). Both survive the Set, both resolve to
-  // one table, and the loop pushes into tableToFlows and matchedTables once each.
-  //
-  // Client-visible impact, on every output format: wikiAssembler.ts:93,
-  // docAssembler.ts:142 and pdfAssembler.ts:103 feed tableToFlows straight into
-  // renderTableUsedByFlows, so the flow appears as two identical rows under
-  // "Used By Flows"; wikiAssembler.ts:133, docAssembler.ts:181 and
-  // pdfAssembler.ts:142 feed flowToTables into the flow page, so the table is
-  // listed twice under the flow. This is the single most common real shape — a
-  // trigger plus a connector action on the same table — so it is likely already
-  // shipping.
-  //
-  // The fix is to dedupe on the resolved table (e.g. a Set of TableModel, or key
-  // matchedTables by logicalName) rather than on the raw entity string. Update
-  // this test to expect one entry when that lands.
-  it('BUG: lists a flow twice when trigger and action resolve to the same table via a plural', () => {
+  it('does not list a flow twice when trigger and action resolve to the same table via a plural', () => {
+    // Was pinned: the dedupe Set held RAW entity strings, but two different raw
+    // strings can resolve to the SAME TableModel — a trigger uses the logical
+    // name ('acme_widget') while a Dataverse connector action uses the
+    // entity-set name ('acme_widgets'). Both survived the Set, both resolved to
+    // one table, and the loop pushed into tableToFlows and matchedTables once
+    // each. Client-visible on every output format: the flow appeared as two
+    // identical rows under a table's "Used By Flows", and the table was listed
+    // twice on the flow's own page. This is the single most common real
+    // shape — a trigger plus a connector action on the same table — so it was
+    // likely already shipping. Now dedupes on the resolved table's logical
+    // name, not the raw string that led to it.
     const deps = resolveFlowTableDependencies(
       [aFlow({
         ...bareFlow('f1', 'Widget Sync'),
@@ -372,12 +365,24 @@ describe('resolveFlowTableDependencies — duplicate references', () => {
       })],
       [aTable({ logicalName: 'acme_widget' })],
     );
-    // Correct behaviour would be ['Widget Sync'] / ['acme_widget'].
-    expect(flowNames(deps, 'acme_widget')).toEqual(['Widget Sync', 'Widget Sync']);
-    expect(tableNames(deps, 'f1')).toEqual(['acme_widget', 'acme_widget']);
-    // And it really is the same object twice, not two lookalike tables.
-    const [first, second] = deps.flowToTables.get('f1')!;
-    expect(first).toBe(second);
+    expect(flowNames(deps, 'acme_widget')).toEqual(['Widget Sync']);
+    expect(tableNames(deps, 'f1')).toEqual(['acme_widget']);
+  });
+
+  it('still lists a flow once per table when it genuinely touches two different tables', () => {
+    // The fix must dedupe WITHIN one table's resolution, not collapse two
+    // distinct tables that happen to share a flow.
+    const deps = resolveFlowTableDependencies(
+      [aFlow({
+        ...bareFlow('f1', 'Widget And Part Sync'),
+        trigger: aTrigger({ entity: 'acme_widget' }),
+        actions: [anAction({ name: 'Update a row', entityName: 'acme_part' })],
+      })],
+      [aTable({ logicalName: 'acme_widget' }), aTable({ logicalName: 'acme_part' })],
+    );
+    expect(flowNames(deps, 'acme_widget')).toEqual(['Widget And Part Sync']);
+    expect(flowNames(deps, 'acme_part')).toEqual(['Widget And Part Sync']);
+    expect(tableNames(deps, 'f1').sort()).toEqual(['acme_part', 'acme_widget']);
   });
 });
 
