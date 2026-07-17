@@ -88,10 +88,29 @@ function emptyPrivileges(
     };
 }
 
-export function parseSecurityRole(filePath: string, publisherPrefix?: string): SecurityRoleModel {
-    const xml = fs.readFileSync(filePath, 'utf-8');
-    const doc = parser.parse(xml);
-    const role = doc['Role'];
+/**
+ * Parses one Roles/*.xml file. Returns null if the file is unreadable, is not
+ * XML, or has no <Role> root.
+ *
+ * Null rather than throwing, and per-file rather than per-folder: this used to
+ * have no guard at all, so a single malformed role file threw a TypeError out of
+ * the whole sweep. index.ts wraps component parsers in tryParse, so the blast
+ * radius was every security role in the solution disappearing from the docs over
+ * one bad file — while every sibling parser here skips the bad file and keeps the
+ * rest. This matches them.
+ */
+export function parseSecurityRole(filePath: string, publisherPrefix?: string): SecurityRoleModel | null {
+    let role: any;
+    try {
+        const xml = fs.readFileSync(filePath, 'utf-8');
+        const doc = parser.parse(xml);
+        role = doc?.['Role'];
+    } catch {
+        return null;
+    }
+    // fast-xml-parser is not validating: a truncated file parses "successfully"
+    // into an object with no Role node, so this guard is what actually catches it.
+    if (!role) return null;
 
     const id: string = role['@_id'] ?? '';
     const name: string = role['@_name'] ?? path.basename(filePath, '.xml');
@@ -144,6 +163,6 @@ export function parseSecurityRoles(solutionRoot: string, publisherPrefix?: strin
         .readdirSync(rolesDir)
         .filter(f => f.endsWith('.xml'))
         .map(f => parseSecurityRole(path.join(rolesDir, f), publisherPrefix))
-        .filter(r => r.name.length > 0)
+        .filter((r): r is SecurityRoleModel => r !== null)
         .sort((a, b) => a.name.localeCompare(b.name));
 }

@@ -90,18 +90,24 @@ describe('parseAllRelationships', () => {
   it('keeps every well-formed relationship when a sibling file is malformed', () => {
     // contoso_broken.xml is a truncated export. One bad file must not cost the client
     // the rest of the ERD.
-    const real = parse().filter(r => r.referencingEntity !== '');
-    expect(real).toHaveLength(5);
+    expect(parse()).toHaveLength(5);
   });
 
-  it('does not throw on the malformed file — but does leak an empty relationship', () => {
-    // Documenting current behaviour, not endorsing it: the truncated file parses
-    // leniently into a name-only entry with no entities on either end, which will
-    // reach the ERD. See the accompanying report.
-    const leaked = parse().find(r => r.name === 'contoso_truncated_export');
-    expect(leaked).toBeDefined();
-    expect(leaked!.referencingEntity).toBe('');
-    expect(leaked!.referencedEntity).toBe('');
+  it('drops a truncated relationship rather than leaking it into the ERD', () => {
+    // fast-xml-parser is not validating, so the truncated file parses leniently
+    // into a name-only entry with no entities on either end and never throws —
+    // the try/catch in parseAllRelationships is dead for this case. A relationship
+    // with no ends cannot be drawn or listed, so it is skipped at the source.
+    expect(parse().find(r => r.name === 'contoso_truncated_export')).toBeUndefined();
+  });
+
+  it('never returns a relationship missing either end', () => {
+    // The general invariant: every consumer (the ERD, the per-table Relationships
+    // page) assumes both ends exist.
+    for (const r of parse()) {
+      expect(r.referencingEntity).not.toBe('');
+      expect(r.referencedEntity).not.toBe('');
+    }
   });
 
   it('returns empty for a solution with no Other/Relationships folder', () => {
