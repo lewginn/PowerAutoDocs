@@ -13,7 +13,8 @@ function nodeDef(id: string, label: string, type: string): string {
     switch (type) {
         case 'If': return `${id}{"${l}"}`;           // diamond
         case 'Scope': return `${id}[["${l}"]]`;         // subroutine (double bracket)
-        case 'Foreach': return `${id}["↺ ${l}"]`;        // rectangle with loop symbol (cylinder not in 8.14)
+        case 'Foreach':
+        case 'Until': return `${id}["↺ ${l}"]`;        // rectangle with loop symbol (cylinder not in 8.14) — Until loops the same as Foreach
         case 'Terminate': return `${id}(("${l}"))`;         // circle (hexagon not in 8.14)
         default: return `${id}["${l}"]`;
     }
@@ -114,13 +115,40 @@ export function generateMermaidDiagram(
                 }
             }
 
-            if (a.type === 'Scope' || a.type === 'Foreach') {
+            if (a.type === 'Scope' || a.type === 'Foreach' || a.type === 'Until') {
                 const inner: Record<string, any> = a.actions ?? {};
                 if (Object.keys(inner).length > 0) {
                     const innerPrefix = `${pathPrefix}.${key}.inner`;
                     processLevel(inner, innerPrefix);
                     for (const r of findRoots(inner, innerPrefix)) {
                         lines.push(`  ${nodeId} --> ${r}`);
+                    }
+                }
+            }
+
+            // Switch cases + default — same shape as If's Yes/No branches, just
+            // N-way instead of 2-way. flowParser.ts recurses into these already
+            // (the action TABLE has always listed them); the diagram silently
+            // omitted them, so a reader saw a dead-end box for a Switch and
+            // concluded the flow does less than it does.
+            if (a.type === 'Switch') {
+                const cases: Record<string, any> = a.cases ?? {};
+                for (const [caseKey, caseObj] of Object.entries(cases)) {
+                    const caseActs: Record<string, any> = (caseObj as any)?.actions ?? {};
+                    if (Object.keys(caseActs).length === 0) continue;
+                    const casePrefix = `${pathPrefix}.${key}.case.${caseKey}`;
+                    processLevel(caseActs, casePrefix);
+                    for (const r of findRoots(caseActs, casePrefix)) {
+                        lines.push(`  ${nodeId} -->|"${humanLabel(caseKey)}"| ${r}`);
+                    }
+                }
+
+                const defaultActs: Record<string, any> = a.default?.actions ?? {};
+                if (Object.keys(defaultActs).length > 0) {
+                    const defaultPrefix = `${pathPrefix}.${key}.default`;
+                    processLevel(defaultActs, defaultPrefix);
+                    for (const r of findRoots(defaultActs, defaultPrefix)) {
+                        lines.push(`  ${nodeId} -->|"Default"| ${r}`);
                     }
                 }
             }
@@ -131,9 +159,15 @@ export function generateMermaidDiagram(
 
     // --- Trigger node ---
     const triggerId = freshId();
-    const triggerLabel = trigger.entity
+    const rawTriggerLabel = trigger.entity
         ? `${humanLabel(trigger.type)}: ${trigger.entity}`
         : humanLabel(trigger.type);
+    // Same " -> ' escape nodeDef() applies to every action label. This node is
+    // built inline rather than through nodeDef(), so it used to skip the
+    // escape — trigger.entity comes straight from unvalidated flow JSON, and a
+    // single quote in it terminated the Mermaid string literal early, making
+    // the ENTIRE diagram fail to parse, not just the trigger node.
+    const triggerLabel = rawTriggerLabel.replace(/"/g, "'");
     lines.push(`  ${triggerId}(["${triggerLabel}"])`);
 
     // --- Process top-level actions ---

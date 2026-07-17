@@ -24,6 +24,7 @@ describe('parseAllFlows', () => {
       'ArchiveWidgetDelete',
       'Escalate widget update',
       'Notify on widget create',
+      'PollWidgetSync',
       'Review widget create or update',
       'Sync widgets nightly',
       'Unknown Flow',
@@ -210,6 +211,31 @@ describe('parseAllFlows', () => {
         ]);
     });
 
+    it('recurses into an Until ("Do until") loop body like Foreach, and describes it', () => {
+      // Was a defect: parseActions recursed into If/Scope/Foreach/Switch but not
+      // Until, so every action inside a "Do until" loop was missing from the
+      // action table (and, via generateMermaidDiagram, from the diagram too) —
+      // a client reading generated docs for a polling loop saw one step with no
+      // indication it loops and no visible body.
+      expect(byName('PollWidgetSync').actions.map(a => [a.name, a.depth, a.parentName]))
+        .toEqual([
+          ['Start sync job',      0, undefined],
+          ['Poll for completion', 0, undefined],
+          ['Check sync status',   1, 'Poll for completion'],
+          ['Delay between polls', 1, 'Poll for completion'],
+        ]);
+
+      const loop = byName('PollWidgetSync').actions.find(a => a.name === 'Poll for completion')!;
+      expect(loop.description).toBe('Loop until contoso_status = Complete (max 60 iterations) (2 actions)');
+    });
+
+    it('generates a mermaid diagram with the loop glyph and the Until body drawn', () => {
+      const dsl = byName('PollWidgetSync').mermaidDiagram;
+      expect(dsl).toContain('↺ Poll for completion');
+      expect(dsl).toContain('Check sync status');
+      expect(dsl).toContain('Delay between polls');
+    });
+
     it('falls back to the action type as operationId when there is no connector host', () => {
       const compose = byName('Sync widgets nightly').actions[0];
       expect(compose.operationId).toBe('Compose');
@@ -295,7 +321,7 @@ describe('parseAllFlows', () => {
 
     it('ignores a stray XML file with no Workflow node', () => {
       // A parser that threw here would lose every flow in the solution, not just this file.
-      expect(flows.length).toBe(9);
+      expect(flows.length).toBe(10);
     });
   });
 });
