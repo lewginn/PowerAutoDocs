@@ -328,6 +328,18 @@ export interface EnrichmentModels {
 }
 
 /**
+ * The provider seam. Production passes nothing and gets the real factory; a
+ * test passes a fake returning a canned summary.
+ *
+ * `AiProvider` was always a clean one-method interface, but this function
+ * resolved its own provider via `createProvider`, so nothing could reach it
+ * without a mocking framework. Injecting the factory is what makes the
+ * cache-hit/miss logic — the part that decides whether a client pays for a
+ * summary — testable without mocks (decisions.md).
+ */
+export type ProviderFactory = (config: AiEnrichmentConfig) => AiProvider;
+
+/**
  * Runs AI enrichment over all opted-in components.
  * No-op if aiEnrichment is disabled in config.
  * Mutates the IR models in place — sets `aiSummary` where a summary
@@ -338,7 +350,8 @@ export async function enrichWithAiSummaries(
   configDir: string,
   models: EnrichmentModels,
   summary: RunSummary,
-  forceRegenerate: boolean = false
+  forceRegenerate: boolean = false,
+  makeProvider: ProviderFactory = createProvider
 ): Promise<void> {
   const ai = config.aiEnrichment;
   if (!ai || !ai.enabled) return;
@@ -348,7 +361,7 @@ export async function enrichWithAiSummaries(
 
   let provider: AiProvider;
   try {
-    provider = createProvider(ai);
+    provider = makeProvider(ai);
   } catch (err: any) {
     log('error', `AI enrichment disabled for this run — provider setup failed: ${err?.message ?? err}`);
     summary.aiSummaryFailures.push({ component: 'provider', name: ai.provider, reason: err?.message ?? String(err) });
