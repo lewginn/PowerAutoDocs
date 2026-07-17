@@ -7,6 +7,17 @@
 // .claude/docs/constraints.md. Keep it that way: if you need a new shape, invent
 // it rather than copying one out of unpacked/.
 //
+// There are deliberately two fixture layers, with two different invented names:
+//
+//   this file (Acme Widgets)              — IR objects, for renderer tests.
+//                                           Renderers consume IR, so they need no XML.
+//   tests/fixtures/solutions/ContosoDemo  — hand-authored solution XML on disk,
+//                                           for parser tests. Parsers read paths.
+//
+// The names differ so it is obvious at a glance which side of the IR contract a
+// test sits on. A renderer test must never need ContosoDemo, and a parser test
+// must never need these factories — if one does, the layers have leaked.
+//
 // Each factory takes a Partial<> override so a test can state only the field it
 // cares about, and the assertion stays readable:
 //

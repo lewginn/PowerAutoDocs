@@ -58,7 +58,10 @@ full autonomy boundary.
 
 - **Never emit format strings from a renderer.** Renderers return `DocNode[]`. Markdown,
   docx and PDF syntax belong to the serializer that owns that format — including fences,
-  wrappers and escaping. (A double-fenced ERD bug came from breaking exactly this.)
+  wrappers and escaping. (A double-fenced ERD bug came from breaking exactly this; so did
+  four renderers baking backticks into heading text, which looked right in the wiki and put
+  literal backticks in the `.docx`.) `tests/renderers/formatBoundary.test.ts` now enforces
+  this across every renderer — **add yours to its `RENDERED` list or it is not guarded.**
 
 Full list, each with its reason: [constraints.md](docs/constraints.md).
 
