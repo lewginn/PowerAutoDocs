@@ -347,6 +347,19 @@ function serializeTable(headers: string[], rows: InlineNode[][][], theme: WordTh
   const cellSize      = Math.round(fontPt * 2);
   const colWidths     = calcColumnWidths(headers, rows, fontPt);
 
+  // Some renderers use a table purely for layout, not data — modelDrivenAppRenderer
+  // lays entity names out in three columns via table(['', '', ''], ...). Those
+  // pass an all-blank header deliberately, because markdown has no way to
+  // express a table without a header row.
+  //
+  // Word does: it can simply not have one. Emitting the blank row anyway was
+  // harmless while headers were pale grey, but the theme now fills the header
+  // with the accent colour, which turned every one of these into a solid blue
+  // bar containing nothing. Detect the headerless case and drop the row rather
+  // than special-casing the shading — an empty header row has no meaning in
+  // Word regardless of what colour it is.
+  const headerless = headers.every(h => !h.trim());
+
   const headerRow = new TableRow({
     // Repeats the header on every page a long table spills onto. Without this
     // a 200-row column table's headers vanish after page one and the rest of
@@ -396,7 +409,7 @@ function serializeTable(headers: string[], rows: InlineNode[][][], theme: WordTh
     layout: TableLayoutType.FIXED,
     width: { size: PAGE_WIDTH_TWIPS, type: WidthType.DXA },
     columnWidths: colWidths,
-    rows: [headerRow, ...bodyRows],
+    rows: headerless ? bodyRows : [headerRow, ...bodyRows],
   });
 }
 
