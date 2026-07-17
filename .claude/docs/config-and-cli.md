@@ -360,7 +360,7 @@ All four `dev*` scripts redirect stdout **and** stderr into `dev.log` (gitignore
 | `doc-gen.config.yml` | local config, **live PAT** | gitignored |
 | `dist/` | build output | gitignored |
 
-`npm test` (Vitest, 662 tests) covers all 17 parsers, all 14 renderers, `MarkdownSerializer`, `wordTheme`, `erdGenerator` and `config/loader`. It does **not** touch `DocxSerializer`, `PdfSerializer`, `publisher/*`, Mermaid rendering or the AI providers — so it never produces a `.docx`, a `.pdf` or a wiki page. Passing tests are not a verified change. For what verification actually means here — including how to inspect the generated `.docx`/`.pdf` — see [process.md](process.md).
+`npm test` (Vitest, 693 tests) covers all 17 parsers, all 14 renderers, `MarkdownSerializer`, `DocxSerializer`, `wordTheme`, `erdGenerator` and `config/loader`. It does **not** touch `publisher/*`, `PdfSerializer`, real Mermaid rendering or the AI providers — so no test assembles a full document or publishes a wiki page. Passing tests are not a verified change. For what verification actually means here — including how to inspect the generated `.docx`/`.pdf` — see [process.md](process.md).
 
 ---
 
@@ -382,11 +382,13 @@ Consumed by clients as `npx powerautodocs@latest` — no local install.
 
 **Publishing and version bumps are a hard stop.** The agent may branch, commit, push, open PRs and merge without asking, but must ask Lewis before any `npm publish` or `package.json` version bump, and before adding any new npm dependency. Release mechanics live in [process.md](process.md).
 
-### Declared-but-unused dependencies
+### Dependencies
 
-`commander`, `handlebars`, `zod`, `adm-zip` and `glob` are all in `package.json` `dependencies` and imported **nowhere** in `src/` or `scripts/`. Their presence is not evidence they are sanctioned — reaching for `zod` to validate config or `handlebars` to template output would silently adopt a dependency for a purpose Lewis never approved, and `handlebars` directly contradicts the "no templating engine" decision. Config validation is hand-rolled in `loader.ts`; CLI parsing is hand-rolled in `index.ts:73-86`. Pruning these is worth an issue.
+Every one of the eight declared `dependencies` is imported and load-bearing: `@anthropic-ai/sdk`, `openai` (Azure provider), `@mermaid-js/mermaid-cli` + `puppeteer` (diagram render), `docx`, `pdfmake`, `fast-xml-parser`, `js-yaml`.
 
-Actually imported and load-bearing: `@anthropic-ai/sdk`, `openai` (Azure provider), `@mermaid-js/mermaid-cli` + `puppeteer` (diagram render), `docx`, `pdfmake`, `fast-xml-parser`, `js-yaml`.
+`commander`, `handlebars`, `zod`, `adm-zip` and `glob` were declared but unused, and were pruned on 2026-07-17 (13 → 8 declared prod deps; 13 packages out of the production tree). `adm-zip` moved to `devDependencies` — it unzips the `.docx` in the `DocxSerializer` tests. Config validation stays hand-rolled in `loader.ts`; CLI parsing stays hand-rolled in `index.ts:73-86`. See [decisions.md](decisions.md#dependencies-the-five-vestigial-ones-are-gone) for why those approaches are deliberate.
+
+`pdfmake` and `@types/pdfmake` become removable if PDF output is deprecated as planned — see [roadmap.md](roadmap.md).
 
 ---
 

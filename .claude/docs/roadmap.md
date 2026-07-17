@@ -84,7 +84,9 @@ Every component issue here is the same job: add an IR type, a parser, a renderer
 
 ### #63 "CLI flags with commander" — read the title carefully
 
-CLI flags are **already shipped**. `commander` is declared in `package.json` but imported nowhere in `src/` — flag parsing is hand-rolled off `process.argv` in `src/index.ts:73-85` with a `KNOWN_FLAGS` set. The real scope of #63 is *migrate the hand-rolled parser to commander*, not *add flags*. Do not conclude from `commander` being installed that the migration already happened, and do not conclude from the issue being open that `--word`/`--wiki`/`--pdf`/`--regenerate-ai` don't work. They do.
+CLI flags are **already shipped** — flag parsing is hand-rolled off `process.argv` in `src/index.ts:73-85` with a `KNOWN_FLAGS` set. Do not conclude from the issue being open that `--word`/`--wiki`/`--pdf`/`--regenerate-ai` don't work. They do.
+
+**#63's scope changed on 2026-07-17.** It was *migrate the hand-rolled parser to the already-installed commander*. `commander` has since been pruned (it was declared but never imported), so #63 now means **adding a dependency back** — a 🔴 needing Lewis's approval, weighed against a hand-rolled parser that works. Note `commander` still resolves locally as a transitive dep of `@mermaid-js/mermaid-cli`, so an import would compile and still be undeclared; that is a trap, not a green light.
 
 ---
 
@@ -114,7 +116,11 @@ CLI flags are **already shipped**. `commander` is declared in `package.json` but
 
 #97 is the newest substantive issue (opened 2026-06-10) and is not slotted into a phase block in `architecture.jsx`. If you pick it up, add it to a phase block or accept that it lives outside the published roadmap.
 
-**#102's second pass extended the suite to 661 tests.** CI (`ci.yml`) typechecks, builds and tests every PR. Coverage is now **all 17 parsers** and **all 14 renderers**, plus `MarkdownSerializer`, `wordTheme`, `erdGenerator` and `config/loader`. Still uncovered: `DocxSerializer` (690 lines — the biggest gap), `PdfSerializer`, `publisher/*`, and the pure-and-therefore-inexcusable `mermaidGenerator` / `dependencyResolver`. See [decisions.md](decisions.md#vitest-and-a-suite-that-deliberately-stops-short).
+**#102's second pass extended the suite to 693 tests.** CI (`ci.yml`) typechecks, builds and tests every PR. Coverage is now **all 17 parsers**, **all 14 renderers** and **`DocxSerializer`** (asserted against a real unzipped `.docx`), plus `MarkdownSerializer`, `wordTheme`, `erdGenerator` and `config/loader`.
+
+Still uncovered: **`publisher/*` is now the biggest real gap** — `docAssembler` assembles the whole document and drives the real Mermaid renderer, so nothing yet tests a full run; `wikiPublisher` needs an HTTP seam. Plus `mermaidGenerator` and `dependencyResolver`, which are pure and have no excuse. `PdfSerializer` is deliberately skipped — see the PDF deprecation note below. See [decisions.md](decisions.md#vitest-and-a-suite-that-deliberately-stops-short).
+
+**PDF output is planned for deprecation** (Lewis, 2026-07-17). This is why `PdfSerializer` (419 lines) was left untested while `DocxSerializer` was covered. Nothing has been removed yet and `output.pdf` still works — but do not invest in PDF features, tests or refactors without confirming the plan still holds. If it goes, `pdfmake` and `@types/pdfmake` go with it, which is a further dependency saving on every client run.
 
 **Writing those tests found ten defects, and that — not the tests themselves — is the argument for the remaining coverage.** Every one had been shipping to clients undetected, and none was found by reading the code; they surfaced the moment something asserted on real output.
 
