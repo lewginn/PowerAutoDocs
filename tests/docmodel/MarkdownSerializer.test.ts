@@ -85,7 +85,7 @@ describe('table serialisation', () => {
   // this — the width calc handles a missing cell via `r[i] ?? ''`, but the body map
   // iterates the row, so the cell never gets emitted. No renderer builds a ragged
   // table today, so this is latent. Tracked in #103; update this test when it's fixed.
-  it('emits a short row when a row has fewer cells than headers (known gap)', () => {
+  it('BUG: emits a short row when a row has fewer cells than headers (#103)', () => {
     const out = serialize([table(['A', 'B'], [[ct('x')]])]);
     expect(out.split('\n')[2]).toBe('| x |');
   });

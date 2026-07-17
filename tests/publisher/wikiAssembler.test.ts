@@ -97,7 +97,7 @@ describe('buildWikiPages — parentPath normalisation', () => {
   });
 
   it('only strips the last slash, so a trailing "//" leaves one behind', () => {
-    // Known gap, pinned rather than specced: the normaliser is `.replace(/\/$/, '')`,
+    // BUG: pinned rather than specced. The normaliser is `.replace(/\/$/, '')`,
     // a single-character strip. '/Docs//' therefore yields '/Docs//Overview'. Not
     // reported as a defect — '//' is a config typo, and ADO tolerates it.
     expect(paths(build({ config: withWiki('/Docs//') }))[0]).toBe('/Docs//Overview');
@@ -134,7 +134,7 @@ describe('buildWikiPages — path sanitiser', () => {
   });
 
   it('BUG: two different tables can collapse onto one page path, silently', () => {
-    // KNOWN GAP, pinned — not a spec, and the worst defect in this file.
+    // BUG: pinned — not a spec, and the worst defect in this file.
     // s() is many-to-one: 'A/B' and 'A-B' are distinct Dataverse tables that both
     // sanitise to 'A-B'. buildWikiPages emits both page sets at identical paths
     // and never checks for a collision, so the publisher PUTs one over the other
@@ -168,7 +168,7 @@ describe('buildWikiPages — path sanitiser', () => {
   });
 
   it('BUG: leaves ADO-reserved characters other than / ? # % in the path', () => {
-    // KNOWN GAP, pinned — not a spec. s() (wikiAssembler.ts:33) handles exactly
+    // BUG: pinned — not a spec. s() (wikiAssembler.ts:33) handles exactly
     // four characters. ADO wiki page paths also reject ':', '<', '>', '*', '|',
     // '"' and '\'. A table named 'Ops: Q1 <draft>' therefore reaches the ADO API
     // verbatim and the page write is rejected — the pipeline fails at publish time
@@ -345,7 +345,7 @@ describe('buildWikiPages — Business Rules page', () => {
   });
 
   it('BUG: pushes an empty Business Rules page under every table when there are no rules', () => {
-    // KNOWN GAP, pinned — not a spec. Every other content-derived section is
+    // BUG: pinned — not a spec. Every other content-derived section is
     // guarded by a length check (`Used By Flows` right above it is guarded by
     // `tableFlows.length > 0`); the Business Rules base page at wikiAssembler.ts:112
     // is pushed unconditionally. A solution with no business rules therefore gets
@@ -536,7 +536,7 @@ describe('buildWikiPages — flow/table cross-links', () => {
   });
 
   it('BUG: a flow name needing sanitising links to a page path that does not exist', () => {
-    // KNOWN GAP, pinned — not a spec. buildWikiPages sanitises the page path with
+    // BUG: pinned — not a spec. buildWikiPages sanitises the page path with
     // s() but passes only the *base* path to the renderers, which build hrefs from
     // the raw name. The two disagree the moment a name contains / ? # or %.
     //
@@ -573,7 +573,7 @@ describe('buildWikiPages — security roles, choices, templates and apps', () =>
   });
 
   it('BUG: the global choices index links past the page it just named', () => {
-    // KNOWN GAP, pinned — not a spec. Sharper than the flow case above, and a
+    // BUG: pinned — not a spec. Sharper than the flow case above, and a
     // different defect: `encodeChoiceName` is exported *specifically* so the path
     // and the link agree, wikiAssembler.ts:214 calls it for the path — and
     // globalChoiceRenderer.ts:31 then builds the href off the RAW displayName and
@@ -593,7 +593,7 @@ describe('buildWikiPages — security roles, choices, templates and apps', () =>
   });
 
   it('BUG: email template and model-driven app indexes link past their pages too', () => {
-    // KNOWN GAP, pinned — not a spec. Same class as the flow and global-choice
+    // BUG: pinned — not a spec. Same class as the flow and global-choice
     // pins: emailTemplateRenderer.ts:41 and modelDrivenAppRenderer.ts:24 both
     // build hrefs from the raw name while wikiAssembler.ts:223/232 write the
     // sanitised path. Pinned here rather than left to prose so a fix to s() that
@@ -716,7 +716,7 @@ describe('buildWikiPages — Data Model ERD', () => {
   });
 
   it('BUG: uses only the first solution publisher prefix across a merged multi-solution ERD', () => {
-    // KNOWN GAP, pinned — not a spec. wikiAssembler.ts:75 reads
+    // BUG: pinned — not a spec. wikiAssembler.ts:75 reads
     // `solutions[0]?.publisher?.prefix`, but hands it the tables of the *merged*
     // solution. When a client documents two solutions from different publishers,
     // every relationship belonging to the second publisher fails the prefix test

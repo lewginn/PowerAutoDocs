@@ -650,7 +650,7 @@ describe('enrichWithAiSummaries — web resources', () => {
   it('falls back when the response is a JSON array rather than an object', async () => {
     // Documented fallback (aiSummariser.ts:453) — a non-object parse is treated
     // exactly like prose. Pinning it because it is the deliberate design, not a
-    // known gap: tryParseJsonObject rejects arrays so `parsed.fileSummary` can
+    // BUG: tryParseJsonObject rejects arrays so `parsed.fileSummary` can
     // never be read off one. See the defect note in the report about what this
     // then renders.
     const wr = aWebResource({ functions: [aFn({ name: 'onLoad' })] });
