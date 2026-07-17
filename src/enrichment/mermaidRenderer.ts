@@ -25,6 +25,14 @@ export type RenderedDiagram = {
   height: number;
 };
 
+// Puppeteer's default screenshot is 1 CSS pixel = 1 raster pixel, which looks
+// visibly soft once Word displays it at a real page width. Rendering at a
+// higher deviceScaleFactor supersamples — same physical size on the page,
+// SCALE_FACTOR× the pixel data. RenderedDiagram.width/height stay in nominal
+// (1x/CSS) units so callers size the image the same as before; only the PNG
+// bytes get sharper.
+const SCALE_FACTOR = 3;
+
 const CHROME_CANDIDATES = [
   '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
   '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
@@ -90,12 +98,17 @@ function hashOf(code: string): string {
 }
 
 // Minimal PNG IHDR read — avoids pulling in an image-dimensions dependency
-// for what's an 8-byte signature + a 4-byte width/height read.
+// for what's an 8-byte signature + a 4-byte width/height read. Returns the
+// raw raster size (i.e. already SCALE_FACTOR×) — callers scale it back down.
 function pngDimensions(buffer: Buffer): { width: number; height: number } {
   return {
     width: buffer.readUInt32BE(16),
     height: buffer.readUInt32BE(20),
   };
+}
+
+function toNominal(raw: { width: number; height: number }): { width: number; height: number } {
+  return { width: raw.width / SCALE_FACTOR, height: raw.height / SCALE_FACTOR };
 }
 
 /**
@@ -110,12 +123,15 @@ export async function renderDiagramPng(code: string, cacheDir: string): Promise<
 
   if (fs.existsSync(cachePath)) {
     const data = fs.readFileSync(cachePath);
-    return { data, ...pngDimensions(data) };
+    return { data, ...toNominal(pngDimensions(data)) };
   }
 
   const browser = await getBrowser();
-  const { data } = await renderMermaid(browser, code, 'png', { backgroundColor: 'white' });
+  const { data } = await renderMermaid(browser, code, 'png', {
+    backgroundColor: 'white',
+    viewport: { width: 800, height: 600, deviceScaleFactor: SCALE_FACTOR },
+  });
   const buffer = Buffer.from(data);
   fs.writeFileSync(cachePath, buffer);
-  return { data: buffer, ...pngDimensions(buffer) };
+  return { data: buffer, ...toNominal(pngDimensions(buffer)) };
 }
