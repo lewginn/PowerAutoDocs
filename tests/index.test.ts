@@ -431,18 +431,15 @@ describe('main — happy path', () => {
     expect(fs.statSync(docx).size).toBeGreaterThan(0);
   });
 
-  it('BUG: the local markdown overview only ever describes the LAST solution', async () => {
-    // PINNED, NOT A SPEC. writeOverviewMarkdown() writes a fixed 'overview.md' and
-    // main() calls it once per solution inside the loop (src/index.ts:179), so with
-    // two solutions the second silently overwrites the first. The same shape applies
-    // to flows.md, plugins.md and webresources.md. The wiki and Word outputs are
-    // unaffected — they are built once, afterwards, from allSolutions/mergedSolution —
-    // so this only bites a client consuming the markdown directory for a multi-solution
-    // config, who gets one solution's overview and no indication the others existed.
-    //
-    // Asserted as-is rather than left failing so the suite stays green; if the fix
-    // lands (per-solution filenames, or one merged overview), this test SHOULD fail
-    // and should then be rewritten to assert both solutions appear.
+  it('describes every solution in the local markdown overview, not just the last', async () => {
+    // Was pinned: writeOverviewMarkdown() wrote a fixed 'overview.md' and
+    // main() called it once per solution INSIDE the per-solution loop, so with
+    // two solutions the second silently overwrote the first. The same shape
+    // applied to flows.md, plugins.md and webresources.md — all four are now
+    // written once, after the loop, from the accumulated allSolutions/allFlows/
+    // allPluginAssemblies/allWebResources arrays, the same "assemble once at
+    // the end" shape the wiki/Word/PDF outputs already used (and which is why
+    // THEY were never affected by this bug).
     const second = aSecondSolution();
     await main(writeConfig(baseConfig({
       solutions: [
@@ -455,7 +452,7 @@ describe('main — happy path', () => {
 
     const overview = fs.readFileSync(path.join(outDir, 'overview.md'), 'utf-8');
     expect(overview).toContain('Fabrikam Demo');
-    expect(overview).not.toContain('Contoso Demo');   // ← the bug: silently lost
+    expect(overview).toContain('Contoso Demo');
   });
 });
 

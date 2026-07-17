@@ -285,12 +285,26 @@ describe('writeOverviewMarkdown', () => {
 
   it('writes overview.md, creating the directory if needed', () => {
     const nested = path.join(outDir, 'deep');
-    writeOverviewMarkdown(aSolution(), nested);
+    writeOverviewMarkdown([aSolution()], nested);
     expect(fs.readFileSync(path.join(nested, 'overview.md'), 'utf-8')).toContain('Acme Widgets');
   });
 
   it('normalises CRLF so the file has consistent line endings on every agent OS', () => {
-    writeOverviewMarkdown(aSolution(), outDir);
+    writeOverviewMarkdown([aSolution()], outDir);
     expect(fs.readFileSync(path.join(outDir, 'overview.md'), 'utf-8')).not.toContain('\r\n');
+  });
+
+  it('lists every solution when given more than one, rather than overwriting', () => {
+    // #110: main() used to call this once per solution with a hardcoded
+    // filename, so a multi-solution config silently lost every overview but
+    // the last. This is the seam that fix relies on — both solutions must
+    // appear in one file when both are passed together.
+    writeOverviewMarkdown(
+      [aSolution({ displayName: 'Acme Widgets' }), aSolution({ displayName: 'Fabrikam Gadgets' })],
+      outDir,
+    );
+    const content = fs.readFileSync(path.join(outDir, 'overview.md'), 'utf-8');
+    expect(content).toContain('Acme Widgets');
+    expect(content).toContain('Fabrikam Gadgets');
   });
 });

@@ -176,7 +176,6 @@ export async function main(configDir?: string): Promise<void> {
         mergedSolution.tables = [...mergedSolution.tables, ...tables];
       }
 
-      writeOverviewMarkdown(manifest, outputPath);
       if (config.components.tables) {
         for (const table of tables) {
           writeTableMarkdown(table, `${outputPath}/tables`, solConfig);
@@ -197,7 +196,6 @@ export async function main(configDir?: string): Promise<void> {
           parseAllFlows(unpackedPath)
         );
         allFlows.push(...flows);
-        writeFlowMarkdown(flows, outputPath);
         log('success', `Flows: ${flows.length}`);
       }
 
@@ -216,7 +214,6 @@ export async function main(configDir?: string): Promise<void> {
           parseAllPlugins(unpackedPath)
         );
         allPluginAssemblies.push(...assemblies);
-        writePluginMarkdown(assemblies, outputPath);
         if (assemblies.length > 0) log('success', `Plugin Assemblies: ${assemblies.length}`);
       }
 
@@ -226,7 +223,6 @@ export async function main(configDir?: string): Promise<void> {
           parseAllWebResources(unpackedPath)
         );
         allWebResources.push(...webResources);
-        writeWebResourceMarkdown(webResources, outputPath);
         if (webResources.length > 0) log('success', `Web Resources: ${webResources.length}`);
       }
 
@@ -291,6 +287,26 @@ export async function main(configDir?: string): Promise<void> {
       log('error', `Unexpected failure — ${reason}`);
       summary.solutionsSkipped.push({ name: solutionLabel, reason });
     }
+  }
+
+  // ---- Local markdown output ----
+  // Written once here, from the accumulated multi-solution data, rather than
+  // once per solution inside the loop above — each of these used to have a
+  // single fixed filename (overview.md, flows.md, plugins.md,
+  // webresources.md), so a multi-solution config had every solution but the
+  // last silently overwritten. Same "assemble once at the end" shape the
+  // wiki/Word/PDF outputs already use below.
+  if (allSolutions.length > 0) {
+    writeOverviewMarkdown(allSolutions, outputPath);
+  }
+  if (config.components.flows) {
+    writeFlowMarkdown(allFlows, outputPath);
+  }
+  if (config.components.plugins) {
+    writePluginMarkdown(allPluginAssemblies, outputPath);
+  }
+  if (config.components.webResources) {
+    writeWebResourceMarkdown(allWebResources, outputPath);
   }
 
   // ---- AI enrichment ----
