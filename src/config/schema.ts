@@ -117,6 +117,13 @@ export interface WordThemeConfig {
   tableHeaderColor?: string;
   /** Shade alternate table rows. Default: true */
   tableBanding?: boolean;
+  /**
+   * Table text size in points. Default: 9 — a step below body text, because
+   * these tables are dense and wide (the privilege matrix is 9 columns) and
+   * body size forces cells to wrap mid-word. Also drives column measurement,
+   * so raising it widens columns rather than overflowing them.
+   */
+  tableFontSize?: number;
   /** Fill for shaded table rows. Default: a very light tint of `accentColor` */
   tableBandFill?: string;
   /** Table grid line colour. Default: a light tint of `accentColor` */

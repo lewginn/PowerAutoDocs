@@ -88,6 +88,7 @@ Most of these derive from `accentColor` — the intended common case is a one-li
 | `tableHeaderFill` | string? | `accentColor` | |
 | `tableHeaderColor` | string? | white or `#1A1A1A`, whichever contrasts | Chosen by WCAG relative luminance — a pale brand colour gets dark text automatically. |
 | `tableBanding` | boolean? | `true` | When on, `insideHorizontal` borders are dropped — shading already delineates rows. |
+| `tableFontSize` | number? | `9` | **Points.** A step below body text — these tables are dense and wide and body size forces mid-word wrapping. Also drives column measurement, so raising it widens columns rather than overflowing them. |
 | `tableBandFill` | string? | 92% tint of `accentColor` towards white | |
 | `tableBorderColor` | string? | 70% tint of `accentColor` towards white | |
 | `codeFont` | string? | `Courier New` | |
@@ -96,7 +97,9 @@ Most of these derive from `accentColor` — the intended common case is a one-li
 
 Colours accept `'#0F62FE'` or `'0f62fe'`. **An invalid colour warns and falls back — it never throws.** This deliberately differs from `validateAiEnrichmentConfig`'s fail-fast stance: a bad hex is cosmetic, and failing an entire unattended pipeline run at the *end* of a long parse over a missing `#` is a worse outcome than a correct document in the default colour.
 
-Code size is **not** themeable — it is fixed at 9pt (`CODE_SIZE_HALF_POINTS`, `DocxSerializer.ts`) as a deliberate relationship to body size, since monospace runs optically larger at equal nominal size.
+Code size is **not** themeable — it is fixed at 9pt (`CODE_SIZE_HALF_POINTS`, `DocxSerializer.ts`) as a deliberate relationship to body size, since monospace runs optically larger at equal nominal size. Inside a table it is clamped to the table size so code chips never outsize the cell around them.
+
+**`tableFontSize` is load-bearing, not cosmetic.** `calcColumnWidths` measures at exactly the size the cells render at — measuring at one size and rendering at another is precisely how text ends up wider than the column holding it. Raise it and columns widen to match; there is no separate knob to keep in sync.
 
 Fonts are resolved by Word on whatever machine opens the document; missing fonts are **silently substituted**. The defaults are all Office-bundled for that reason.
 

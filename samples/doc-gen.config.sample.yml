@@ -68,6 +68,10 @@ output:
   #   tableHeaderFill: '#2A6099'      # Defaults to accentColor
   #   tableHeaderColor: '#FFFFFF'     # Defaults to white or near-black, whichever contrasts
   #   tableBanding: true              # Shade alternate rows
+  #   tableFontSize: 9                # Table text size in points. A step below body text:
+  #                                   # the tables are dense and wide, and body size forces
+  #                                   # cells to wrap mid-word. Column widths are measured
+  #                                   # at this size, so raising it widens columns.
   #   tableBandFill: '#EEF3F8'        # Defaults to a very light tint of accentColor
   #   tableBorderColor: '#C0D0E2'     # Defaults to a light tint of accentColor
   #

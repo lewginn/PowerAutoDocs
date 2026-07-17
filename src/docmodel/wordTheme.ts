@@ -44,6 +44,8 @@ export interface WordTableTheme {
   color: string;
   /** Alternate body row shading on/off */
   banded: boolean;
+  /** Table text size in points — drives both rendering and column measurement */
+  fontSizePt: number;
 }
 
 export interface WordCodeTheme {
@@ -176,6 +178,22 @@ const DEFAULT_CODE_FONT = 'Courier New';
 const DEFAULT_BODY_SIZE_PT = 10.5;
 
 /**
+ * Tables are set a step below body prose.
+ *
+ * These tables are dense and wide — the security-role privilege matrix runs to
+ * nine columns — and at body size the widest of them cannot fit the page
+ * without wrapping cells mid-word. A step down buys roughly 14% horizontal
+ * room, which is the difference between '●●●●●' sitting on one line and
+ * breaking onto two.
+ *
+ * It is also the conventional treatment: reference tables are scanned, not
+ * read, and carry their own structure, so they tolerate a smaller size than
+ * running prose does. Themeable because it is a judgement call, not physics —
+ * a client with short entity names may prefer it matching the body.
+ */
+const DEFAULT_TABLE_SIZE_PT = 9;
+
+/**
  * Heading scale in points, by absolute level. A ~1.25 ratio between steps:
  * enough that the hierarchy is unambiguous when skimming a 200-page document,
  * without H1 dominating the page. H4 sits at body size and leans on weight and
@@ -264,6 +282,7 @@ export function resolveWordTheme(config?: WordThemeConfig): WordTheme {
         : tint(accent, 0.7),
       color: bodyColor,
       banded: cfg.tableBanding ?? true,
+      fontSizePt: cfg.tableFontSize ?? DEFAULT_TABLE_SIZE_PT,
     },
     code: {
       font: cfg.codeFont ?? DEFAULT_CODE_FONT,

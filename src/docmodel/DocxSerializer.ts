@@ -32,11 +32,23 @@ const CODE_SIZE_HALF_POINTS = 18;
 // Inline serialisation
 // -----------------------------------------------
 
-function inlineRuns(inlines: InlineNode[], theme: WordTheme): TextRun[] {
+/**
+ * `sizeHalfPoints` overrides the document default for these runs — used by
+ * tables, which are set a step down (see WordTheme.table.fontSizePt). Omitted
+ * everywhere else so body text resolves through the document styles.
+ */
+function inlineRuns(inlines: InlineNode[], theme: WordTheme, sizeHalfPoints?: number): TextRun[] {
+  // Code is normally 9pt, but must never end up larger than the surrounding
+  // text — inside a 9pt table that would make code chips the biggest thing in
+  // the cell.
+  const codeSize = sizeHalfPoints === undefined
+    ? CODE_SIZE_HALF_POINTS
+    : Math.min(CODE_SIZE_HALF_POINTS, sizeHalfPoints);
+
   return inlines.map(node => {
     switch (node.type) {
       case 'text':
-        return new TextRun({ text: node.value, italics: false });
+        return new TextRun({ text: node.value, italics: false, size: sizeHalfPoints });
       case 'code':
         // Light shading mimics the wiki's code "chip". Without it, the mono
         // font alone doesn't separate logical names from prose strongly
@@ -50,18 +62,18 @@ function inlineRuns(inlines: InlineNode[], theme: WordTheme): TextRun[] {
         return new TextRun({
           text: node.value,
           font: theme.code.font,
-          size: CODE_SIZE_HALF_POINTS,
+          size: codeSize,
           color: theme.code.color,
           italics: false,
           shading: { type: ShadingType.SOLID, color: 'auto', fill: theme.code.fill },
         });
       case 'bold':
-        return new TextRun({ text: node.value, bold: true, italics: false });
+        return new TextRun({ text: node.value, bold: true, italics: false, size: sizeHalfPoints });
       case 'italic':
-        return new TextRun({ text: node.value, italics: true });
+        return new TextRun({ text: node.value, italics: true, size: sizeHalfPoints });
       case 'link':
         // Render as plain text — no subpage hyperlinks in a self-contained Word doc
-        return new TextRun({ text: node.text });
+        return new TextRun({ text: node.text, size: sizeHalfPoints });
     }
   });
 }
@@ -101,35 +113,183 @@ function resolveHeadingLevel(level: number, offset: number) {
 
 // Cap long content so one wide column can't starve narrow columns.
 const COL_MAX_CHARS = 35;
-// Minimum twips per column (~0.42 inch). Keeps narrow columns visible without
-// stealing too much from wider ones when there are many columns (e.g. 7+).
-const COL_MIN_TWIPS = 600;
 
-function calcColumnWidths(headers: string[], rows: InlineNode[][][]): number[] {
+const TWIPS_PER_POINT = 20;
+
+// Absolute floor for the shortfall-absorbing column (~0.42"). Only reachable
+// when even the protected minimums overflow the page, at which point some
+// wrapping is unavoidable and this just stops the column vanishing entirely.
+const MIN_FALLBACK_TWIPS = 600;
+
+/**
+ * Approximate glyph width, in ems, for width estimation.
+ *
+ * Counting characters — what this file did previously — assumes every glyph is
+ * the same width, and that assumption is what broke the security-role
+ * privilege matrix. A cell of '●●●●●' counts as 5 characters, identical to
+ * 'Write', but renders nearly twice as wide: the column was sized for 'Write'
+ * and the dots wrapped onto a second line.
+ *
+ * These are deliberately rough. The goal is not typographic exactness — that
+ * would need real font metrics, which means shipping font files (a dependency,
+ * and a large one). It is only to get the *relative* widths right enough that
+ * a column asking for room to fit '●●●●●' asks for more than one fitting
+ * 'iiiii'. Erring high just yields slightly roomier columns, which is benign;
+ * erring low is what causes wrapping, so ambiguous cases round up.
+ */
+function glyphWidthEm(ch: string): number {
+  // Geometric symbols the renderers actually emit — privilege dots (●○),
+  // bullets, arrows. Word renders these from a fallback face and they come out
+  // close to square; 0.9 matches what the privilege matrix actually measures
+  // on the page. Treating them as a full em over-reserves by ~10% per dot,
+  // which across five dots and eight columns is enough to make a table that
+  // does fit look like one that can't.
+  if (/[●○◐◑•▪▫→←↔]/.test(ch)) return 0.9;
+  // Genuinely narrow glyphs.
+  if (/[iljtfr.,;:!'`|()[\]{}]/.test(ch)) return 0.32;
+  if (/[IJ ]/.test(ch)) return 0.36;
+  // Wide lowercase.
+  if (/[mw]/.test(ch)) return 0.85;
+  if (/[MW]/.test(ch)) return 0.95;
+  // Uppercase and digits run wider than average lowercase.
+  if (/[A-Z0-9]/.test(ch)) return 0.62;
+  return 0.5;
+}
+
+/** Estimated rendered width of a string at a given point size, in twips. */
+function textWidthTwips(text: string, fontPt: number, bold = false): number {
+  let em = 0;
+  for (const ch of text) em += glyphWidthEm(ch);
+  // Bold is roughly 5% wider; headers are bold and are exactly the strings we
+  // most need not to wrap ("Create", "Append To").
+  return em * fontPt * TWIPS_PER_POINT * (bold ? 1.05 : 1);
+}
+
+/** Width of the longest contiguous non-whitespace run — the unbreakable unit. */
+function longestWordWidthTwips(text: string, fontPt: number, bold = false): number {
+  let max = 0;
+  for (const word of text.split(/\s+/)) {
+    max = Math.max(max, textWidthTwips(word, fontPt, bold));
+  }
+  return max;
+}
+
+/**
+ * The narrowest a column can be without breaking a word mid-character: its
+ * longest unbreakable token (header or any body cell) plus cell padding.
+ * Capped at half the page so one enormous identifier can't claim everything.
+ */
+function columnMinTwips(
+  header: string,
+  columnIndex: number,
+  rows: InlineNode[][][],
+  fontPt: number,
+  padding: number,
+): number {
+  let longest = longestWordWidthTwips(header, fontPt, true);
+  for (const row of rows) {
+    longest = Math.max(longest, longestWordWidthTwips(inlinesToText(row[columnIndex] ?? []), fontPt));
+  }
+  return Math.min(longest + padding, PAGE_WIDTH_TWIPS / 2);
+}
+
+/**
+ * Allocates column widths against the real page width.
+ *
+ * Mirrors the algorithm PdfSerializer already uses (`calcColumnWidths` there),
+ * which was written for this same privilege-matrix problem. Kept as a parallel
+ * implementation rather than shared code because the two work in different
+ * units (twips vs points) and against different font metrics — the shared
+ * layer between the serializers is DocNode, deliberately, and neither is
+ * allowed to know the other exists.
+ */
+function calcColumnWidths(headers: string[], rows: InlineNode[][][], fontPt: number): number[] {
+  const margins = cellMargins(headers.length);
+  const padding = margins.left + margins.right;
+  // What each column would like: proportional to how much content it carries,
+  // measured by estimated width rather than character count.
   const rawMax = headers.map((h, i) =>
-    Math.max(h.length, ...rows.map(row => inlinesToText(row[i] ?? []).length), 3)
+    Math.max(
+      textWidthTwips(h, fontPt, true),
+      ...rows.map(row => textWidthTwips(inlinesToText(row[i] ?? []), fontPt)),
+      textWidthTwips('...', fontPt),
+    )
   );
-  // Cap wide columns so they don't starve narrower ones
-  const clamped = rawMax.map(w => Math.min(w, COL_MAX_CHARS));
+  // Cap runaway columns so one long description can't starve the rest.
+  const capTwips = textWidthTwips('x'.repeat(COL_MAX_CHARS), fontPt);
+  const clamped  = rawMax.map(w => Math.min(w, capTwips));
   const total    = clamped.reduce((a, b) => a + b, 0);
-  const widths   = clamped.map(w => Math.floor((w / total) * PAGE_WIDTH_TWIPS));
+  const desired  = clamped.map(w => (w / total) * PAGE_WIDTH_TWIPS);
 
-  // Second pass: bump any column below the minimum, stealing proportionally
-  // from columns that are above it.
-  const belowIdx = widths.map((w, i) => w < COL_MIN_TWIPS ? i : -1).filter(i => i >= 0);
-  if (belowIdx.length > 0) {
-    const deficit  = belowIdx.reduce((s, i) => s + (COL_MIN_TWIPS - widths[i]), 0);
-    const aboveIdx = widths.map((w, i) => w > COL_MIN_TWIPS ? i : -1).filter(i => i >= 0);
-    const surplus  = aboveIdx.reduce((s, i) => s + widths[i], 0);
-    belowIdx.forEach(i  => { widths[i] = COL_MIN_TWIPS; });
-    aboveIdx.forEach(i  => { widths[i] = Math.floor(widths[i] * (surplus - deficit) / surplus); });
+  const colMins = headers.map((h, i) => columnMinTwips(h, i, rows, fontPt, padding));
+
+  // Never start a column below its own minimum.
+  const target    = desired.map((d, i) => Math.max(d, colMins[i]));
+  const targetSum = target.reduce((a, b) => a + b, 0);
+
+  let widths: number[];
+  if (targetSum <= PAGE_WIDTH_TWIPS) {
+    // Room to spare — give the surplus to the columns carrying the most
+    // content, so text-heavy columns benefit rather than the dot columns
+    // getting pointlessly wide.
+    const surplus   = PAGE_WIDTH_TWIPS - targetSum;
+    const driverIdx = target.map((t, i) => t === desired[i] && desired[i] > colMins[i] ? i : -1).filter(i => i >= 0);
+    const driverSum = driverIdx.reduce((s, i) => s + desired[i], 0);
+    widths = target.slice();
+    if (driverIdx.length > 0 && driverSum > 0) {
+      driverIdx.forEach(i => { widths[i] += surplus * (desired[i] / driverSum); });
+    } else {
+      widths = widths.map(w => w + surplus / widths.length);
+    }
+  } else {
+    const minSum = colMins.reduce((a, b) => a + b, 0);
+    if (minSum <= PAGE_WIDTH_TWIPS) {
+      // Shrink only the headroom above each column's minimum.
+      const shrinkable    = target.map((t, i) => t - colMins[i]);
+      const shrinkableSum = shrinkable.reduce((a, b) => a + b, 0);
+      const overflow      = targetSum - PAGE_WIDTH_TWIPS;
+      widths = target.map((t, i) =>
+        shrinkableSum > 0 ? t - overflow * (shrinkable[i] / shrinkableSum) : t
+      );
+    } else {
+      // Even the minimums don't fit — the privilege matrix at 9 columns.
+      // Scaling everything down proportionally would push the short headers
+      // ('Create', 'Append') below their own minimum and wrap every one of
+      // them. Instead protect every minimum except the single widest column,
+      // which absorbs the whole shortfall: it holds entity names, which wrap
+      // onto extra lines gracefully. One column wrapping at word boundaries
+      // beats nine wrapping mid-word.
+      const widestIdx = colMins.reduce((best, m, i) => m > colMins[best] ? i : best, 0);
+      const othersSum = minSum - colMins[widestIdx];
+      widths = colMins.slice();
+      widths[widestIdx] = Math.max(PAGE_WIDTH_TWIPS - othersSum, MIN_FALLBACK_TWIPS);
+    }
   }
 
-  // Correct rounding drift on the last column
-  const allocated = widths.reduce((a, b) => a + b, 0);
-  widths[widths.length - 1] += PAGE_WIDTH_TWIPS - allocated;
+  // Normalise to exactly the page width.
+  //
+  // The branches above can still overshoot — when even the protected minimums
+  // don't fit, the widest column bottoms out at MIN_FALLBACK_TWIPS and the sum
+  // stays over. Scaling proportionally here spreads that unavoidable overflow
+  // across every column instead of letting it land on one.
+  //
+  // The previous code added the entire remainder to the last column, which is
+  // silently wrong when the remainder is negative: on the privilege matrix it
+  // shrank 'Share' to 616 twips — well under its own minimum — so the one
+  // column that paid for the overflow was simply whichever happened to be last.
+  const sum = widths.reduce((a, b) => a + b, 0);
+  if (sum > PAGE_WIDTH_TWIPS) {
+    widths = widths.map(w => w * (PAGE_WIDTH_TWIPS / sum));
+  }
 
-  return widths;
+  const final = widths.map(w => Math.floor(w));
+  // Correct residual rounding drift (now only ever a few twips, from flooring)
+  // on the widest column, which is the least sensitive to a small nudge.
+  const allocated = final.reduce((a, b) => a + b, 0);
+  const widestIdx = final.reduce((best, w, i) => w > final[best] ? i : best, 0);
+  final[widestIdx] += PAGE_WIDTH_TWIPS - allocated;
+
+  return final;
 }
 
 // -----------------------------------------------
@@ -140,10 +300,18 @@ const SPACER = () => new Paragraph({ children: [], spacing: { after: 160 } });
 
 // Cell padding. The old table used spacing-only padding and no cell margins,
 // so text sat hard against the grid lines — a large part of why the tables
-// read as cramped. Horizontal padding matters more than vertical here: these
-// tables are dense and wide, and the gutter is what separates one column's
-// text from the next.
-const CELL_MARGIN_TWIPS = { top: 60, bottom: 60, left: 108, right: 108 };
+// read as cramped.
+//
+// Horizontal padding has to scale with column count, and the privilege matrix
+// is why: at a comfortable 108 twips per side, nine columns spend 1,944 twips
+// — 1.35", over a fifth of the content width — on padding alone, which is more
+// than the Entity column ends up with. Padding is the first thing that should
+// yield when a table is genuinely too wide; whitespace inside a cell is worth
+// less than the text it is pushing onto a second line.
+function cellMargins(columnCount: number) {
+  const side = columnCount >= 7 ? 40 : columnCount >= 5 ? 72 : 108;
+  return { top: 60, bottom: 60, left: side, right: side };
+}
 
 /**
  * Builds the border set for a themed table.
@@ -169,7 +337,15 @@ function tableBorders(theme: WordTheme) {
 }
 
 function serializeTable(headers: string[], rows: InlineNode[][][], theme: WordTheme): Table {
-  const colWidths = calcColumnWidths(headers, rows);
+  const fontPt        = theme.table.fontSizePt;
+  // Must match the padding calcColumnWidths reserved, or the measured width
+  // and the rendered width disagree and cells wrap.
+  const margins       = cellMargins(headers.length);
+  // Column widths are measured at the same size the cells are rendered at —
+  // measuring at one size and rendering at another is exactly how text ends up
+  // wider than the column holding it.
+  const cellSize      = Math.round(fontPt * 2);
+  const colWidths     = calcColumnWidths(headers, rows, fontPt);
 
   const headerRow = new TableRow({
     // Repeats the header on every page a long table spills onto. Without this
@@ -180,9 +356,9 @@ function serializeTable(headers: string[], rows: InlineNode[][][], theme: WordTh
     children: headers.map((h, i) =>
       new TableCell({
         width: { size: colWidths[i], type: WidthType.DXA },
-        margins: CELL_MARGIN_TWIPS,
+        margins,
         children: [new Paragraph({
-          children: [new TextRun({ text: h, bold: true, color: theme.table.headerColor })],
+          children: [new TextRun({ text: h, bold: true, color: theme.table.headerColor, size: cellSize })],
           spacing: { before: 60, after: 60 },
         })],
         shading: { type: ShadingType.SOLID, color: 'auto', fill: theme.table.headerFill },
@@ -202,10 +378,10 @@ function serializeTable(headers: string[], rows: InlineNode[][][], theme: WordTh
       children: row.map((cell, i) =>
         new TableCell({
           width: { size: colWidths[i], type: WidthType.DXA },
-          margins: CELL_MARGIN_TWIPS,
+          margins,
           shading: { type: ShadingType.SOLID, color: 'auto', fill },
           children: [new Paragraph({
-            children: inlineRuns(cell, theme),
+            children: inlineRuns(cell, theme, cellSize),
             spacing: { before: 60, after: 60 },
           })],
         })
