@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { FlowModel, FlowActionModel, TableModel } from '../ir/index.js';
 import type { DocNode, InlineNode } from '../docmodel/nodes.js';
-import { h, pt, p, t, c, b, i, lnk, table, ct, cc, cell, bulletList, bullet, mermaid } from '../docmodel/nodes.js';
+import { h, pt, p, t, c, b, i, lnk, table, ct, cc, cell, bulletList, bullet, bulletMeta, mermaid } from '../docmodel/nodes.js';
 import { serialize } from '../docmodel/MarkdownSerializer.js';
 import { aiSummaryBlock } from './rendererUtils.js';
 
@@ -51,12 +51,13 @@ function buildActionItems(actions: FlowActionModel[]): ReturnType<typeof bullet>
     const inlines: InlineNode[] = [];
     inlines.push(b(branchPrefix + a.name));
     inlines.push(t(' — ' + a.description));
-    if (a.runAfter.length > 0) {
-      inlines.push(t(' · '));
-      inlines.push(i(`after: ${a.runAfter.join(', ')}`));
-    }
 
-    items.push(bullet(a.depth, ...inlines));
+    if (a.runAfter.length > 0) {
+      const meta = [i(`after: ${a.runAfter.join(', ')}`)];
+      items.push(bulletMeta(a.depth, inlines, meta));
+    } else {
+      items.push(bullet(a.depth, ...inlines));
+    }
   }
 
   return items;

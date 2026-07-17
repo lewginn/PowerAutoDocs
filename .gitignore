@@ -43,5 +43,8 @@ Thumbs.db
 # *client project repo* using powerautodocs, not to this tool's own repo.
 .powerautodocs-ai-cache.json
 
+# Rendered Mermaid diagram cache — same reasoning as the AI cache above.
+.powerautodocs-diagram-cache/
+
 #claude code project instructions
 *claude.md

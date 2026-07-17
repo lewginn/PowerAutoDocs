@@ -93,6 +93,14 @@ export interface DocGenConfig {
     pdf?: boolean;
     /** Filename for the PDF document (default: 'solution-documentation.pdf') */
     pdfFilename?: string;
+    /**
+     * Render Mermaid diagrams (ERD, flow diagrams) as embedded images in the
+     * Word document. Requires a local Chrome/Edge install on the machine or
+     * pipeline agent — see POWERAUTODOCS_CHROME_PATH. Default: true.
+     * Falls back to omitting diagrams (with a console warning) if no browser
+     * is found — never fails the run.
+     */
+    wordDiagrams?: boolean;
   };
 
   parse: {

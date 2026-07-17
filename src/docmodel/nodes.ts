@@ -56,6 +56,8 @@ export type BulletListNode = {
 export type BulletItem = {
   depth:   number;
   inlines: InlineNode[];
+  /** Optional secondary caption (e.g. "runs after: X"). Appended inline in markdown; rendered as a separate muted line in docx. */
+  meta?:   InlineNode[];
 };
 
 /** A Mermaid diagram block. code is the raw Mermaid DSL (no fence markers). */
@@ -177,3 +179,7 @@ export const bulletList = (items: BulletItem[]): BulletListNode =>
 /** A single bullet item at a given depth. */
 export const bullet = (depth: number, ...inlines: InlineNode[]): BulletItem =>
   ({ depth, inlines });
+
+/** A bullet item with a secondary caption line (e.g. "runs after: X"). */
+export const bulletMeta = (depth: number, inlines: InlineNode[], meta: InlineNode[]): BulletItem =>
+  ({ depth, inlines, meta });

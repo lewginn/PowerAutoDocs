@@ -6,7 +6,7 @@
 import {
   Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
   HeadingLevel, AlignmentType, WidthType, ShadingType, TableLayoutType,
-  Footer, PageNumber, convertInchesToTwip, TableOfContents,
+  Footer, PageNumber, convertInchesToTwip, TableOfContents, ImageRun,
 } from 'docx';
 import type { DocNode, InlineNode, BulletItem } from './nodes.js';
 
@@ -37,6 +37,14 @@ function inlineRuns(inlines: InlineNode[]): TextRun[] {
         // Render as plain text — no subpage hyperlinks in a self-contained Word doc
         return new TextRun({ text: node.text });
     }
+  });
+}
+
+/** Muted, small-size caption runs (e.g. bullet meta lines) — always italic regardless of source markup. */
+function mutedCaptionRuns(inlines: InlineNode[]): TextRun[] {
+  return inlines.map(node => {
+    const text = node.type === 'link' ? node.text : node.value;
+    return new TextRun({ text, size: 18, color: '808080', italics: true });
   });
 }
 
@@ -156,14 +164,42 @@ function serializeTable(headers: string[], rows: InlineNode[][][]): Table {
 // Bullet list serialisation
 // -----------------------------------------------
 
+// Deep action/step trees (flow actions, workflow steps) need the staircase
+// indentation to actually be visible per depth — that's the structural cue that
+// reads as a tree, and what was lost when this was flattened. Native Word
+// multilevel numbering (`bullet: {level}`) gives that staircase but doesn't
+// give wrapped continuation lines a hanging indent that lines up under the
+// bullet glyph, so long descriptions wrap back to the page margin — that's
+// the "clunky" part. Fix: explicit per-depth indent with a matching hanging
+// indent, one consistent bullet glyph at every depth (varying it made deep
+// levels look unindented), and the "runs after" caption demoted to its own
+// tight, muted sub-line instead of crammed onto the same busy sentence.
+const BULLET_INDENT_STEP = 400;
+const BULLET_BASE_INDENT = 160;
+const BULLET_HANGING     = 220;
+
 function bulletItems(items: BulletItem[]): Paragraph[] {
-  return items.map(item =>
-    new Paragraph({
-      children: inlineRuns(item.inlines),
-      bullet: { level: item.depth },
-      spacing: { after: 60 },
-    })
-  );
+  const paragraphs: Paragraph[] = [];
+
+  for (const item of items) {
+    const left = BULLET_INDENT_STEP * item.depth + BULLET_BASE_INDENT + BULLET_HANGING;
+
+    paragraphs.push(new Paragraph({
+      children: [new TextRun({ text: '●  ', color: '808080' }), ...inlineRuns(item.inlines)],
+      indent: { left, hanging: BULLET_HANGING },
+      spacing: { before: 40, after: item.meta ? 0 : 40 },
+    }));
+
+    if (item.meta) {
+      paragraphs.push(new Paragraph({
+        children: mutedCaptionRuns(item.meta),
+        indent: { left },
+        spacing: { before: 0, after: 100 },
+      }));
+    }
+  }
+
+  return paragraphs;
 }
 
 // -----------------------------------------------
@@ -183,7 +219,46 @@ const HEADING_SPACING: Record<number, { before: number; after: number }> = {
 
 type DocxBlock = Paragraph | Table;
 
-export function serializeBlock(node: DocNode, headingOffset: number): DocxBlock | DocxBlock[] {
+/**
+ * Renders Mermaid DSL to a PNG for embedding. Kept as an injected callback
+ * rather than an import so the docmodel layer stays free of the
+ * puppeteer/mermaid-cli dependency chain — docAssembler.ts supplies the real
+ * implementation (src/enrichment/mermaidRenderer.ts). Returning null (or
+ * omitting the callback) falls back to skipping the diagram, same as before
+ * this existed.
+ */
+export type MermaidRenderer = (code: string) => Promise<{ data: Buffer; width: number; height: number } | null>;
+
+const TWIPS_PER_PIXEL = 15; // 1440 twips/inch ÷ 96px/inch
+
+async function serializeMermaid(code: string, renderMermaid?: MermaidRenderer): Promise<DocxBlock[]> {
+  if (!renderMermaid) return [];
+
+  const rendered = await renderMermaid(code);
+  if (!rendered) return [];
+
+  const widthPx  = Math.min(rendered.width, PAGE_WIDTH_TWIPS / TWIPS_PER_PIXEL);
+  const scale     = widthPx / rendered.width;
+  const heightPx  = rendered.height * scale;
+
+  return [
+    new Paragraph({
+      children: [new ImageRun({
+        type: 'png',
+        data: rendered.data,
+        transformation: { width: widthPx, height: heightPx },
+      })],
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 120 },
+    }),
+  ];
+}
+
+export async function serializeBlock(
+  node: DocNode,
+  headingOffset: number,
+  renderMermaid?: MermaidRenderer,
+): Promise<DocxBlock | DocxBlock[]> {
   switch (node.type) {
     case 'heading': {
       const absLevel  = Math.min(node.level + headingOffset, 4);
@@ -217,8 +292,7 @@ export function serializeBlock(node: DocNode, headingOffset: number): DocxBlock 
       return bulletItems(node.items);
 
     case 'mermaid':
-      // Mermaid diagrams are only rendered in ADO Wiki — skip in Word output
-      return [];
+      return serializeMermaid(node.code, renderMermaid);
 
     case 'code_block': {
       const lines = node.text.split('\n');
@@ -246,11 +320,17 @@ export function serializeBlock(node: DocNode, headingOffset: number): DocxBlock 
 // Public API
 // -----------------------------------------------
 
-export function serializeBlocks(nodes: DocNode[], headingOffset = 0): (Paragraph | Table)[] {
-  return nodes.flatMap(node => {
-    const result = serializeBlock(node, headingOffset);
-    return Array.isArray(result) ? result : [result];
-  });
+export async function serializeBlocks(
+  nodes: DocNode[],
+  headingOffset = 0,
+  renderMermaid?: MermaidRenderer,
+): Promise<(Paragraph | Table)[]> {
+  const blocks: (Paragraph | Table)[] = [];
+  for (const node of nodes) {
+    const result = await serializeBlock(node, headingOffset, renderMermaid);
+    blocks.push(...(Array.isArray(result) ? result : [result]));
+  }
+  return blocks;
 }
 
 export function buildToc(): TableOfContents {
