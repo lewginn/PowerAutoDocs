@@ -38,15 +38,21 @@ async function docxXml(nodes: DocNode[], opts: Opts = {}): Promise<string> {
   return new AdmZip(await toBuffer(buildDocument(blocks, theme))).readAsText('word/document.xml');
 }
 
+// These read the capture group directly rather than matching the whole element
+// and stripping tags afterwards. Tag-stripping with /<[^>]+>/ is the classic
+// incomplete-sanitisation pattern (CodeQL js/incomplete-multi-character-
+// sanitization flags it, and rightly — `<a<b>c>` survives one pass). Harmless in
+// a test helper, but taking the group is both simpler and exactly right.
+
 /** The visible text runs, in document order. */
 const runs = (xml: string): string[] =>
-  (xml.match(/<w:t[^>]*>([^<]*)<\/w:t>/g) ?? []).map(m => m.replace(/<[^>]+>/g, ''));
+  [...xml.matchAll(/<w:t[^>]*>([^<]*)<\/w:t>/g)].map(m => m[1]);
 
 const headingStyles = (xml: string): string[] =>
-  (xml.match(/<w:pStyle w:val="(Heading\d)"\/>/g) ?? []).map(m => m.replace(/.*val="|"\/>/g, ''));
+  [...xml.matchAll(/<w:pStyle w:val="(Heading\d)"\/>/g)].map(m => m[1]);
 
 const bulletDepths = (xml: string): number[] =>
-  (xml.match(/<w:ilvl w:val="(\d+)"\/>/g) ?? []).map(m => Number(m.replace(/\D/g, '')));
+  [...xml.matchAll(/<w:ilvl w:val="(\d+)"\/>/g)].map(m => Number(m[1]));
 
 const P = (text: string): DocNode => ({ type: 'paragraph', inlines: [{ type: 'text', value: text }] });
 
