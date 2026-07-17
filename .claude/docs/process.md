@@ -295,7 +295,7 @@ The full chain, for context when diagnosing "the publish didn't happen":
 
 1. **Lewis** bumps the version — a bare-number commit touching only `package.json` + `package-lock.json` (`ab1ef56` = `1.4.0`), the `npm version` default format. 🔴 Not you.
 2. **Lewis** tags and creates a GitHub Release. Tags are `v`-prefixed (`v1.2.0`, `v1.3.0`, `v1.4.0`); releases are titled descriptively — "v1.4.0 — PDF output", "v1.3.0 - AI Enrichment".
-3. **GitHub Actions** publishes. `.github/workflows/npm-publish.yml`: Node 20, `npm ci` → `npm run typecheck` → `npm test` → `npm run build` → `npm publish`, with `NODE_AUTH_TOKEN: secrets.NPM_TOKEN`. The typecheck and test steps duplicate `ci.yml` deliberately — a release can be cut from any ref, `workflow_dispatch` has no PR behind it, and npm forbids republishing a version, so the last gate before an irreversible step doesn't get to assume an earlier one ran.
+3. **GitHub Actions** publishes. `.github/workflows/npm-publish.yml`: Node 24, `npm ci` → `npm run typecheck` → `npm test` → `npm run build` → `npm publish`, with `NODE_AUTH_TOKEN: secrets.NPM_TOKEN`. The typecheck and test steps duplicate `ci.yml` deliberately — a release can be cut from any ref, `workflow_dispatch` has no PR behind it, and npm forbids republishing a version, so the last gate before an irreversible step doesn't get to assume an earlier one ran.
 
 Current version: **1.4.0**. (Expect this line to be stale — trust `package.json`.)
 
@@ -311,7 +311,9 @@ If a publish appears not to have happened, check the Actions tab for a *missing*
 
 ### Node version
 
-`package.json` declares `engines.node >= 18`. Nothing actually exercises Node 18 — `npm-publish.yml` uses Node 20 and `samples/powerautodocs.pipeline.sample.yml` pins `20.x`. Treat `>=18` as an untested claim, not a verified floor.
+`package.json` declares `engines.node >= 22`, and **that floor is tested**: `ci.yml` runs the full gate on a `[22, 24]` matrix. Raise the floor and drop the matrix entry in the same PR, or it silently becomes an assertion again — which is exactly what `>=18` was, with nothing exercising 18.
+
+Node **18 (Apr 2025) and 20 (Apr 2026) are both end-of-life.** 22 is supported until Apr 2027 and 24 until Apr 2028, so 22 is the floor and 24 is what `npm-publish.yml`, `deploy-pages.yml` and the sample ADO pipeline use. When 22 goes EOL, that is the trigger to move the floor to 24.
 
 ---
 
