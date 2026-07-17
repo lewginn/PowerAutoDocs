@@ -77,6 +77,65 @@ export interface AiEnrichmentConfig {
   cacheFile?: string;
 }
 
+// -----------------------------------------------
+// Word theming
+// -----------------------------------------------
+
+/**
+ * Visual theme for the Word (.docx) output — `output.wordTheme`.
+ *
+ * Every field is optional. In the common case a brand is expressed with one
+ * line (`accentColor`), and headings, table headers, banding and rules are all
+ * derived from it. The remaining fields exist for the minority who need exact
+ * control over a specific element, and each one overrides only itself.
+ *
+ * Colours accept '#0F62FE' or '0f62fe'. An unparseable colour warns and falls
+ * back to the default rather than failing the run — see resolveWordTheme.
+ *
+ * Fonts are passed to Word by name. Word silently substitutes fonts that
+ * aren't installed on the machine opening the document, so prefer fonts that
+ * ship with Office; the defaults deliberately do.
+ */
+export interface WordThemeConfig {
+  /** Brand colour. Headings, table headers, rules and banding derive from it. Default: '#2A6099' */
+  accentColor?: string;
+  /** Body text font. Default: 'Calibri' */
+  bodyFont?: string;
+  /** Heading font. Defaults to `bodyFont` if that is set, otherwise 'Calibri Light' */
+  headingFont?: string;
+  /** Body text size in points. Default: 10.5 */
+  bodyFontSize?: number;
+  /** Body text colour. Default: '#1A1A1A' */
+  bodyColor?: string;
+  /** Heading colour. Default: `accentColor` (levels 3-4 are darkened from it) */
+  headingColor?: string;
+  /** Draw a horizontal rule under level-1 headings. Default: true */
+  headingRule?: boolean;
+  /** Table header row fill. Default: `accentColor` */
+  tableHeaderFill?: string;
+  /** Table header text colour. Default: white or near-black, whichever contrasts with the header fill */
+  tableHeaderColor?: string;
+  /** Shade alternate table rows. Default: true */
+  tableBanding?: boolean;
+  /**
+   * Table text size in points. Default: 9 — a step below body text, because
+   * these tables are dense and wide (the privilege matrix is 9 columns) and
+   * body size forces cells to wrap mid-word. Also drives column measurement,
+   * so raising it widens columns rather than overflowing them.
+   */
+  tableFontSize?: number;
+  /** Fill for shaded table rows. Default: a very light tint of `accentColor` */
+  tableBandFill?: string;
+  /** Table grid line colour. Default: a light tint of `accentColor` */
+  tableBorderColor?: string;
+  /** Font for inline code and code blocks. Default: 'Courier New' */
+  codeFont?: string;
+  /** Background fill of inline code chips and code blocks. Default: '#F2F2F2' */
+  codeFill?: string;
+  /** Code text colour. Default: a darkened `accentColor` */
+  codeColor?: string;
+}
+
 export interface DocGenConfig {
   solutions: SolutionEntry[];
 
@@ -85,7 +144,7 @@ export interface DocGenConfig {
     path: string;
     /** Publish to ADO Wiki. Default: true (if wiki config is present) */
     wiki?: boolean;
-    /** Generate a Word (.docx) document. Default: false */
+    /** Generate a Word (.docx) document. Default: true (see CONFIG_DEFAULTS in loader.ts) */
     word?: boolean;
     /** Filename for the Word document (default: 'solution-documentation.docx') */
     wordFilename?: string;
@@ -101,6 +160,11 @@ export interface DocGenConfig {
      * is found — never fails the run.
      */
     wordDiagrams?: boolean;
+    /**
+     * Visual theme for the Word document — fonts, brand colour, table styling.
+     * Omit entirely for the built-in default theme.
+     */
+    wordTheme?: WordThemeConfig;
   };
 
   parse: {
