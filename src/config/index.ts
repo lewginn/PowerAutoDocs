@@ -1,4 +1,4 @@
-export type { DocGenConfig } from './schema.js';
+export type { DocGenConfig, WordThemeConfig } from './schema.js';
 export { loadConfig, CONFIG_DEFAULTS } from './loader.js';
 export type { WikiConfig } from './schema.js';
 

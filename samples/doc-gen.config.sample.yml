@@ -38,6 +38,43 @@ output:
   pdf: false                          # Generate a PDF document (local file only — not published to ADO Wiki)
   pdfFilename: solution-documentation.pdf    # PDF output filename
 
+  # ---------------------------------------------------------------------------
+  # WORD THEME (optional)
+  # Styling for the Word document. Omit this whole block for the built-in
+  # default theme — it is already styled and needs no configuration.
+  #
+  # In most cases you only need `accentColor`: headings, table headers, row
+  # banding, rules and code colour are all derived from it. The rest are here
+  # for when you need exact control over one specific element.
+  #
+  # Colours accept '#0F62FE' or '0f62fe'. An invalid colour logs a warning and
+  # falls back to the default — it never fails the run.
+  #
+  # Fonts: Word silently substitutes fonts that aren't installed on whatever
+  # machine opens the document. Stick to fonts that ship with Office unless you
+  # know every reader has yours installed.
+  # ---------------------------------------------------------------------------
+  # wordTheme:
+  #   accentColor: '#2A6099'          # Your brand colour — most themes need only this
+  #
+  #   bodyFont: Calibri               # Body text font
+  #   headingFont: Calibri Light      # Heading font (defaults to bodyFont if you set that)
+  #   bodyFontSize: 10.5              # Body text size in points
+  #   bodyColor: '#1A1A1A'            # Body text colour
+  #
+  #   headingColor: '#2A6099'         # Defaults to accentColor; levels 3-4 are darkened from it
+  #   headingRule: true               # Horizontal rule under each top-level heading
+  #
+  #   tableHeaderFill: '#2A6099'      # Defaults to accentColor
+  #   tableHeaderColor: '#FFFFFF'     # Defaults to white or near-black, whichever contrasts
+  #   tableBanding: true              # Shade alternate rows
+  #   tableBandFill: '#EEF3F8'        # Defaults to a very light tint of accentColor
+  #   tableBorderColor: '#C0D0E2'     # Defaults to a light tint of accentColor
+  #
+  #   codeFont: Courier New           # Inline code and code blocks
+  #   codeFill: '#F2F2F2'             # Code background
+  #   codeColor: '#1B3E63'            # Defaults to a darkened accentColor
+
 
 # -----------------------------------------------------------------------------
 # PARSE

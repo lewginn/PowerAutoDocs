@@ -63,11 +63,42 @@ Array of `SolutionEntry` (schema.ts:6). Each is parsed independently and merged 
 |-------|------|---------|-------|
 | `path` | string | `./output` | Local artifact directory — markdown, `.docx`, `.pdf`. |
 | `wiki` | boolean? | `true` | Publish to ADO Wiki. `false` nulls `config.wiki` outright (index.ts:117-119). |
-| `word` | boolean? | `true` | Generate `.docx`. (schema.ts:88 claims `false` — stale.) |
+| `word` | boolean? | `true` | Generate `.docx`. (schema.ts's doc comment claimed `false` — corrected to match `CONFIG_DEFAULTS`.) |
 | `wordFilename` | string? | `solution-documentation.docx` | Joined onto `output.path`. |
 | `pdf` | boolean? | `false` | Generate `.pdf`. Local only — never published to the wiki. |
 | `pdfFilename` | string? | `solution-documentation.pdf` | |
 | `wordDiagrams` | boolean? | `true` | Embed Mermaid diagrams as PNGs in the Word doc. **Word-scoped only** — there is no PDF equivalent; `PdfSerializer` skips Mermaid by design. Degrades to a console warning (not a failure) when no browser is found — see [Chrome resolution](#puppeteerrccjs-and-chrome-resolution). |
+| `wordTheme` | object? | *(absent — see below)* | Visual theme for the `.docx`. **Word-scoped only** — the PDF is pdfmake and unthemed. See [`output.wordTheme`](#outputwordtheme). |
+
+#### `output.wordTheme`
+
+Every field is optional and **defaulting does not happen in `loader.ts`** — `CONFIG_DEFAULTS` has no `wordTheme` key at all. Resolution lives solely in `resolveWordTheme()` (`src/docmodel/wordTheme.ts`), so there is one source of truth rather than a default table that can drift from the resolver. An absent block and an empty block produce the identical default theme.
+
+Most of these derive from `accentColor` — the intended common case is a one-line brand override. Setting any derived field overrides only itself.
+
+| Field | Type | Default | Notes |
+|-------|------|---------|-------|
+| `accentColor` | string? | `#2A6099` | Brand colour. H1/H2, table header fill, rules, banding tint and code colour all derive from it. |
+| `bodyFont` | string? | `Calibri` | |
+| `headingFont` | string? | `bodyFont` if set, else `Calibri Light` | |
+| `bodyFontSize` | number? | `10.5` | **Points**, not half-points — the resolver converts. |
+| `bodyColor` | string? | `#1A1A1A` | Near-black, not pure black — deliberate, see the file's comment. |
+| `headingColor` | string? | `accentColor` | Levels 3-4 are auto-darkened from it (25% / 40% towards black). |
+| `headingRule` | boolean? | `true` | Rule under level-1 headings. |
+| `tableHeaderFill` | string? | `accentColor` | |
+| `tableHeaderColor` | string? | white or `#1A1A1A`, whichever contrasts | Chosen by WCAG relative luminance — a pale brand colour gets dark text automatically. |
+| `tableBanding` | boolean? | `true` | When on, `insideHorizontal` borders are dropped — shading already delineates rows. |
+| `tableBandFill` | string? | 92% tint of `accentColor` towards white | |
+| `tableBorderColor` | string? | 70% tint of `accentColor` towards white | |
+| `codeFont` | string? | `Courier New` | |
+| `codeFill` | string? | `#F2F2F2` | |
+| `codeColor` | string? | `accentColor` darkened 35% | |
+
+Colours accept `'#0F62FE'` or `'0f62fe'`. **An invalid colour warns and falls back — it never throws.** This deliberately differs from `validateAiEnrichmentConfig`'s fail-fast stance: a bad hex is cosmetic, and failing an entire unattended pipeline run at the *end* of a long parse over a missing `#` is a worse outcome than a correct document in the default colour.
+
+Code size is **not** themeable — it is fixed at 9pt (`CODE_SIZE_HALF_POINTS`, `DocxSerializer.ts`) as a deliberate relationship to body size, since monospace runs optically larger at equal nominal size.
+
+Fonts are resolved by Word on whatever machine opens the document; missing fonts are **silently substituted**. The defaults are all Office-bundled for that reason.
 
 ### `parse`
 
