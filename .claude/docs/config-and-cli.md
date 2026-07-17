@@ -360,7 +360,7 @@ All four `dev*` scripts redirect stdout **and** stderr into `dev.log` (gitignore
 | `doc-gen.config.yml` | local config, **live PAT** | gitignored |
 | `dist/` | build output | gitignored |
 
-`npm test` (Vitest) covers the serializer/renderer-util/ERD/fixtured-parser layers only — it does not touch Word, PDF, diagrams, AI or the wiki publisher. Passing tests are not a verified change. For what verification actually means here — including how to inspect the generated `.docx`/`.pdf` — see [process.md](process.md).
+`npm test` (Vitest, 662 tests) covers all 17 parsers, all 14 renderers, `MarkdownSerializer`, `wordTheme`, `erdGenerator` and `config/loader`. It does **not** touch `DocxSerializer`, `PdfSerializer`, `publisher/*`, Mermaid rendering or the AI providers — so it never produces a `.docx`, a `.pdf` or a wiki page. Passing tests are not a verified change. For what verification actually means here — including how to inspect the generated `.docx`/`.pdf` — see [process.md](process.md).
 
 ---
 
