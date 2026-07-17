@@ -356,60 +356,62 @@ describe('renderDiagramPng — cache directory', () => {
 describe('renderDiagramPng — corrupt cache entry', () => {
   const code = 'graph TD;\n  A --> B;';
 
-  // A corrupt entry still passes existsSync, so these stay on the hit path — but
-  // arm the trap anyway, so that if the source is later fixed to treat a corrupt
-  // entry as a miss, these fail loudly instead of silently rendering for real.
+  // Was: "a corrupt entry still passes existsSync, so these stay on the hit
+  // path". Now the opposite is true, and load-bearing: a corrupt entry is
+  // validated and rejected, which routes every test below through the SAME
+  // fallthrough as a genuine cache miss — a real render attempt. blockBrowser()
+  // is what keeps that attempt from ever reaching a real browser: it makes
+  // resolveChromeExecutable() throw before puppeteer.launch() is invoked, so
+  // "falls through to a blocked, actionable Chrome error" is exactly what a
+  // correctly-detected corrupt entry looks like in this test environment.
   beforeEach(blockBrowser);
 
-  // BUG: pinning current behaviour, NOT endorsing it. Reported to the
-  // parent agent rather than fixed here (this pass writes tests, not source).
-  //
-  // The hit path does `fs.existsSync(cachePath)` and then reads dimensions
-  // straight out of the bytes, with no check that the file is a whole PNG.
-  // fs.writeFileSync on the miss path is not atomic, so a run killed mid-write
-  // (an ADO agent cancel or timeout) leaves a truncated file at the content-hash
-  // path. That path is a pure function of the diagram code, so every subsequent
-  // run hits the same corrupt entry: the failure is permanent and self-healing is
-  // impossible short of someone manually deleting the cache directory.
-  //
-  // It is not a soft failure either. docAssembler.ts:109-114 wraps only
-  // resolveChromeExecutable() in its try/catch; the renderMermaid closure it
-  // builds is called later from DocxSerializer with no guard, so this RangeError
-  // propagates out and fails the whole .docx build.
-  //
-  // A fix would be some combination of: write to a temp file and rename() into
-  // place so an entry is only ever whole or absent; and treat an unreadable entry
-  // as a miss (verify the 8-byte signature and length, re-render if it fails)
-  // rather than trusting existsSync.
-  it('throws an opaque RangeError on a truncated cache file instead of re-rendering', async () => {
+  // Fixed (#110): isValidPng() now checks the real 8-byte PNG signature plus
+  // enough length for the IHDR fields pngDimensions() reads, and the cache-hit
+  // path treats anything that fails it as a miss rather than trusting
+  // fs.existsSync alone. The write side is now atomic too (temp file +
+  // rename()), which is what stops a truncated entry from being written in
+  // the first place — a run killed mid-write used to leave one at the
+  // content-hash path permanently, since that path is a pure function of the
+  // diagram code and every subsequent run hit the identical corruption with
+  // no way to self-heal short of deleting the cache directory by hand.
+  it('treats a truncated cache file as a miss and attempts a fresh render', async () => {
     fs.writeFileSync(cachePathFor(code), Buffer.alloc(10)); // a half-written PNG
 
-    await expect(renderDiagramPng(code, cacheDir)).rejects.toThrow(RangeError);
-    // Nothing in the message mentions the cache, the file, or the diagram — an
-    // operator seeing this in a pipeline log has no path to the cause.
-    await expect(renderDiagramPng(code, cacheDir)).rejects.toThrow(/offset.*out of range/);
+    // No more opaque RangeError. It reaches the real render path — blocked
+    // here by blockBrowser(), so it fails with an ACTIONABLE Chrome error
+    // instead, proving the corrupt entry was detected and bypassed rather
+    // than trusted.
+    await expect(renderDiagramPng(code, cacheDir)).rejects.toThrow(/Chrome or Edge|nothing exists there/);
   });
 
-  it('does not evict the corrupt entry, so a retry fails identically', async () => {
+  it('does not touch the corrupt file when the fallthrough render itself fails', async () => {
+    // The write only happens after a SUCCESSFUL render (and now happens
+    // atomically), so a corrupt entry survives untouched when the
+    // fallthrough attempt can't complete — not because it's deliberately
+    // preserved, but because nothing ever got far enough to overwrite it. A
+    // real render (out of scope for this file — see the safety note at the
+    // top) would replace it with a valid entry on success.
     const file = cachePathFor(code);
     fs.writeFileSync(file, Buffer.alloc(10));
 
-    await expect(renderDiagramPng(code, cacheDir)).rejects.toThrow(RangeError);
-    // Still there — re-running the pipeline cannot recover.
+    await expect(renderDiagramPng(code, cacheDir)).rejects.toThrow();
     expect(fs.existsSync(file)).toBe(true);
     expect(fs.statSync(file).size).toBe(10);
   });
 
-  it('reads garbage dimensions from a zero-length-but-long-enough file', async () => {
-    // Worse than the throw: 32 zero bytes are long enough to read, so this is
-    // taken as a valid 0x0 diagram and flows into DocxSerializer, where
-    // `scale = widthPx / rendered.width` is 0/0 = NaN and the ImageRun gets NaN
-    // dimensions. Silent, and it reaches the client's document.
+  it('does not read garbage dimensions from a zero-length-but-long-enough file', async () => {
+    // Was worse than the throw: 32 zero bytes are long enough for
+    // pngDimensions() to read without erroring, so the OLD code took this as
+    // a valid 0×0 diagram and it flowed into DocxSerializer, where
+    // `scale = widthPx / rendered.width` is 0/0 = NaN and the ImageRun got
+    // NaN dimensions — silently, reaching the client's document with nothing
+    // in the pipeline log. 32 zero bytes fail isValidPng's signature check
+    // (they are not the real PNG magic bytes), so this is now detected and
+    // routed through the same fallthrough as the other two cases here.
     fs.writeFileSync(cachePathFor(code), Buffer.alloc(32));
 
-    const rendered = await renderDiagramPng(code, cacheDir);
-    expect(rendered.width).toBe(0);
-    expect(rendered.height).toBe(0);
+    await expect(renderDiagramPng(code, cacheDir)).rejects.toThrow(/Chrome or Edge|nothing exists there/);
   });
 });
 

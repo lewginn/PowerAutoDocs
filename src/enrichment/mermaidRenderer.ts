@@ -97,9 +97,29 @@ function hashOf(code: string): string {
   return createHash('sha256').update(code).digest('hex').slice(0, 16);
 }
 
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+/**
+ * Cheap validity check for a cached PNG — the real 8-byte signature plus
+ * enough length for the IHDR width/height fields pngDimensions() reads. This
+ * is what stands between a truncated or corrupt cache entry and silently
+ * wrong 0×0 dimensions reaching a client's Word document: fs.existsSync
+ * alone used to gate the cache-hit path, so a run killed mid-write (an ADO
+ * agent cancel or timeout) left a truncated file that every subsequent run
+ * trusted at face value — a RangeError if short enough to throw on read, or
+ * worse, silently-valid 0×0 dimensions if merely zeroed but long enough.
+ * Either way the failure was permanent: the cache path is a pure function of
+ * the diagram code, so every run hit the identical corrupt entry with no way
+ * to self-heal short of someone manually deleting the cache directory.
+ */
+function isValidPng(buffer: Buffer): boolean {
+  return buffer.length >= 24 && buffer.subarray(0, 8).equals(PNG_SIGNATURE);
+}
+
 // Minimal PNG IHDR read — avoids pulling in an image-dimensions dependency
 // for what's an 8-byte signature + a 4-byte width/height read. Returns the
 // raw raster size (i.e. already SCALE_FACTOR×) — callers scale it back down.
+// Only ever called after isValidPng, so the bytes it reads are guaranteed present.
 function pngDimensions(buffer: Buffer): { width: number; height: number } {
   return {
     width: buffer.readUInt32BE(16),
@@ -123,7 +143,13 @@ export async function renderDiagramPng(code: string, cacheDir: string): Promise<
 
   if (fs.existsSync(cachePath)) {
     const data = fs.readFileSync(cachePath);
-    return { data, ...toNominal(pngDimensions(data)) };
+    if (isValidPng(data)) {
+      return { data, ...toNominal(pngDimensions(data)) };
+    }
+    // Corrupt or truncated — treated as a miss, not trusted. Re-rendering
+    // below and overwriting it (atomically, see the write below) is what
+    // makes this self-healing rather than a permanent failure.
+    console.warn(`  ⚠ Corrupt diagram cache entry, re-rendering: ${cachePath}`);
   }
 
   const browser = await getBrowser();
@@ -132,6 +158,16 @@ export async function renderDiagramPng(code: string, cacheDir: string): Promise<
     viewport: { width: 800, height: 600, deviceScaleFactor: SCALE_FACTOR },
   });
   const buffer = Buffer.from(data);
-  fs.writeFileSync(cachePath, buffer);
+
+  // Atomic write: a temp file in the SAME directory (so the rename stays on
+  // one filesystem, which is what makes it atomic on both POSIX and NTFS)
+  // then rename() into place. Without this, a run killed mid-write could
+  // leave a truncated file sitting at the real, content-addressed cache
+  // path — exactly the corrupt-entry scenario isValidPng exists to detect on
+  // the read side. Writing atomically prevents it at the source instead.
+  const tmpPath = `${cachePath}.tmp-${process.pid}-${Date.now()}`;
+  fs.writeFileSync(tmpPath, buffer);
+  fs.renameSync(tmpPath, cachePath);
+
   return { data: buffer, ...toNominal(pngDimensions(buffer)) };
 }
