@@ -1,0 +1,19 @@
+{
+  "properties": {
+    "definition": {
+      "triggers": {
+        "When_an_unusual_message_fires": {
+          "type": "OpenApiConnectionWebhook",
+          "inputs": {
+            "host": { "operationId": "SubscribeWebhookTrigger" },
+            "parameters": {
+              "subscriptionRequest/message": 99,
+              "subscriptionRequest/entityname": "contoso_widget"
+            }
+          }
+        }
+      },
+      "actions": {}
+    }
+  }
+}

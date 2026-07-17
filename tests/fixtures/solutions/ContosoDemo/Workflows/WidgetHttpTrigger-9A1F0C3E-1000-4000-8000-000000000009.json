@@ -1,0 +1,16 @@
+{
+  "properties": {
+    "definition": {
+      "triggers": {
+        "When_an_HTTP_request_arrives": {
+          "type": "HttpWebhook",
+          "inputs": { "subscribe": {}, "unsubscribe": {} }
+        }
+      },
+      "actions": {
+        "Call_the_contoso_API": { "type": "Http", "runAfter": {} },
+        "Do_something_unrecognised": { "type": "SomeFutureAction", "runAfter": { "Call_the_contoso_API": ["Succeeded"] } }
+      }
+    }
+  }
+}

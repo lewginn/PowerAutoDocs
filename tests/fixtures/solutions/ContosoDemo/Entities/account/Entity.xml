@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Entity>
+  <Name LocalizedName="Account" OriginalName="Account">account</Name>
+  <EntityInfo>
+    <entity Name="account">
+      <LocalizedNames>
+        <LocalizedName description="Account" languagecode="1033" />
+      </LocalizedNames>
+      <LocalizedCollectionNames>
+        <LocalizedCollectionName description="Accounts" languagecode="1033" />
+      </LocalizedCollectionNames>
+      <Descriptions>
+        <Description description="Business that Contoso sells widgets to." languagecode="1033" />
+      </Descriptions>
+      <IsActivity>0</IsActivity>
+      <attributes>
+        <attribute PhysicalName="AccountId">
+          <Type>primarykey</Type>
+          <Name>accountid</Name>
+          <LogicalName>accountid</LogicalName>
+          <RequiredLevel>systemrequired</RequiredLevel>
+          <IsCustomField>0</IsCustomField>
+          <displaynames>
+            <displayname description="Account" languagecode="1033" />
+          </displaynames>
+        </attribute>
+        <attribute PhysicalName="Name">
+          <Type>nvarchar</Type>
+          <Name>name</Name>
+          <LogicalName>name</LogicalName>
+          <RequiredLevel>required</RequiredLevel>
+          <MaxLength>160</MaxLength>
+          <IsCustomField>0</IsCustomField>
+          <displaynames>
+            <displayname description="Account Name" languagecode="1033" />
+          </displaynames>
+        </attribute>
+        <attribute PhysicalName="contoso_grade">
+          <Type>picklist</Type>
+          <Name>contoso_grade</Name>
+          <LogicalName>contoso_grade</LogicalName>
+          <RequiredLevel>none</RequiredLevel>
+          <IsCustomField>1</IsCustomField>
+          <displaynames>
+            <displayname description="Account Grade" languagecode="1033" />
+          </displaynames>
+        </attribute>
+        <attribute PhysicalName="contoso_annualvalue">
+          <Type>money</Type>
+          <Name>contoso_annualvalue</Name>
+          <LogicalName>contoso_annualvalue</LogicalName>
+          <RequiredLevel>none</RequiredLevel>
+          <IsCustomField>1</IsCustomField>
+          <displaynames>
+            <displayname description="Annual Value" languagecode="1033" />
+          </displaynames>
+        </attribute>
+        <attribute PhysicalName="contoso_annualvalue_base">
+          <Type>money</Type>
+          <Name>contoso_annualvalue_base</Name>
+          <LogicalName>contoso_annualvalue_base</LogicalName>
+          <RequiredLevel>none</RequiredLevel>
+          <IsCustomField>1</IsCustomField>
+          <displaynames>
+            <displayname description="Annual Value (Base)" languagecode="1033" />
+          </displaynames>
+        </attribute>
+        <attribute PhysicalName="contoso_ledgerref_base">
+          <Type>nvarchar</Type>
+          <Name>contoso_ledgerref_base</Name>
+          <LogicalName>contoso_ledgerref_base</LogicalName>
+          <RequiredLevel>none</RequiredLevel>
+          <MaxLength>50</MaxLength>
+          <IsCustomField>1</IsCustomField>
+          <displaynames>
+            <displayname description="Base Ledger Reference" languagecode="1033" />
+          </displaynames>
+        </attribute>
+        <attribute PhysicalName="TransactionCurrencyId">
+          <Type>lookup</Type>
+          <Name>transactioncurrencyid</Name>
+          <LogicalName>transactioncurrencyid</LogicalName>
+          <RequiredLevel>none</RequiredLevel>
+          <IsCustomField>0</IsCustomField>
+          <displaynames>
+            <displayname description="Currency" languagecode="1033" />
+          </displaynames>
+        </attribute>
+        <attribute PhysicalName="VersionNumber">
+          <Type>bigint</Type>
+          <Name>versionnumber</Name>
+          <LogicalName>versionnumber</LogicalName>
+          <RequiredLevel>none</RequiredLevel>
+          <IsCustomField>0</IsCustomField>
+          <displaynames>
+            <displayname description="Version Number" languagecode="1033" />
+          </displaynames>
+        </attribute>
+      </attributes>
+    </entity>
+  </EntityInfo>
+</Entity>

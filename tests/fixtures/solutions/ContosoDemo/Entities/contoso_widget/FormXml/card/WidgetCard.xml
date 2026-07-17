@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<forms type="card">
+  <systemform>
+    <IsCustomizable>1</IsCustomizable>
+    <FormActivationState>1</FormActivationState>
+    <form>
+      <tabs>
+        <tab name="tab_card" id="{bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb}">
+          <labels>
+            <label description="Card" languagecode="1033" />
+          </labels>
+          <columns>
+            <column width="100%">
+              <sections>
+                <section name="section_card" id="{cccccccc-cccc-cccc-cccc-cccccccccccc}">
+                  <labels>
+                    <label description="Card Body" languagecode="1033" />
+                  </labels>
+                  <rows>
+                    <row>
+                      <cell id="{eeee1111-0000-0000-0000-000000000001}">
+                        <control id="contoso_name" classid="{4273EDBD-AC1D-40d3-9FB2-095C621B552D}" datafieldname="contoso_name" />
+                      </cell>
+                    </row>
+                  </rows>
+                </section>
+              </sections>
+            </column>
+          </columns>
+        </tab>
+      </tabs>
+    </form>
+    <LocalizedNames>
+      <LocalizedName description="Widget Card" languagecode="1033" />
+    </LocalizedNames>
+  </systemform>
+</forms>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Workflow WorkflowId="{9a1f0c3e-1000-4000-8000-000000000004}" Name="SyncWidgetsNightly">
+  <JsonFileName>/Workflows/SyncWidgetsNightly-9A1F0C3E-1000-4000-8000-000000000004.json</JsonFileName>
+  <Category>5</Category>
+  <StateCode>1</StateCode>
+  <LocalizedNames>
+    <LocalizedName description="Sync widgets nightly" languagecode="1033" />
+  </LocalizedNames>
+</Workflow>

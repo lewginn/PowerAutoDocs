@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<SdkMessageProcessingStep SdkMessageProcessingStepId="{c5555555-5555-4555-8555-555555555555}" Name="Contoso.Crm.Plugins.Widgets.WidgetSyncHandler: Create of contoso_widget">
+  <Description>A plugin type living in a nested namespace below the assembly name.</Description>
+  <Mode>1</Mode>
+  <PluginTypeName>Contoso.Crm.Plugins.Widgets.WidgetSyncHandler, Contoso.Crm.Plugins, Version=2.4.1.0, Culture=neutral, PublicKeyToken=3f8a1c9d0e2b4a67</PluginTypeName>
+  <PrimaryEntity>contoso_widget</PrimaryEntity>
+  <Rank>2</Rank>
+  <Stage>40</Stage>
+</SdkMessageProcessingStep>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AppModule>
+  <UniqueName>contoso_FieldOps</UniqueName>
+  <LocalizedNames>
+    <LocalizedName description="Warehouse Field Ops" languagecode="1036" />
+  </LocalizedNames>
+  <statecode>1</statecode>
+  <FormFactor>3</FormFactor>
+  <AppModuleComponents>
+    <AppModuleComponent type="1" schemaName="contoso_widget" />
+    <AppModuleComponent type="1" schemaName="msdyn_workorder" />
+  </AppModuleComponents>
+  <AppModuleRoleMaps>
+    <Role id="{3f0a1b20-0000-4000-8000-000000000004}" />
+  </AppModuleRoleMaps>
+</AppModule>

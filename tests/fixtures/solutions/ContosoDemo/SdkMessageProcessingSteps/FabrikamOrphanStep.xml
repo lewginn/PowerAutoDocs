@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<SdkMessageProcessingStep SdkMessageProcessingStepId="{c6666666-6666-4666-8666-666666666666}" Name="Fabrikam.Legacy.Plugins.OrphanHandler: Update of contoso_gadget">
+  <Description>A step registered against an assembly that is not shipped in this solution.</Description>
+  <FilteringAttributes>contoso_code</FilteringAttributes>
+  <Mode>0</Mode>
+  <PluginTypeName>Fabrikam.Legacy.Plugins.OrphanHandler, Fabrikam.Legacy.Plugins, Version=9.9.9.9, Culture=neutral, PublicKeyToken=null</PluginTypeName>
+  <PrimaryEntity>contoso_gadget</PrimaryEntity>
+  <Rank>1</Rank>
+  <Stage>20</Stage>
+</SdkMessageProcessingStep>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Workflow WorkflowId="{9a1f0c3e-4000-4000-8000-000000000001}" Name="Show approval fields">
+  <Category>2</Category>
+  <Mode>0</Mode>
+  <StateCode>1</StateCode>
+  <StatusCode>2</StatusCode>
+  <PrimaryEntity>contoso_widget</PrimaryEntity>
+  <ProcessTriggerScope>2</ProcessTriggerScope>
+  <IntroducedVersion>1.0.0.0</IntroducedVersion>
+  <XamlFileName>/Workflows/ContosoWidgetStatusRule.xaml</XamlFileName>
+</Workflow>

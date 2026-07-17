@@ -34,6 +34,13 @@ Thumbs.db
 # notes
 *.txt
 
+# ...but never a test fixture. Several fixtures are deliberately non-XML files
+# whose whole job is to prove a parser skips them. Ignored, they vanish on a
+# fresh clone and those tests pass vacuously in CI — green, and asserting nothing.
+# Fixtures are synthetic by rule (tests/fixtures/README.md), so nothing here can
+# be client data.
+!tests/fixtures/**
+
 #yml config file, required for client project, but should not be committed to source control as it may contain environment-specific settings
 *doc-gen.config.yml
 

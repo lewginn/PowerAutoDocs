@@ -98,7 +98,7 @@ export function renderWebResourceDetail(resource: WebResourceModel): DocNode[] {
     if (fns.length === 0) {
       nodes.push(pt('No named functions detected.'));
     } else {
-      nodes.push(pt(`${fns.length} function(s) defined in \`${resource.namespace ?? title}\`.`));
+      nodes.push(p(t(`${fns.length} function(s) defined in `), c(resource.namespace ?? title), t('.')));
 
       const handlers = fns.filter(f => /^(OnLoad|OnChange|OnSave|OnBlur|OnFocus)/i.test(f.name));
       const helpers  = fns.filter(f => !/^(OnLoad|OnChange|OnSave|OnBlur|OnFocus)/i.test(f.name));

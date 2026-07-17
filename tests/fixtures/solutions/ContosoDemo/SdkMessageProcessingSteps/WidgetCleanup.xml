@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<SdkMessageProcessingStep SdkMessageProcessingStepId="{c4444444-4444-4444-8444-444444444444}" Name="Contoso.Crm.Plugins.WidgetCleanup">
+  <Description>A step whose name does not follow the "Message of Entity" convention and whose stage code is not one of the three documented values.</Description>
+  <Mode>0</Mode>
+  <PluginTypeName>Contoso.Crm.Plugins.WidgetCleanup, Contoso.Crm.Plugins, Version=2.4.1.0, Culture=neutral, PublicKeyToken=3f8a1c9d0e2b4a67</PluginTypeName>
+  <PrimaryEntity>contoso_widget</PrimaryEntity>
+  <Rank>1</Rank>
+  <Stage>30</Stage>
+</SdkMessageProcessingStep>

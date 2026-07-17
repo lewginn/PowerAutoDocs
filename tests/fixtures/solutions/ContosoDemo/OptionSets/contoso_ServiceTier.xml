@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<optionset Name="contoso_ServiceTier" localizedName="Service Tier">
+  <OptionSetType>picklist</OptionSetType>
+  <IsGlobal>1</IsGlobal>
+  <Descriptions>
+    <Description description="Support tier a Contoso customer has purchased." languagecode="1033" />
+    <Description description="Niveau de support acheté." languagecode="1036" />
+  </Descriptions>
+  <displaynames>
+    <displayname description="Ignored Display Name" languagecode="1033" />
+  </displaynames>
+  <options>
+    <option value="100000000" ExternalValue="STD">
+      <labels>
+        <label description="Niveau standard" languagecode="1036" />
+        <label description="Standard" languagecode="1033" />
+      </labels>
+      <Descriptions>
+        <Description description="Business hours only." languagecode="1033" />
+      </Descriptions>
+    </option>
+    <option value="100000001">
+      <labels>
+        <label description="Premium" languagecode="1033" />
+      </labels>
+    </option>
+    <option value="100000002" IsHidden="1">
+      <labels>
+        <label description="Retired Gold Tier" languagecode="1036" />
+      </labels>
+    </option>
+  </options>
+</optionset>

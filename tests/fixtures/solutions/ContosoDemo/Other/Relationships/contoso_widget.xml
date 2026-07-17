@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<EntityRelationships>
+  <EntityRelationship Name="contoso_account_contoso_widget">
+    <EntityRelationshipType>OneToMany</EntityRelationshipType>
+    <ReferencingEntityName>contoso_widget</ReferencingEntityName>
+    <ReferencedEntityName>account</ReferencedEntityName>
+    <ReferencingAttributeName>contoso_accountid</ReferencingAttributeName>
+    <RelationshipDescription>
+      <Descriptions>
+        <Description description="Description française du lien." languagecode="1036" />
+        <Description description="Widgets owned by an account." languagecode="1033" />
+      </Descriptions>
+    </RelationshipDescription>
+  </EntityRelationship>
+  <EntityRelationship Name="contoso_widget_owner">
+    <EntityRelationshipType>ManyToOne</EntityRelationshipType>
+    <ReferencingEntityName>contoso_widget</ReferencingEntityName>
+    <ReferencedEntityName>systemuser</ReferencedEntityName>
+    <ReferencingAttributeName>ownerid</ReferencingAttributeName>
+  </EntityRelationship>
+  <EntityRelationship Name="contoso_widget_contoso_tag">
+    <EntityRelationshipType>ManyToMany</EntityRelationshipType>
+    <ReferencingEntityName>contoso_widget</ReferencingEntityName>
+    <ReferencedEntityName>contoso_tag</ReferencedEntityName>
+    <ReferencingAttributeName>contoso_widgetid</ReferencingAttributeName>
+    <RelationshipDescription>
+      <Descriptions>
+        <Description description="Tags applied to a widget." languagecode="1033" />
+      </Descriptions>
+    </RelationshipDescription>
+  </EntityRelationship>
+</EntityRelationships>

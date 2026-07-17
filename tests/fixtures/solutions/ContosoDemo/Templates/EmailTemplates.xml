@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<EmailTemplates>
+  <emailtemplate>
+    <templateid>{2b7c1d40-0000-4000-8000-000000000003}</templateid>
+    <title>Widget Registry Digest</title>
+    <description>Weekly internal digest. Deliberately has no EmailDocuments folder.</description>
+    <templatetypecode>9999</templatetypecode>
+    <languagecode>1031</languagecode>
+    <IsCustomizable>1</IsCustomizable>
+  </emailtemplate>
+  <emailtemplate>
+    <templateid>{2b7c1d40-0000-4000-8000-000000000001}</templateid>
+    <title>Order Shipped</title>
+    <description>Sent to the customer when a Contoso widget order ships.</description>
+    <templatetypecode>7</templatetypecode>
+    <languagecode>1033</languagecode>
+    <IsCustomizable>1</IsCustomizable>
+  </emailtemplate>
+  <emailtemplate>
+    <templateid>{2b7c1d40-0000-4000-8000-000000000002}</templateid>
+    <title>Case Acknowledgement</title>
+    <description>Auto-reply on case creation.</description>
+    <templatetypecode>5</templatetypecode>
+    <languagecode>1033</languagecode>
+    <IsCustomizable>1</IsCustomizable>
+  </emailtemplate>
+  <emailtemplate>
+    <templateid>{2b7c1d40-0000-4000-8000-000000000004}</templateid>
+    <title>Locked System Notice</title>
+    <description>Managed template a customiser cannot edit.</description>
+    <templatetypecode>4700</templatetypecode>
+    <languagecode>1033</languagecode>
+    <IsCustomizable>0</IsCustomizable>
+  </emailtemplate>
+  <emailtemplate>
+    <templateid>{2b7c1d40-0000-4000-8000-000000000005}</templateid>
+    <title></title>
+    <description>Untitled draft left behind in the solution.</description>
+    <templatetypecode>1</templatetypecode>
+    <languagecode>1033</languagecode>
+    <IsCustomizable>1</IsCustomizable>
+  </emailtemplate>
+</EmailTemplates>

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<SdkMessageProcessingStep SdkMessageProcessingStepId="{c2222222-2222-4222-8222-222222222222}" Name="Contoso.Crm.Plugins.WidgetPreValidation: Delete of contoso_widget">
+  <Description>Blocks deletion of a widget that still has gadgets.</Description>
+  <FilteringAttributes></FilteringAttributes>
+  <Mode>1</Mode>
+  <PluginTypeName>Contoso.Crm.Plugins.WidgetPreValidation, Contoso.Crm.Plugins, Version=2.4.1.0, Culture=neutral, PublicKeyToken=3f8a1c9d0e2b4a67</PluginTypeName>
+  <PrimaryEntity>contoso_widget</PrimaryEntity>
+  <Rank>1</Rank>
+  <Stage>10</Stage>
+  <SdkMessageProcessingStepImages>
+    <SdkMessageProcessingStepImage>
+      <SdkMessageProcessingStepImageId>{d3333333-3333-4333-8333-333333333333}</SdkMessageProcessingStepImageId>
+      <Attributes>contoso_name</Attributes>
+      <EntityAlias>TargetWidget</EntityAlias>
+      <ImageType>2</ImageType>
+    </SdkMessageProcessingStepImage>
+  </SdkMessageProcessingStepImages>
+</SdkMessageProcessingStep>

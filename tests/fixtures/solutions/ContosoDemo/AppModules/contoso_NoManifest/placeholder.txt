@@ -1,0 +1,1 @@
+An app folder with no AppModule.xml at all — the read must fail soft, not abort the sweep.

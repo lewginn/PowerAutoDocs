@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Workflow WorkflowId="{9a1f0c3e-3000-4000-8000-000000000001}" Name="Approve widget">
+  <Category>0</Category>
+  <Mode>0</Mode>
+  <Scope>1</Scope>
+  <RunAs>0</RunAs>
+  <StateCode>1</StateCode>
+  <StatusCode>2</StatusCode>
+  <PrimaryEntity>contoso_widget</PrimaryEntity>
+  <OnDemand>1</OnDemand>
+  <TriggerOnCreate>1</TriggerOnCreate>
+  <TriggerOnDelete>0</TriggerOnDelete>
+  <TriggerOnUpdateAttributeList>contoso_status,contoso_amount</TriggerOnUpdateAttributeList>
+  <IntroducedVersion>1.0.0.0</IntroducedVersion>
+  <XamlFileName>/Workflows/ContosoWidgetApproval.xaml</XamlFileName>
+</Workflow>

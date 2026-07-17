@@ -169,7 +169,9 @@ Merge it yourself (🟢). Two styles are both in use, and the observable rule is
 
 Vitest, added under issue #102. `npm test` runs it; `.github/workflows/ci.yml` runs typecheck + build + test on **every PR and every push to `main`**. `npm-publish.yml` re-runs the same checks before `npm publish`, because a release can be cut from any ref and a publish cannot be undone.
 
-**This changes what CI catches, not what verification means.** The suite covers the pure, mockable-free layers — DocNode serialisation, `rendererUtils`, the ERD generator, and the parsers that have fixtures. It does **not** cover Word/PDF binary output, Mermaid PNG rendering, the AI providers, the wiki publisher, or `main()`. Green CI means "nothing obviously regressed in the tested fraction". It does not mean the `.docx` is right.
+**This changes what CI catches, not what verification means.** The suite (662 tests) covers the mock-free layers: all 17 parsers, all 14 renderers, DocNode serialisation, `wordTheme`, the ERD generator and `config/loader`. It does **not** cover `DocxSerializer`, `PdfSerializer`, `publisher/*`, Mermaid PNG rendering, the AI providers, the wiki publisher, or `main()`. Green CI means "nothing obviously regressed in the tested fraction". It does not mean the `.docx` is right.
+
+**Do not read the parser/renderer coverage as broader than it is.** It stops precisely at the `DocNode` boundary — **no test in this repo has ever produced a `.docx`, a `.pdf` or a wiki page.** The clearest demonstration: four renderers baked markdown backticks into heading text, every renderer test passed, and the `.docx` shipped literal backticks. It took unzipping a real `.docx` and reading `word/document.xml` to see it. That gap is exactly the size of the artifact inspection below.
 
 So: **the end-to-end run and artifact inspection below are still mandatory for anything touching output.** CI is a floor, not a substitute. Everything in "What verified actually means" still applies.
 

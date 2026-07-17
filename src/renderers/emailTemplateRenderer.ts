@@ -69,7 +69,11 @@ export function renderEmailTemplatePage(template: EmailTemplateModel): DocNode[]
 
   if (template.dynamicFields.length > 0) {
     nodes.push(h(2, 'Dynamic Fields'));
-    nodes.push(pt('Fields referenced in this template (shown as `{fieldName}` placeholders above):'));
+    nodes.push(p(
+      t('Fields referenced in this template (shown as '),
+      c('{fieldName}'),
+      t(' placeholders above):'),
+    ));
     nodes.push(bulletList(template.dynamicFields.map(field => bullet(0, c(field)))));
   }
 

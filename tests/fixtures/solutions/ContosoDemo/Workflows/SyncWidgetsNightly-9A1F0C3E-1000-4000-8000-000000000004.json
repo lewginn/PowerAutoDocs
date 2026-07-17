@@ -1,0 +1,15 @@
+{
+  "properties": {
+    "definition": {
+      "triggers": {
+        "Every_24_hours": {
+          "type": "Recurrence",
+          "recurrence": { "interval": 24, "frequency": "Hour" }
+        }
+      },
+      "actions": {
+        "Compose_run_stamp": { "type": "Compose", "runAfter": {} }
+      }
+    }
+  }
+}

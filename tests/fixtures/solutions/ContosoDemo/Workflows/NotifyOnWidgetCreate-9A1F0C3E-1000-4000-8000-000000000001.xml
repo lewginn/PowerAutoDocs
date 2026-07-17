@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Workflow WorkflowId="{9a1f0c3e-1000-4000-8000-000000000001}" Name="NotifyOnWidgetCreate">
+  <JsonFileName>/Workflows/NotifyOnWidgetCreate-9A1F0C3E-1000-4000-8000-000000000001.json</JsonFileName>
+  <Category>5</Category>
+  <Mode>0</Mode>
+  <StateCode>1</StateCode>
+  <StatusCode>2</StatusCode>
+  <IntroducedVersion>1.0.0.0</IntroducedVersion>
+  <LocalizedNames>
+    <LocalizedName description="Notify on widget create" languagecode="1033" />
+    <LocalizedName description="Notifier a la creation du widget" languagecode="1036" />
+  </LocalizedNames>
+</Workflow>

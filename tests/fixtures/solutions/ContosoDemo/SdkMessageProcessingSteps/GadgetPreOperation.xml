@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<SdkMessageProcessingStep SdkMessageProcessingStepId="{c3333333-3333-4333-8333-333333333333}" Name="Contoso.Crm.Plugins.GadgetPreOperation: Create of contoso_gadget">
+  <Description>Stamps a gadget code before the record is written.</Description>
+  <Mode>0</Mode>
+  <PluginTypeName>Contoso.Crm.Plugins.GadgetPreOperation, Contoso.Crm.Plugins, Version=2.4.1.0, Culture=neutral, PublicKeyToken=3f8a1c9d0e2b4a67</PluginTypeName>
+  <PrimaryEntity>contoso_gadget</PrimaryEntity>
+  <Rank>1</Rank>
+  <Stage>20</Stage>
+</SdkMessageProcessingStep>

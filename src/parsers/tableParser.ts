@@ -19,7 +19,7 @@ import { TableModel, ColumnModel, ColumnType } from '../ir/index.js';
 const parser = new XMLParser({
   attributeNamePrefix: '@_',
   ignoreAttributes: false,
-  isArray: (name) => ['attribute', 'displayname', 'Description', 'LocalizedName'].includes(name)
+  isArray: (name) => ['attribute', 'displayname', 'Description', 'LocalizedName', 'LocalizedCollectionName'].includes(name)
 });
 
 // -----------------------------------------------
@@ -52,17 +52,21 @@ function mapColumnType(ppType: string): ColumnType {
 // -----------------------------------------------
 // STEP 3: Helper to safely get a localised string
 // -----------------------------------------------
-// PP stores display names and descriptions like this:
-// <displaynames>
-//   <displayname description="My Label" languagecode="1033" />
-// </displaynames>
-// This helper pulls out the English (1033) one.
-// The '??' means "if this is null/undefined, return empty string"
-function getEnglishLabel(displaynames: any): string {
-  if (!displaynames?.displayname) return '';
-  const names = Array.isArray(displaynames.displayname)
-    ? displaynames.displayname
-    : [displaynames.displayname];
+/**
+ * Reads the English (1033) label out of a localised-label block, e.g.
+ *   <displaynames><displayname description="My Label" languagecode="1033" /></displaynames>
+ *
+ * The child element name has to be passed in, because Dataverse names it after
+ * the block: <displaynames><displayname/>, <Descriptions><Description/>,
+ * <LocalizedCollectionNames><LocalizedCollectionName/>. This used to be
+ * hardcoded to 'displayname' while being handed all three, so every column
+ * description, every entity description and every plural name silently came back
+ * empty — blank Description columns across the docs of a documentation tool.
+ */
+function getEnglishLabel(block: any, childName: string = 'displayname'): string {
+  const child = block?.[childName];
+  if (!child) return '';
+  const names = Array.isArray(child) ? child : [child];
   const english = names.find((n: any) => n['@_languagecode'] === '1033');
   return english?.['@_description'] ?? '';
 }
@@ -77,7 +81,7 @@ function parseColumn(attr: any): ColumnModel {
   return {
     logicalName: attr.LogicalName ?? '',
     displayName: getEnglishLabel(attr.displaynames),
-    description: getEnglishLabel(attr.Descriptions),
+    description: getEnglishLabel(attr.Descriptions, 'Description'),
     type: mapColumnType(attr.Type ?? 'unknown'),
     isRequired: attr.RequiredLevel === 'required' || attr.RequiredLevel === 'systemrequired',
     isCustom: attr.IsCustomField === '1' || attr.IsCustomField === 1,
@@ -117,10 +121,10 @@ export function parseEntityXml(entityXmlPath: string): TableModel {
   const displayName = nameNode?.['@_LocalizedName'] ?? logicalName;
 
   // Get the plural display name from LocalizedCollectionNames
-  const collectionName = getEnglishLabel(entity.LocalizedCollectionNames);
+  const collectionName = getEnglishLabel(entity.LocalizedCollectionNames, 'LocalizedCollectionName');
 
   // Get the entity description
-  const description = getEnglishLabel(entity.Descriptions);
+  const description = getEnglishLabel(entity.Descriptions, 'Description');
 
   // Parse all columns — filter out undefined just in case
   const rawAttributes = entity.attributes?.attribute ?? [];

@@ -70,7 +70,7 @@ export function renderBusinessRule(rule: BusinessRuleModel): DocNode[] {
       const cond  = rule.conditions[i];
       const label = cond.description ? cond.description : `Condition ${i + 1}`;
 
-      nodes.push(h(3, `If \`${cond.conditionField}\` — ${label}`));
+      nodes.push(h(3, `If ${cond.conditionField} — ${label}`));
       nodes.push(...actionGroupNodes(cond.thenActions));
 
       if (cond.elseActions.length > 0) {
@@ -98,7 +98,9 @@ export function renderBusinessRulesOverview(rules: BusinessRuleModel[]): DocNode
         r.scope === 'allForms'     ? 'All Forms' : 'Entity';
 
       const summary = r.conditions.map(cond => {
-        const label = cond.description ?? `\`${cond.conditionField}\``;
+        // Truthy rather than ??: the parser yields '' when the Description key is
+        // present but blank, and '' must fall back too — as it does on the detail page.
+        const label = cond.description ? cond.description : cond.conditionField;
         const actionTypes = [...new Set(cond.thenActions.map(a => a.type))];
         const tags: string[] = [];
         if (actionTypes.includes('show') || actionTypes.includes('hide')) tags.push('visibility');

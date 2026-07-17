@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Workflow WorkflowId="{9a1f0c3e-2000-4000-8000-00000000000a}" Name="BrokenJsonWidget">
+  <JsonFileName>/Workflows/BrokenJsonWidget-9A1F0C3E-2000-4000-8000-00000000000A.json</JsonFileName>
+  <Category>5</Category>
+  <StateCode>1</StateCode>
+</Workflow>

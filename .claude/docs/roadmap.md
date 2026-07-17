@@ -114,7 +114,27 @@ CLI flags are **already shipped**. `commander` is declared in `package.json` but
 
 #97 is the newest substantive issue (opened 2026-06-10) and is not slotted into a phase block in `architecture.jsx`. If you pick it up, add it to a phase block or accept that it lives outside the published roadmap.
 
-**#102 shipped the floor, not the finish.** CI (`ci.yml`) now typechecks, builds and tests every PR, and the Vitest suite covers `MarkdownSerializer`, `rendererUtils`, `erdGenerator` and two fixtured parsers. Fifteen parsers still have no fixtures, and Word/PDF/Mermaid/AI/wiki are deliberately untested pending injection seams — see [decisions.md](decisions.md#vitest-and-a-suite-that-deliberately-stops-short) for what was excluded and why. Extending coverage is good background work: pick a parser, hand-write a fictional fixture, never copy from `unpacked/`.
+**#102's second pass extended the suite to 661 tests.** CI (`ci.yml`) typechecks, builds and tests every PR. Coverage is now **all 17 parsers** and **all 14 renderers**, plus `MarkdownSerializer`, `wordTheme`, `erdGenerator` and `config/loader`. Still uncovered: `DocxSerializer` (690 lines — the biggest gap), `PdfSerializer`, `publisher/*`, and the pure-and-therefore-inexcusable `mermaidGenerator` / `dependencyResolver`. See [decisions.md](decisions.md#vitest-and-a-suite-that-deliberately-stops-short).
+
+**Writing those tests found ten defects, and that — not the tests themselves — is the argument for the remaining coverage.** Every one had been shipping to clients undetected, and none was found by reading the code; they surfaced the moment something asserted on real output.
+
+Fixed in the same pass:
+
+| Fixed | Why it mattered |
+|---|---|
+| `tableParser` dropped **every** description and plural name | `getEnglishLabel` hardcoded a `<displayname>` child while being handed `<Descriptions>`/`<LocalizedCollectionNames>`. The Description column was blank on every table page — in a documentation tool. |
+| Email merge fields lost their spaces | `order{number}has shipped` in every subject and body with a mid-sentence field. |
+| Four renderers baked markdown backticks into heading text | Correct in the wiki, literal backticks in the `.docx`. Now fenced by `formatBoundary.test.ts`. |
+| `loadConfig` returned the shared `CONFIG_DEFAULTS` object | A `--word` run with no config file rewrote the exported defaults for the process. |
+
+**Still open** — each pinned by a test that asserts the wrong behaviour on purpose, so it fails loudly when fixed. Find them with `grep -rn 'BUG:' tests/`:
+
+- `pluginParser` double-counts a nested-namespace plugin type, emitting it again under a phantom assembly.
+- `webResourceParser` publishes a nameless ghost resource from a truncated `.data.xml`.
+- `webResourceParser` JSDoc without `@description` yields the literal `"/**"`.
+- `environmentVariableRenderer` `showCurrentValue` adds a header with no matching cell (latent — no assembler passes the option).
+
+Unpinned and worth a look: `securityRoleParser` has no `try/catch`, so one malformed `Roles/*.xml` takes down the whole sweep rather than skipping; `relationshipParser`'s catch is dead for malformed XML, letting a garbage entry reach the ERD.
 
 **#103 is latent, not live** — no renderer builds a ragged table today. It was found by writing the tests, and there is a characterisation test pinned to the current wrong behaviour that must be updated when it's fixed.
 

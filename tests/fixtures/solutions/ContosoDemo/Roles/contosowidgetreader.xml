@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Role id="{aa333333-3333-4333-8333-333333333333}" name="Contoso Widget Reader">
+  <RoleTemplateId>{00000000-0000-0000-0000-000000000000}</RoleTemplateId>
+  <IsInherited>2</IsInherited>
+  <CanBeDeleted>1</CanBeDeleted>
+  <IsCustomizable>0</IsCustomizable>
+  <IsAutoAssigned>1</IsAutoAssigned>
+  <IsManaged>1</IsManaged>
+  <RolePrivileges>
+    <RolePrivilege name="prvReadcontoso_widget" level="Basic" />
+  </RolePrivileges>
+</Role>

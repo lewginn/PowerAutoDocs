@@ -142,7 +142,7 @@ export function renderSinglePluginType(
   if (stepsWithImages.length > 0) {
     nodes.push(h(2, 'Step Images'));
     for (const step of stepsWithImages) {
-      nodes.push(h(3, `${step.message} of \`${step.primaryEntity}\``));
+      nodes.push(h(3, `${step.message} of ${step.primaryEntity}`));
       nodes.push(table(
         ['Image Name', 'Type', 'Attributes'],
         step.images.map(img => [

@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Activity x:Class="ContosoWidgetStatusRule"
+          xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
+          xmlns:mxs="clr-namespace:Microsoft.Xrm.Sdk.Workflow;assembly=Microsoft.Xrm.Sdk.Workflow"
+          xmlns:mxswa="clr-namespace:Microsoft.Xrm.Sdk.Workflow.Activities;assembly=Microsoft.Xrm.Sdk.Workflow"
+          xmlns:mcwc="clr-namespace:Microsoft.Crm.Workflow.Activities;assembly=Microsoft.Crm.Workflow"
+          xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <mxswa:Workflow>
+    <mxs:ActivityReference AssemblyQualifiedName="Microsoft.Crm.Workflow.Activities.ConditionSequence, Microsoft.Crm.Workflow"
+                           DisplayName="Step1">
+      <mxs:ActivityReference.Properties>
+        <mxs:Collection x:TypeArguments="Variable" x:Key="Variables">
+          <Variable x:TypeArguments="x:String" Name="localStatus" />
+        </mxs:Collection>
+        <mxs:Collection x:TypeArguments="Activity" x:Key="Activities">
+          <mxswa:GetEntityProperty Attribute="contoso_status" EntityName="contoso_widget" />
+          <mxs:ActivityReference AssemblyQualifiedName="Microsoft.Crm.Workflow.Activities.ConditionBranch, Microsoft.Crm.Workflow"
+                                 DisplayName="Step2">
+            <mxs:ActivityReference.Properties>
+              <x:String x:Key="Description">Status is Approved</x:String>
+              <mxs:ActivityReference AssemblyQualifiedName="Microsoft.Crm.Workflow.Activities.Composite, Microsoft.Crm.Workflow">
+                <mxs:ActivityReference.Properties>
+                  <mxs:Collection x:TypeArguments="Activity" x:Key="Activities">
+                    <Sequence DisplayName="SetVisibilityStep1">
+                      <mcwc:SetVisibility ControlId="contoso_approvedby" IsVisible="True" DisplayName="Show approver" />
+                    </Sequence>
+                    <Sequence DisplayName="SetRequiredStep1">
+                      <mcwc:SetFieldRequiredLevel ControlId="contoso_approvedon" RequiredLevel="Required" DisplayName="Require date" />
+                    </Sequence>
+                  </mxs:Collection>
+                </mxs:ActivityReference.Properties>
+              </mxs:ActivityReference>
+            </mxs:ActivityReference.Properties>
+          </mxs:ActivityReference>
+          <mxs:ActivityReference AssemblyQualifiedName="Microsoft.Crm.Workflow.Activities.ConditionBranch, Microsoft.Crm.Workflow"
+                                 DisplayName="Step3">
+            <mxs:ActivityReference.Properties>
+              <mxs:ActivityReference AssemblyQualifiedName="Microsoft.Crm.Workflow.Activities.Composite, Microsoft.Crm.Workflow">
+                <mxs:ActivityReference.Properties>
+                  <mxs:Collection x:TypeArguments="Activity" x:Key="Activities">
+                    <Sequence DisplayName="SetVisibilityStep2">
+                      <mcwc:SetVisibility ControlId="contoso_approvedby" IsVisible="False" DisplayName="Hide approver" />
+                    </Sequence>
+                    <Sequence DisplayName="SetRequiredStep2">
+                      <mcwc:SetFieldRequiredLevel ControlId="contoso_approvedon" RequiredLevel="None" DisplayName="Unrequire date" />
+                    </Sequence>
+                  </mxs:Collection>
+                </mxs:ActivityReference.Properties>
+              </mxs:ActivityReference>
+            </mxs:ActivityReference.Properties>
+          </mxs:ActivityReference>
+        </mxs:Collection>
+      </mxs:ActivityReference.Properties>
+    </mxs:ActivityReference>
+  </mxswa:Workflow>
+</Activity>

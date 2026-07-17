@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Workflow WorkflowId="{9a1f0c3e-3000-4000-8000-000000000004}" Name="Empty xaml workflow">
+  <Category>0</Category>
+  <StateCode>1</StateCode>
+  <PrimaryEntity>contoso_widget</PrimaryEntity>
+</Workflow>

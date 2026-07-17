@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Entity>
+  <Name LocalizedName="Widget" OriginalName="Widget">contoso_widget</Name>
+  <EntityInfo>
+    <entity Name="contoso_widget">
+      <LocalizedNames>
+        <LocalizedName description="Widget" languagecode="1033" />
+        <LocalizedName description="Gadget" languagecode="1036" />
+      </LocalizedNames>
+      <LocalizedCollectionNames>
+        <LocalizedCollectionName description="Widgets" languagecode="1033" />
+      </LocalizedCollectionNames>
+      <Descriptions>
+        <Description description="A fictional widget assembled from parts." languagecode="1033" />
+      </Descriptions>
+      <IsActivity>0</IsActivity>
+      <attributes>
+        <attribute PhysicalName="contoso_widgetId">
+          <Type>primarykey</Type>
+          <Name>contoso_widgetid</Name>
+          <LogicalName>contoso_widgetid</LogicalName>
+          <RequiredLevel>systemrequired</RequiredLevel>
+          <IsCustomField>1</IsCustomField>
+          <displaynames>
+            <displayname description="Widget" languagecode="1033" />
+          </displaynames>
+        </attribute>
+        <attribute PhysicalName="contoso_name">
+          <Type>nvarchar</Type>
+          <Name>contoso_name</Name>
+          <LogicalName>contoso_name</LogicalName>
+          <RequiredLevel>required</RequiredLevel>
+          <MaxLength>100</MaxLength>
+          <IsCustomField>1</IsCustomField>
+          <displaynames>
+            <displayname description="Widget Name" languagecode="1033" />
+            <displayname description="Nom du gadget" languagecode="1036" />
+          </displaynames>
+          <Descriptions>
+            <Description description="The name shown on the widget record." languagecode="1033" />
+          </Descriptions>
+        </attribute>
+        <attribute PhysicalName="contoso_notes">
+          <Type>memo</Type>
+          <Name>contoso_notes</Name>
+          <LogicalName>contoso_notes</LogicalName>
+          <RequiredLevel>none</RequiredLevel>
+          <MaxLength>2000</MaxLength>
+          <IsCustomField>1</IsCustomField>
+          <displaynames>
+            <displayname description="Assembly Notes" languagecode="1033" />
+          </displaynames>
+        </attribute>
+        <attribute PhysicalName="contoso_quantity">
+          <Type>int</Type>
+          <Name>contoso_quantity</Name>
+          <LogicalName>contoso_quantity</LogicalName>
+          <RequiredLevel>recommended</RequiredLevel>
+          <IsCustomField>1</IsCustomField>
+          <displaynames>
+            <displayname description="Quantity In Stock" languagecode="1033" />
+          </displaynames>
+        </attribute>
+        <attribute PhysicalName="contoso_tolerance">
+          <Type>decimal</Type>
+          <Name>contoso_tolerance</Name>
+          <LogicalName>contoso_tolerance</LogicalName>
+          <RequiredLevel>none</RequiredLevel>
+          <IsCustomField>1</IsCustomField>
+          <displaynames>
+            <displayname description="Tolerance (mm)" languagecode="1033" />
+          </displaynames>
+        </attribute>
+        <attribute PhysicalName="contoso_unitprice">
+          <Type>money</Type>
+          <Name>contoso_unitprice</Name>
+          <LogicalName>contoso_unitprice</LogicalName>
+          <RequiredLevel>none</RequiredLevel>
+          <IsCustomField>1</IsCustomField>
+          <displaynames>
+            <displayname description="Unit Price" languagecode="1033" />
+          </displaynames>
+        </attribute>
+        <attribute PhysicalName="contoso_isapproved">
+          <Type>bit</Type>
+          <Name>contoso_isapproved</Name>
+          <LogicalName>contoso_isapproved</LogicalName>
+          <RequiredLevel>none</RequiredLevel>
+          <IsCustomField>1</IsCustomField>
+          <displaynames>
+            <displayname description="Approved" languagecode="1033" />
+          </displaynames>
+        </attribute>
+        <attribute PhysicalName="contoso_assembledon">
+          <Type>datetime</Type>
+          <Name>contoso_assembledon</Name>
+          <LogicalName>contoso_assembledon</LogicalName>
+          <RequiredLevel>none</RequiredLevel>
+          <IsCustomField>1</IsCustomField>
+          <displaynames>
+            <displayname description="Assembled On" languagecode="1033" />
+          </displaynames>
+        </attribute>
+        <attribute PhysicalName="contoso_partid">
+          <Type>lookup</Type>
+          <Name>contoso_partid</Name>
+          <LogicalName>contoso_partid</LogicalName>
+          <RequiredLevel>required</RequiredLevel>
+          <IsCustomField>1</IsCustomField>
+          <LookupTypes>
+            <LookupType id="contoso_part">contoso_part</LookupType>
+          </LookupTypes>
+          <displaynames>
+            <displayname description="Primary Part" languagecode="1033" />
+          </displaynames>
+        </attribute>
+        <attribute PhysicalName="contoso_category">
+          <Type>picklist</Type>
+          <Name>contoso_category</Name>
+          <LogicalName>contoso_category</LogicalName>
+          <RequiredLevel>none</RequiredLevel>
+          <IsCustomField>1</IsCustomField>
+          <displaynames>
+            <displayname description="Category" languagecode="1033" />
+          </displaynames>
+        </attribute>
+        <attribute PhysicalName="StateCode">
+          <Type>state</Type>
+          <Name>statecode</Name>
+          <LogicalName>statecode</LogicalName>
+          <RequiredLevel>systemrequired</RequiredLevel>
+          <IsCustomField>0</IsCustomField>
+          <displaynames>
+            <displayname description="Status" languagecode="1033" />
+          </displaynames>
+        </attribute>
+        <attribute PhysicalName="OwnerId">
+          <Type>owner</Type>
+          <Name>ownerid</Name>
+          <LogicalName>ownerid</LogicalName>
+          <RequiredLevel>systemrequired</RequiredLevel>
+          <IsCustomField>0</IsCustomField>
+          <displaynames>
+            <displayname description="Owner" languagecode="1033" />
+          </displaynames>
+        </attribute>
+        <attribute PhysicalName="VersionNumber">
+          <Type>bigint</Type>
+          <Name>versionnumber</Name>
+          <LogicalName>versionnumber</LogicalName>
+          <RequiredLevel>none</RequiredLevel>
+          <IsCustomField>0</IsCustomField>
+          <displaynames>
+            <displayname description="Version Number" languagecode="1033" />
+          </displaynames>
+        </attribute>
+        <attribute PhysicalName="ContosoLegacyCode">
+          <Name>contoso_legacycode</Name>
+          <LogicalName>contoso_legacycode</LogicalName>
+          <RequiredLevel>none</RequiredLevel>
+          <IsCustomField>1</IsCustomField>
+        </attribute>
+      </attributes>
+    </entity>
+  </EntityInfo>
+</Entity>

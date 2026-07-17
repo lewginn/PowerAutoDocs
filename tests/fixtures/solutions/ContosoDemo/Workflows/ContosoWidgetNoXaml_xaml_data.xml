@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Workflow WorkflowId="{9a1f0c3e-3000-4000-8000-000000000003}" Name="Contoso orphan workflow">
+  <Category>0</Category>
+  <StateCode>0</StateCode>
+  <PrimaryEntity>contoso_widget</PrimaryEntity>
+  <OnDemand>1</OnDemand>
+  <TriggerOnCreate>0</TriggerOnCreate>
+  <TriggerOnDelete>0</TriggerOnDelete>
+</Workflow>
