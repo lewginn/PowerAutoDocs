@@ -157,7 +157,9 @@ const viewJsonFrom = (prompt: string): string => {
   return prompt.slice(at + marker.length);
 };
 
-const FLOW_KEY = 'flows:Create Part On Widget Create';
+// Suffixed with the flow's own id (aFlow()'s default) — #110: the cache key
+// used to be name-only, so two same-named flows could never both cache.
+const FLOW_KEY = 'flows:Create Part On Widget Create:11111111-1111-1111-1111-111111111111';
 
 // -----------------------------------------------
 // Disabled
@@ -371,8 +373,10 @@ describe('enrichWithAiSummaries — cache hash', () => {
   it('does not invalidate when a field outside the view changes', async () => {
     await seedCache();
 
-    // A new GUID on every unpack would churn the entire cache if ids were hashed.
-    const flow = aFlow({ id: '99999999-9999-9999-9999-999999999999' });
+    // mermaidDiagram is generated separately (mermaidGenerator.ts) and stored
+    // on the model, but is entirely redundant with the actions/trigger
+    // already in flowView — regenerating it must not churn the cache.
+    const flow = aFlow({ mermaidDiagram: 'flowchart TD\n  N0 --> N1' });
     const provider = aFakeProvider(() => 'Should never be asked for.');
     await enrichWithAiSummaries(anAiConfig(), dir, someModels({ flows: [flow] }), summary, false, provider.factory);
 
@@ -381,38 +385,88 @@ describe('enrichWithAiSummaries — cache hash', () => {
     expect(summary.aiSummariesCached).toBe(1);
   });
 
-  // BUG (pinned, not a spec): the cache key is `{kind}:{displayName}`, but
-  // Dataverse does not enforce unique display names on flows, classic workflows
-  // or business rules. Two same-named flows therefore share one cache key, each
-  // overwrites the other's entry within the same run, and neither can ever hit —
-  // they are re-bought on every run, forever. The run summary reports it as
-  // "2 generated, 0 from cache" every time, which looks like normal first-run
-  // behaviour rather than a fault.
-  //
-  // A key that cannot collide (the flow id, or name + a hash discriminator)
-  // would fix it, but that changes the on-disk cache format, so the call is the
-  // source's. Un-pin by asserting run 2 is 0 generated / 2 cached.
-  it('pins: two components sharing a display name can never cache', async () => {
+  it('DOES treat a changed id as a different cache entry — that is now the point (#110)', async () => {
+    // id is deliberately part of the cache KEY (not the hash/view) as of the
+    // fix below: two flows sharing a display name used to share one cache
+    // key, so the second's write silently clobbered the first's within the
+    // same run and neither could ever hit again. A flow's WorkflowId is the
+    // actual Dataverse record GUID — stable across every CI run that
+    // re-processes the SAME committed unpacked/ folder, which is the cache's
+    // whole operating assumption (decisions.md: the cache is committed
+    // alongside the config specifically so it stays stable between runs). It
+    // only changes if the record is genuinely a different one, or the
+    // solution was re-exported from a different environment during an ALM
+    // promotion — both cases where re-buying once is the honest outcome, not
+    // a defect. A run predating this fix would have treated the id change as
+    // irrelevant and (incorrectly) reused the old summary.
+    await seedCache();
+
+    const flow = aFlow({ id: '99999999-9999-9999-9999-999999999999' });
+    const provider = aFakeProvider(() => 'Fresh summary for the new id.');
+    await enrichWithAiSummaries(anAiConfig(), dir, someModels({ flows: [flow] }), summary, false, provider.factory);
+
+    expect(provider.prompts).toHaveLength(1);
+    expect(flow.aiSummary).toBe('Fresh summary for the new id.');
+    expect(summary.aiSummariesGenerated).toBe(1);
+    // The new id gets its own entry. The old id's entry is gone too — but
+    // via the UNRELATED, pre-existing pruning pass (only entries "seen" this
+    // run survive), not because the write clobbered it. Proven by running
+    // BOTH ids together, where pruning cannot remove either.
+    expect(Object.keys(readCache())).toEqual([
+      'flows:Create Part On Widget Create:99999999-9999-9999-9999-999999999999',
+    ]);
+
+    const both = [aFlow(), aFlow({ id: '99999999-9999-9999-9999-999999999999' })];
+    const bothProvider = aFakeProvider(() => 'Either.');
+    const runBoth = createSummary();
+    await enrichWithAiSummaries(anAiConfig(), dir, someModels({ flows: both }), runBoth, false, bothProvider.factory);
+    expect(Object.keys(readCache()).sort()).toEqual([
+      FLOW_KEY,
+      'flows:Create Part On Widget Create:99999999-9999-9999-9999-999999999999',
+    ]);
+  });
+
+  it('caches two components sharing a display name independently, keyed by id too', async () => {
+    // Was pinned: the cache key was `{kind}:{displayName}` alone, but
+    // Dataverse does not enforce unique display names on flows, classic
+    // workflows or business rules. Two same-named flows shared one cache key,
+    // each overwriting the other's entry within the same run, so neither
+    // could ever hit — both were re-bought on every run, forever, while the
+    // run summary read "2 generated, 0 from cache" every time, indistinguishable
+    // from normal first-run behaviour. Fixed by folding each model's own id
+    // into the cache key as a discriminator (see the DOES-treat-a-changed-id
+    // test above for why id specifically is safe to use this way).
     const twoFlows = () => [
-      aFlow({ name: 'Sync Widgets', actions: [anAction({ entityName: 'acme_alpha' })] }),
-      aFlow({ name: 'Sync Widgets', actions: [anAction({ entityName: 'acme_beta' })] }),
+      aFlow({
+        id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+        name: 'Sync Widgets',
+        actions: [anAction({ entityName: 'acme_alpha' })],
+      }),
+      aFlow({
+        id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+        name: 'Sync Widgets',
+        actions: [anAction({ entityName: 'acme_beta' })],
+      }),
     ];
     const first = aFakeProvider(() => 'Summary.');
     const run1 = createSummary();
     await enrichWithAiSummaries(anAiConfig(), dir, someModels({ flows: twoFlows() }), run1, false, first.factory);
 
-    // Two flows, two API calls, but only one cache entry survives.
+    // Two flows, two API calls, two DISTINCT cache entries — both survive.
     expect(first.prompts).toHaveLength(2);
-    expect(Object.keys(readCache())).toEqual(['flows:Sync Widgets']);
+    expect(Object.keys(readCache()).sort()).toEqual([
+      'flows:Sync Widgets:aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+      'flows:Sync Widgets:bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+    ]);
 
-    // Identical input, second run: should be a clean double hit. It is not.
+    // Identical input, second run: a clean double hit.
     const second = aFakeProvider(() => 'Summary.');
     const run2 = createSummary();
     await enrichWithAiSummaries(anAiConfig(), dir, someModels({ flows: twoFlows() }), run2, false, second.factory);
 
-    expect(second.prompts).toHaveLength(2);
-    expect(run2.aiSummariesGenerated).toBe(2);
-    expect(run2.aiSummariesCached).toBe(0);
+    expect(second.prompts).toHaveLength(0);
+    expect(run2.aiSummariesGenerated).toBe(0);
+    expect(run2.aiSummariesCached).toBe(2);
   });
 
   it('treats an entry whose hash does not match as a miss', async () => {
@@ -555,8 +609,8 @@ describe('enrichWithAiSummaries — component toggles', () => {
     expect(workflow.aiSummary).toBe('Summary.');
     expect(rule.aiSummary).toBe('Summary.');
     expect(Object.keys(readCache()).sort()).toEqual([
-      'businessRules:Require Serial For Premium Widgets',
-      'classicWorkflows:Stamp Widget Approval',
+      'businessRules:Require Serial For Premium Widgets:55555555-5555-5555-5555-555555555555',
+      'classicWorkflows:Stamp Widget Approval:66666666-6666-6666-6666-666666666666',
     ]);
     expect(summary.aiSummariesGenerated).toBe(2);
   });
@@ -701,32 +755,27 @@ describe('enrichWithAiSummaries — web resources', () => {
     expect(wr.functions!.map(f => f.aiSummary)).toEqual([undefined, 'Validates the serial.', undefined]);
   });
 
-  // BUG (pinned, not a spec): a well-formed JSON response whose fileSummary is
-  // missing (or is a non-string) leaves m.aiSummary unset — aiSummariser.ts:441
-  // only assigns when `typeof parsed.fileSummary === 'string'`, and the prose
-  // fallback at :454 is unreachable because the response DID parse as an object.
-  //
-  // The call was still made and paid for, the cache entry is still written, and
-  // the run summary still counts it as "1 generated" — so the page ships with no
-  // file-level summary and nothing in the log says so. Worse, the entry now
-  // caches a response that can never produce a file summary, so the gap is
-  // permanent until the component changes.
-  //
-  // Desired: fall back to the raw text (as the prose path does) or record an
-  // aiSummaryFailure. Both are the source owner's call. Un-pin by asserting a
-  // non-empty aiSummary, or a failure entry, below.
-  it('pins: JSON without a fileSummary bills for a summary and renders none', async () => {
+  it('falls back to the raw text when JSON is well-formed but has no fileSummary', async () => {
+    // Was pinned: a well-formed JSON response whose fileSummary was missing
+    // (or a non-string) left m.aiSummary unset — the assignment only fired
+    // when typeof parsed.fileSummary === 'string', and the prose fallback was
+    // unreachable because the response DID parse as an object. The call was
+    // still made, paid for, and cached (as "1 generated", no failure
+    // recorded), so the page permanently shipped with no file-level summary
+    // and nothing in the log said so. Now falls back to the raw response
+    // text, same as the not-JSON-at-all path — function summaries still fan
+    // out normally either way, since functionSummaries parsed fine here.
     const wr = aWebResource({ functions: [aFn({ name: 'onLoad' })] });
-    const provider = aFakeProvider(() => JSON.stringify({ functionSummaries: { onLoad: 'Runs on load.' } }));
+    const raw = JSON.stringify({ functionSummaries: { onLoad: 'Runs on load.' } });
+    const provider = aFakeProvider(() => raw);
 
     await enrichWithAiSummaries(
       anAiConfig({ webResources: true }), dir, someModels({ webResources: [wr] }),
       summary, false, provider.factory,
     );
 
-    expect(wr.aiSummary).toBeUndefined();
+    expect(wr.aiSummary).toBe(raw);
     expect(wr.functions![0].aiSummary).toBe('Runs on load.');
-    // The cost was incurred and reported as a success regardless.
     expect(provider.prompts).toHaveLength(1);
     expect(summary.aiSummariesGenerated).toBe(1);
     expect(summary.aiSummaryFailures).toEqual([]);
@@ -856,43 +905,38 @@ describe('enrichWithAiSummaries — cache file', () => {
     expect(readCache()[FLOW_KEY].summary).toBe('Summary.');
   });
 
-  // BUG (pinned, not a spec): a cache file containing a JSON *array* permanently
-  // and silently disables caching.
-  //
-  // loadCache (aiSummariser.ts:61) guards with `typeof parsed === 'object' &&
-  // parsed !== null`, which an array passes — so `[]` is returned as the cache.
-  // Lookups miss (fine), but the writes at :292 land as non-index properties on
-  // an array, and JSON.stringify drops those. saveCache therefore rewrites `[]`
-  // every run. The document still renders correctly, so nothing looks wrong —
-  // the client just re-buys every summary on every run, forever.
-  //
-  // tryParseJsonObject (:239) gets this right with an explicit !Array.isArray
-  // check; loadCache is missing the same guard. The fix is one clause, but the
-  // choice is the source's to make, so current behaviour is pinned here.
-  // Un-pin by asserting the entry is readable back once loadCache rejects arrays.
-  it('pins: a JSON-array cache file silently discards every write', async () => {
+  it('self-heals a JSON-array cache file into a valid object cache', async () => {
+    // Was pinned: loadCache guarded with `typeof parsed === 'object' &&
+    // parsed !== null`, which a JSON array passes too — so `[]` was returned
+    // as the cache object itself. Lookups missed harmlessly, but every write
+    // landed as a non-index property on an array, which JSON.stringify
+    // silently drops — saveCache rewrote `[]` every single run. The document
+    // still rendered correctly, so nothing looked wrong; the client just
+    // re-bought every summary on every run, forever. tryParseJsonObject
+    // already had the right guard (!Array.isArray); loadCache was missing
+    // the same clause. Now rejects the array, starts from an empty object
+    // instead, and the run's writes land normally — the file self-heals into
+    // a valid object cache on the very next save.
     fs.writeFileSync(cachePath, '[]', 'utf-8');
     const flow = aFlow();
     const provider = aFakeProvider(() => 'Summary.');
 
     await enrichWithAiSummaries(anAiConfig(), dir, someModels({ flows: [flow] }), summary, false, provider.factory);
 
-    // This run behaves correctly...
     expect(provider.prompts).toHaveLength(1);
     expect(flow.aiSummary).toBe('Summary.');
     expect(summary.aiSummariesGenerated).toBe(1);
 
-    // ...but nothing was persisted, so the next run pays again. Desired
-    // behaviour: the file is a valid object cache holding FLOW_KEY.
-    expect(fs.readFileSync(cachePath, 'utf-8').trim()).toBe('[]');
-    expect(readCache()[FLOW_KEY]).toBeUndefined();
+    // The file is now a real object cache, not '[]' — self-healed.
+    expect(fs.readFileSync(cachePath, 'utf-8').trim()).not.toBe('[]');
+    expect(readCache()[FLOW_KEY]?.summary).toBe('Summary.');
 
-    // Proof of the recurring cost: an identical second run is a full miss.
+    // Proof the fix sticks: an identical second run is a clean hit.
     const second = aFakeProvider(() => 'Summary.');
     const summary2 = createSummary();
     await enrichWithAiSummaries(anAiConfig(), dir, someModels({ flows: [aFlow()] }), summary2, false, second.factory);
-    expect(second.prompts).toHaveLength(1);
-    expect(summary2.aiSummariesCached).toBe(0);
+    expect(second.prompts).toHaveLength(0);
+    expect(summary2.aiSummariesCached).toBe(1);
   });
 
   it('honours a custom cacheFile path and creates its directory', async () => {
@@ -911,7 +955,7 @@ describe('enrichWithAiSummaries — cache file', () => {
     await enrichWithAiSummaries(anAiConfig(), dir, someModels({ flows: [aFlow()] }), summary, false, provider.factory);
 
     const raw = fs.readFileSync(cachePath, 'utf-8');
-    expect(raw).toContain('\n  "flows:Create Part On Widget Create": {');
+    expect(raw).toContain(`\n  "${FLOW_KEY}": {`);
     expect(raw.endsWith('\n')).toBe(true);
   });
 });
