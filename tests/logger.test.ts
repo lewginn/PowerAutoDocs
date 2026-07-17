@@ -172,15 +172,12 @@ describe('logSummary — status line', () => {
     expect(statusLine()).toBe('Status: ✗ Completed with errors');
   });
 
-  it('KNOWN GAP: an AI-summary-only failure still reports success', () => {
-    // PINNED, NOT DESIRED. hasWarnings (src/logger.ts:75) derives from parseWarnings
-    // alone, so aiSummaryFailures never reach the status line. .claude/docs/process.md
-    // ("A clean exit code proves nothing") calls this out explicitly: index.ts:442-444
-    // also exits 0 here, so a client gets a green run with silently missing summaries.
-    // Widest blast radius: index.ts:320 funnels a whole-run enrichment crash into this
-    // same array, so *total* AI failure also prints ✓ and exits 0.
-    // This test pins today's behaviour so a fix is a deliberate, visible change —
-    // it is not a specification of what the status line ought to say.
+  it('grades an AI-summary-only failure as a warning', () => {
+    // Was pinned as a bug: hasWarnings derived from parseWarnings alone, so a
+    // run whose every AI summary failed printed '✓ Completed successfully' — the
+    // failures were listed in the block above and contradicted by the status line
+    // four lines later. index.ts:320 funnels a whole-run enrichment crash into this
+    // same array, so *total* AI failure printed ✓ too.
     logSummary(aSummary({
       solutionsProcessed: 1,
       aiSummariesGenerated: 4,
@@ -189,9 +186,28 @@ describe('logSummary — status line', () => {
         { component: 'Plugin', name: 'WidgetPlugin', reason: 'timeout' },
       ],
     }));
-    expect(statusLine()).toBe('Status: ✓ Completed successfully');
-    // The failures are printed — they are just not graded.
+    expect(statusLine()).toBe('Status: ⚠ Completed with warnings');
     expect(summaryText()).toContain('AI summary failures   : 2');
+  });
+
+  it('still grades a hard error above an AI failure', () => {
+    // AI failures must not mask a real error — errors outrank warnings.
+    logSummary(aSummary({
+      publishFailures: [{ path: '/Docs/Overview', reason: '403' }],
+      aiSummaryFailures: [{ component: 'Flow', name: 'Create Widget', reason: 'timeout' }],
+    }));
+    expect(statusLine()).toBe('Status: ✗ Completed with errors');
+  });
+
+  it('reports success when AI summaries all succeed', () => {
+    // The other half of the fix: warnings must not fire on a clean AI run, or the
+    // status line would be useless in the opposite direction.
+    logSummary(aSummary({
+      solutionsProcessed: 1,
+      aiSummariesGenerated: 4,
+      aiSummariesCached: 2,
+    }));
+    expect(statusLine()).toBe('Status: ✓ Completed successfully');
   });
 });
 

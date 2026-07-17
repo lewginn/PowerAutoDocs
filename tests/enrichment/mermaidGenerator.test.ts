@@ -489,11 +489,11 @@ describe('generateMermaidDiagram — nesting and node identity', () => {
   });
 });
 
-describe('generateMermaidDiagram — known gaps', () => {
+describe('generateMermaidDiagram — pinned bugs', () => {
   // These pin CURRENT behaviour so a change is visible in review. They are
   // recorded gaps, not a specification — see the defect report on this module.
 
-  it('KNOWN GAP: drops every action inside a Switch case from the diagram', () => {
+  it('BUG: drops every action inside a Switch case from the diagram', () => {
     // flowParser.ts:246-252 recurses into cases and default, so the flow's action
     // TABLE lists these actions while the diagram silently omits them. The Switch
     // itself renders as a bare rectangle with nothing downstream of it.
@@ -513,7 +513,7 @@ describe('generateMermaidDiagram — known gaps', () => {
     expect(edges(dsl)).toEqual(['  N0 --> N1']);
   });
 
-  it('KNOWN GAP: drops every action inside an Until loop and omits the loop glyph', () => {
+  it('BUG: drops every action inside an Until loop and omits the loop glyph', () => {
     // flowParser.ts:52 maps Until → 'Loop — until', so the codebase knows the
     // type exists; the generator neither recurses into it nor marks it as a loop.
     const dsl = generateMermaidDiagram(aTrigger(), {
@@ -525,7 +525,7 @@ describe('generateMermaidDiagram — known gaps', () => {
     ]);
   });
 
-  it('KNOWN GAP: does not escape double quotes in the trigger label', () => {
+  it('BUG: does not escape double quotes in the trigger label', () => {
     // nodeDef() escapes " → ' for every action label (mermaidGenerator.ts:12), but
     // the trigger node is built inline at :137 and bypasses it. entity comes
     // straight from unvalidated flow JSON (flowParser.ts:105), so a quote in it

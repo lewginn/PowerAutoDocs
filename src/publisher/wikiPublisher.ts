@@ -18,6 +18,21 @@ export interface WikiPage {
  */
 export type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
 
+/**
+ * The outcome of one page's publish attempt.
+ *
+ * This exists because returning `void` made a wholly-failed publish
+ * indistinguishable from a clean one: every error was swallowed into a
+ * console.error, so `index.ts` counted every page as published and the run
+ * exited 0. The caller cannot report honestly on what it cannot see.
+ */
+export interface PublishResult {
+  path: string;
+  success: boolean;
+  /** Present only when success is false. */
+  reason?: string;
+}
+
 interface WikiPageGetResult {
   path: string;
   eTag?: string;
@@ -171,7 +186,7 @@ export async function publishToWiki(
   config: WikiConfig,
   pages: WikiPage[],
   doFetch: FetchLike = fetch
-): Promise<void> {
+): Promise<PublishResult[]> {
   console.log(`\nPublishing ${pages.length} pages to ${config.wikiIdentifier}...`);
   console.log(`Organisation: ${config.organisation} · Project: ${config.project}\n`);
 
@@ -206,25 +221,43 @@ export async function publishToWiki(
     (a, b) => a.split('/').length - b.split('/').length
   );
 
+  const results: PublishResult[] = [];
+
+  // Placeholder parents degrade like content pages rather than aborting the run.
+  // This loop used to sit outside any try/catch, so a transient 500 on a
+  // placeholder — tolerated on a content page — took the whole publish down and
+  // no content page published at all.
   for (const parentPath of sortedParents) {
     const isContentPage = pages.some(p => p.path === parentPath);
     if (!isContentPage) {
-      await ensurePage(config, parentPath, doFetch);
+      try {
+        await ensurePage(config, parentPath, doFetch);
+      } catch (err) {
+        const reason = (err as Error)?.message ?? String(err);
+        console.error(`  ✗ Failed to create parent: ${parentPath} — ${reason}`);
+        results.push({ path: parentPath, success: false, reason });
+      }
     }
   }
 
   // Sort pages so siblings publish Z→A → display A→Z in ADO sidebar
   const sortedPages = sortPagesForPublish(pages);
 
-  // Publish all pages — always overwrite
+  // Publish all pages — always overwrite. Per-page failures are still
+  // skip-and-continue (one bad page must not cost the other 339), but they are
+  // now *returned* rather than only printed, so the caller can count them.
   for (const page of sortedPages) {
     try {
       const existing = await getPage(config, page.path, doFetch);
       await putPage(config, page.path, page.content, doFetch, existing?.eTag);
+      results.push({ path: page.path, success: true });
     } catch (err) {
+      const reason = (err as Error)?.message ?? String(err);
       console.error(`  ✗ Failed: ${page.path}`, err);
+      results.push({ path: page.path, success: false, reason });
     }
   }
 
   console.log('\nPublish complete.');
+  return results;
 }

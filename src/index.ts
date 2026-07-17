@@ -328,7 +328,13 @@ export async function main(configDir?: string): Promise<void> {
     } else {
       logHeader('Publishing to ADO Wiki');
 
-      if (!config.wiki.pat || config.wiki.pat === 'REDACTED') {
+      // Deliberately identical to publishToWiki's own guard (wikiPublisher.ts).
+      // main()'s check used to be strictly weaker — no trim, no case-fold — so a
+      // whitespace-only PAT (a common ADO variable-substitution failure) or a
+      // lowercase 'redacted' skipped this friendly, actionable message and died
+      // inside the publisher instead. If you change one, change both.
+      const pat = config.wiki.pat;
+      if (!pat || pat.trim() === '' || pat.trim().toUpperCase() === 'REDACTED') {
         log('error', 'wiki.pat is not set — cannot publish');
         log('info', 'Inject the PAT at runtime via your pipeline secret variable');
         summary.publishFailures.push({ path: '(all pages)', reason: 'PAT not configured' });
@@ -352,10 +358,13 @@ export async function main(configDir?: string): Promise<void> {
 
         log('info', `Built ${pages.length} wiki pages — publishing...`);
 
-        const results = await publishToWiki(config.wiki, pages);
+        // Wrapped like every other fallible stage (tryParse, AI, Word, PDF).
+        // This was the only unguarded one, so an expired PAT or a transient ADO
+        // 500 threw straight out of main() and took the Word document with it —
+        // despite the .docx not depending on the wiki at all.
+        try {
+          const results = await publishToWiki(config.wiki, pages);
 
-        // Collect results — publishToWiki may return void; handle both cases
-        if (Array.isArray(results)) {
           for (const r of results) {
             if (r.success) {
               summary.pagesPublished++;
@@ -364,10 +373,14 @@ export async function main(configDir?: string): Promise<void> {
               log('warn', `Failed to publish: ${r.path} — ${r.reason}`);
             }
           }
-        } else {
-          // publishToWiki doesn't return results yet — count all as published
-          summary.pagesPublished = pages.length;
-          log('success', `Published ${pages.length} pages`);
+
+          if (summary.pagesPublished > 0) {
+            log('success', `Published ${summary.pagesPublished} pages`);
+          }
+        } catch (err: any) {
+          const reason = err?.message ?? String(err);
+          log('error', `Wiki publish failed — ${reason}`);
+          summary.publishFailures.push({ path: '(all pages)', reason });
         }
       }
     }

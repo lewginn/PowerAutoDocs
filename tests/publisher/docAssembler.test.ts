@@ -478,7 +478,7 @@ describe('buildWordDocument — empty sections are omitted', () => {
     expect(levelOf(xml, 'Widget — Used By Flows')).toBe(3);
   });
 
-  it('KNOWN GAP: Data Model is emitted even with no tables and no ERD', async () => {
+  it('BUG: Data Model is emitted even with no tables and no ERD', async () => {
     // Pinning current behaviour, NOT endorsing it. Every other section guards on
     // its IR being non-empty; Data Model is pushed unconditionally
     // (docAssembler.ts:133). A solution with zero tables therefore ships a

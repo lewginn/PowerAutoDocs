@@ -363,7 +363,7 @@ describe('resolveFlowTableDependencies — duplicate references', () => {
   // The fix is to dedupe on the resolved table (e.g. a Set of TableModel, or key
   // matchedTables by logicalName) rather than on the raw entity string. Update
   // this test to expect one entry when that lands.
-  it('lists a flow twice when trigger and action resolve to the same table via a plural (known gap)', () => {
+  it('BUG: lists a flow twice when trigger and action resolve to the same table via a plural', () => {
     const deps = resolveFlowTableDependencies(
       [aFlow({
         ...bareFlow('f1', 'Widget Sync'),

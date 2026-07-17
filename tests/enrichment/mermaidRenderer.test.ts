@@ -361,7 +361,7 @@ describe('renderDiagramPng — corrupt cache entry', () => {
   // entry as a miss, these fail loudly instead of silently rendering for real.
   beforeEach(blockBrowser);
 
-  // KNOWN GAP — pinning current behaviour, NOT endorsing it. Reported to the
+  // BUG: pinning current behaviour, NOT endorsing it. Reported to the
   // parent agent rather than fixed here (this pass writes tests, not source).
   //
   // The hit path does `fs.existsSync(cachePath)` and then reads dimensions

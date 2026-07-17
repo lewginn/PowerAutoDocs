@@ -218,7 +218,7 @@ describe('AnthropicProvider.summarise', () => {
     expect(DEFAULT_ANTHROPIC_MODEL).toBe('claude-haiku-4-5');
   });
 
-  it('KNOWN GAP: sends an empty model when config.model is an empty string', async () => {
+  it('BUG: sends an empty model when config.model is an empty string', async () => {
     // `config.model ?? DEFAULT_ANTHROPIC_MODEL` only catches null/undefined, so
     // `model: ''` in doc-gen.config.yml is forwarded verbatim and the SDK rejects
     // the whole run. loader.ts:125 treats model as optional and does not reject
@@ -269,7 +269,7 @@ describe('AnthropicProvider.summarise', () => {
     await expect(provider.summarise('prompt')).resolves.toBe('The answer.');
   });
 
-  it('KNOWN GAP: keeps only the first text block when the response has several', async () => {
+  it('BUG: keeps only the first text block when the response has several', async () => {
     // Not tagged BUG: the API returns one text block per response in practice,
     // so this is pinning current behaviour, not blessing a spec. If a future
     // model splits its prose across blocks, the tail is dropped silently.
@@ -280,7 +280,7 @@ describe('AnthropicProvider.summarise', () => {
     await expect(provider.summarise('prompt')).resolves.toBe('First half.');
   });
 
-  it('KNOWN GAP: returns a max_tokens-truncated summary without flagging it', async () => {
+  it('BUG: returns a max_tokens-truncated summary without flagging it', async () => {
     // max_tokens is hard-coded to 1024 and stop_reason is never inspected, so a
     // summary the model was cut off mid-sentence on is published to the client's
     // wiki/.docx looking exactly like a complete one. Pinned, not blessed —
@@ -292,7 +292,7 @@ describe('AnthropicProvider.summarise', () => {
     await expect(provider.summarise('prompt')).resolves.toBe('A flow that reads the account record and then');
   });
 
-  it('KNOWN GAP: returns a whitespace-only text block as an empty string', async () => {
+  it('BUG: returns a whitespace-only text block as an empty string', async () => {
     // The mirror of the Azure whitespace gap below, on the DEFAULT provider, and
     // the more damaging of the two: aiSummariser.ts:290-295 does not check the
     // returned text, so '' is written to the component's aiSummary AND cached
@@ -303,7 +303,7 @@ describe('AnthropicProvider.summarise', () => {
     await expect(provider.summarise('prompt')).resolves.toBe('');
   });
 
-  it('KNOWN GAP: returns an empty text block as an empty string instead of throwing', async () => {
+  it('BUG: returns an empty text block as an empty string instead of throwing', async () => {
     // Azure throws "no message content" for exactly this input (see the Azure
     // suite); Anthropic's guard only checks that a text BLOCK exists, never that
     // it has text. Two providers, opposite behaviour on the same degenerate
@@ -439,7 +439,7 @@ describe('AzureOpenAIProvider construction', () => {
 // ---------------------------------------------------------------------------
 
 describe('AzureOpenAIProvider vs ambient openai SDK env vars', () => {
-  it('KNOWN GAP: managed identity dies if AZURE_OPENAI_API_KEY happens to be in the environment', () => {
+  it('BUG: managed identity dies if AZURE_OPENAI_API_KEY happens to be in the environment', () => {
     // AzureOpenAIProvider.ts:40 passes `apiKey: undefined`, which does NOT
     // suppress the SDK's default — node_modules/openai/azure.js:28 defaults the
     // parameter to readEnv('AZURE_OPENAI_API_KEY'). With a stale key still in the
@@ -544,7 +544,7 @@ describe('AzureOpenAIProvider.summarise', () => {
     await expect(provider.summarise('prompt')).rejects.toThrow(/no message content/);
   });
 
-  it('KNOWN GAP: returns a whitespace-only completion as an empty string', async () => {
+  it('BUG: returns a whitespace-only completion as an empty string', async () => {
     // '  ' is truthy, so the guard passes and .trim() yields ''. The component
     // gets an empty AI summary rather than being skipped — inconsistent with the
     // empty-string case above. Pinned, not blessed — reported as a defect.
