@@ -137,6 +137,30 @@ from a parser: `parseWarnings` and `aiSummaryFailures` do not fail the build, wh
 `solutionsSkipped` and `publishFailures` exit 1 (`index.ts:441`). Pick the right `RunSummary`
 bucket in `src/logger.ts` for any new failure mode.
 
+**`fast-xml-parser` does not throw on malformed XML — it is not validating.** This is the
+single most expensive misunderstanding in this layer: three separate shipped defects came from
+it. A truncated or half-written file **parses successfully** into a truthy-but-empty object, so:
+
+- `try { parse() } catch { return null }` is **not** a malformed-input guard. Two parsers had
+  exactly that and it could never fire.
+- `if (!parsed?.WebResource) return null` passes, because the object exists and is merely empty.
+
+Guard on the **shape you need**, per file:
+
+```ts
+const name = wr.Name ?? '';
+if (!name) return null;   // nothing to title, link or write a page for
+```
+
+And make the *sweep* skip-and-continue, returning `T[]` with the bad file filtered out —
+`globalChoiceParser` is the reference shape. `securityRoleParser` did not, and a single
+malformed role file threw out of the whole sweep; because `tryParse` catches at the component
+level, the blast radius was **every** security role vanishing from the docs over one bad file.
+Skipping per folder is not the same as skipping per file.
+
+Test it: give the fixture solution a genuinely truncated file (no root node), not a well-formed
+one carrying junk inside — those exercise different paths, and only the first catches this.
+
 ---
 
 ## 2. Add a new AI provider

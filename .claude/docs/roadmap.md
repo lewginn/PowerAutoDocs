@@ -122,9 +122,7 @@ Still uncovered: **`publisher/*` is now the biggest real gap** — `docAssembler
 
 **PDF output is planned for deprecation** (Lewis, 2026-07-17). This is why `PdfSerializer` (419 lines) was left untested while `DocxSerializer` was covered. Nothing has been removed yet and `output.pdf` still works — but do not invest in PDF features, tests or refactors without confirming the plan still holds. If it goes, `pdfmake` and `@types/pdfmake` go with it, which is a further dependency saving on every client run.
 
-**Writing those tests found ten defects, and that — not the tests themselves — is the argument for the remaining coverage.** Every one had been shipping to clients undetected, and none was found by reading the code; they surfaced the moment something asserted on real output.
-
-Fixed in the same pass:
+**Writing those tests found ten defects, and that — not the tests themselves — is the argument for the remaining coverage.** Every one had been shipping to clients undetected, and none was found by reading the code; they surfaced the moment something asserted on real output. **All ten are now fixed**, and no `BUG:`-tagged test remains (`grep -rn 'BUG:' tests/` returns nothing — keep it that way, or pin the reason).
 
 | Fixed | Why it mattered |
 |---|---|
@@ -132,15 +130,14 @@ Fixed in the same pass:
 | Email merge fields lost their spaces | `order{number}has shipped` in every subject and body with a mid-sentence field. |
 | Four renderers baked markdown backticks into heading text | Correct in the wiki, literal backticks in the `.docx`. Now fenced by `formatBoundary.test.ts`. |
 | `loadConfig` returned the shared `CONFIG_DEFAULTS` object | A `--word` run with no config file rewrote the exported defaults for the process. |
+| `pluginParser` documented a nested-namespace plugin type **twice** | Ownership is now a longest-prefix match against assemblies found on disk, and orphan detection is by step identity — not by the *guessed* name `extractAssemblyName` derives. Also fixed a second latent double-count where two nested assemblies both claimed a type. |
+| `webResourceParser` published a nameless ghost resource | A truncated `.data.xml` parses into a truthy-but-empty object; it now needs a name to be published. |
+| `webResourceParser` returned the literal `"/**"` as a description | The tagless-JSDoc fallback's line cleaner never stripped the block's own opening delimiter. Most Power Platform JSDoc omits `@description`, so this was the common path. |
+| `environmentVariableRenderer` emitted a header with no cell | `currentValueCell` was commented out while its header push was left in. |
+| `securityRoleParser` lost **every** role over one bad file | No `try/catch` and no `<Role>` guard, so a malformed file threw out of the whole sweep; `tryParse` in `index.ts` then zeroed the component. Now skips per file, like every sibling. |
+| `relationshipParser` leaked an entity-less relationship into the ERD | Its `catch` is dead for malformed XML — a truncated export parses leniently rather than throwing. Skipped at source. |
 
-**Still open** — each pinned by a test that asserts the wrong behaviour on purpose, so it fails loudly when fixed. Find them with `grep -rn 'BUG:' tests/`:
-
-- `pluginParser` double-counts a nested-namespace plugin type, emitting it again under a phantom assembly.
-- `webResourceParser` publishes a nameless ghost resource from a truncated `.data.xml`.
-- `webResourceParser` JSDoc without `@description` yields the literal `"/**"`.
-- `environmentVariableRenderer` `showCurrentValue` adds a header with no matching cell (latent — no assembler passes the option).
-
-Unpinned and worth a look: `securityRoleParser` has no `try/catch`, so one malformed `Roles/*.xml` takes down the whole sweep rather than skipping; `relationshipParser`'s catch is dead for malformed XML, letting a garbage entry reach the ERD.
+**The pattern worth carrying forward:** three of the ten (the web-resource ghost, the security-role sweep crash, the relationship leak) came from the same wrong assumption — that `fast-xml-parser` throws on bad input. **It does not: it is not validating**, so a truncated or half-written file parses *successfully* into a truthy-but-empty object. A `try/catch` around a parse is therefore not a malformed-input guard, and two of those three had one that could never fire. Guard on the *shape* you need (`if (!name) return null`), not on an exception. See the [playbook](playbooks.md) when adding a parser.
 
 **#103 is latent, not live** — no renderer builds a ragged table today. It was found by writing the tests, and there is a characterisation test pinned to the current wrong behaviour that must be updated when it's fixed.
 
