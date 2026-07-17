@@ -58,7 +58,15 @@ function loadCache(cachePath: string): AiCache {
   try {
     const raw = fs.readFileSync(cachePath, 'utf-8');
     const parsed = JSON.parse(raw);
-    if (typeof parsed === 'object' && parsed !== null) return parsed as AiCache;
+    // !Array.isArray, matching tryParseJsonObject's guard below — an array
+    // passes `typeof === 'object' && !== null` too. Without this, `[]` was
+    // returned as the cache object itself: lookups missed harmlessly, but
+    // every write landed as a non-index property on an array, which
+    // JSON.stringify silently drops — saveCache rewrote `[]` every run, so
+    // caching was permanently and invisibly disabled, and every summary was
+    // re-bought on every pipeline run forever with nothing in the run
+    // summary to suggest why.
+    if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) return parsed as AiCache;
     return {};
   } catch {
     log('warn', `AI cache file at ${cachePath} could not be parsed — starting with an empty cache`);
@@ -254,6 +262,19 @@ interface SummariseOptions<T> {
   label: string;
   models: T[];
   uniqueName: (model: T) => string;
+  /**
+   * Extra key material appended to uniqueName for the CACHE KEY only — never
+   * shown in logs or failure records, where uniqueName alone stays the
+   * readable identifier. Dataverse does not enforce distinct display names
+   * on flows, classic workflows or business rules, so uniqueName alone let
+   * two same-named components share one cache entry: each overwrote the
+   * other's within a run, and neither could ever hit — both were re-bought
+   * on every single run, forever, while the run summary read like a normal
+   * first-run miss. Optional: components whose uniqueName already IS a
+   * genuine unique identifier (a plugin assembly name, a web resource's
+   * logical name) don't need one.
+   */
+  discriminator?: (model: T) => string;
   buildView: (model: T) => unknown;
   setSummary: (model: T, summary: string) => void;
 }
@@ -273,7 +294,9 @@ async function summariseComponents<T>(
 
   for (const model of opts.models) {
     const uniqueName = opts.uniqueName(model);
-    const cacheKey = `${opts.kind}:${uniqueName}`;
+    const cacheKey = opts.discriminator
+      ? `${opts.kind}:${uniqueName}:${opts.discriminator(model)}`
+      : `${opts.kind}:${uniqueName}`;
     seenKeys.add(cacheKey);
     const view = opts.buildView(model);
     const hash = hashView(view);
@@ -384,6 +407,7 @@ export async function enrichWithAiSummaries(
       label: 'Flows',
       models: models.flows,
       uniqueName: f => f.name,
+      discriminator: f => f.id,
       buildView: flowView,
       setSummary: (m, s) => { m.aiSummary = s; },
     }, forceRegenerate, seenKeys);
@@ -395,6 +419,7 @@ export async function enrichWithAiSummaries(
       label: 'Classic Workflows',
       models: models.classicWorkflows,
       uniqueName: w => w.name,
+      discriminator: w => w.id,
       buildView: classicWorkflowView,
       setSummary: (m, s) => { m.aiSummary = s; },
     }, forceRegenerate, seenKeys);
@@ -406,6 +431,7 @@ export async function enrichWithAiSummaries(
       label: 'Business Rules',
       models: models.businessRules,
       uniqueName: r => r.name,
+      discriminator: r => r.id,
       buildView: businessRuleView,
       setSummary: (m, s) => { m.aiSummary = s; },
     }, forceRegenerate, seenKeys);
@@ -438,9 +464,16 @@ export async function enrichWithAiSummaries(
       setSummary: (m, s) => {
         const parsed = tryParseJsonObject(s);
         if (parsed) {
-          if (typeof parsed.fileSummary === 'string') {
-            m.aiSummary = parsed.fileSummary;
-          }
+          // A well-formed object missing a usable fileSummary string used to
+          // leave m.aiSummary unset entirely — the call was still made, paid
+          // for, and cached (as "1 generated", no failure recorded), so the
+          // web resource page permanently shipped with no file-level summary
+          // and nothing in the run log said so. Falls back to the raw text,
+          // same as the not-JSON-at-all path just below, rather than
+          // silently discarding a response that just didn't match the
+          // requested shape — function summaries still fan out normally
+          // either way.
+          m.aiSummary = typeof parsed.fileSummary === 'string' ? parsed.fileSummary : s;
           const fnSummaries = parsed.functionSummaries;
           if (fnSummaries && typeof fnSummaries === 'object' && m.functions) {
             for (const fn of m.functions) {
