@@ -24,6 +24,15 @@ jobs:
           node-version: 20
           registry-url: https://registry.npmjs.org/
       - run: npm ci
+
+      # Re-run the CI gate here rather than trusting that it passed on the merge
+      # commit. A release can be cut from any ref, `workflow_dispatch` runs with no
+      # PR behind it at all, and a publish is the one thing that cannot be undone —
+      # npm forbids republishing a version. Duplicating ~40s of checks is cheap
+      # against shipping a broken tarball to every client on `npx powerautodocs`.
+      - run: npm run typecheck
+      - run: npm test
+
       - run: npm run build
       - run: npm publish
         env:

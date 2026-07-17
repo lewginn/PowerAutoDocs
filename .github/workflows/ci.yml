@@ -1,0 +1,41 @@
+name: CI
+
+# The compile gate. Before this workflow existed, `npm run build` ran only in
+# npm-publish.yml — i.e. *after* a release was cut — so a TypeScript error could
+# sit on `main` until release day. Runs on every PR and every push to `main`.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A force-push or a quick follow-up commit shouldn't leave a stale run burning an
+# agent. Cancel superseded runs on a branch, but never on main — those are the
+# record of what landed.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # `npm ci` over `npm install` — installs from the lockfile exactly and fails
+      # if package.json and package-lock.json have drifted apart.
+      - run: npm ci
+
+      # Typecheck before build: tsconfig.test.json covers src/ *and* tests/, so a
+      # type error in a test is caught too. `npm run build` only sees src/.
+      - name: Typecheck (src + tests)
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
