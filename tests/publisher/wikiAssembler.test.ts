@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { buildWikiPages } from '../../src/publisher/wikiAssembler.js';
+import { toADOWikiLink } from '../../src/renderers/rendererUtils.js';
 import type { WikiPage } from '../../src/publisher/wikiPublisher.js';
 import type { DocGenConfig } from '../../src/config/index.js';
 import type {
@@ -133,19 +134,15 @@ describe('buildWikiPages — path sanitiser', () => {
     expect(paths(pages)).toContain('/Docs/Data Model/A  B');
   });
 
-  it('BUG: two different tables can collapse onto one page path, silently', () => {
-    // BUG: pinned — not a spec, and the worst defect in this file.
-    // s() is many-to-one: 'A/B' and 'A-B' are distinct Dataverse tables that both
-    // sanitise to 'A-B'. buildWikiPages emits both page sets at identical paths
-    // and never checks for a collision, so the publisher PUTs one over the other
-    // and one real table's documentation vanishes from the client's wiki with no
-    // error, no warning, and a green pipeline. '?'/'#'/'%' stripping collides the
-    // same way ('Q1?' and 'Q1'), as does the trailing .trim() ('Widget ' vs
-    // 'Widget'). Nothing upstream de-duplicates: displayName is not unique in
-    // Dataverse — only logicalName is, and logicalName is never used in the path.
-    //
-    // Reported as a defect. If judged intentional, replace this pin with the
-    // reason; do not just delete it.
+  it('disambiguates two tables whose names sanitise to the same page path', () => {
+    // Was pinned as the worst defect in this file: s() is many-to-one — 'A/B'
+    // and 'A-B' are distinct Dataverse tables that both sanitise to 'A-B' — and
+    // buildWikiPages emitted both page sets at identical paths with no collision
+    // check, so the publisher's last-write-wins semantics deleted one table's
+    // entire documentation from the client's wiki with no error and a green
+    // pipeline. displayName is not unique in Dataverse; only logicalName is, and
+    // logicalName is never used in the page path.
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const pages = build({
       mergedSolution: aSolution({
         tables: [
@@ -155,29 +152,52 @@ describe('buildWikiPages — path sanitiser', () => {
       }),
     });
     const all = paths(pages);
+
+    // No duplicates: both tables' full page sets survive at distinct paths.
     const dupes = all.filter((v, i) => all.indexOf(v) !== i);
-    // Both tables produced a full page set, and every one of them collided.
-    expect(dupes).toEqual([
-      '/Docs/Data Model/A-B',
-      '/Docs/Data Model/A-B/Columns',
-      '/Docs/Data Model/A-B/Views',
-      '/Docs/Data Model/A-B/Forms',
-      '/Docs/Data Model/A-B/Relationships',
-      '/Docs/Data Model/A-B/Business Rules',
-    ]);
+    expect(dupes).toEqual([]);
+    expect(all).toContain('/Docs/Data Model/A-B');
+    expect(all).toContain('/Docs/Data Model/A-B (2)');
+    // The second table's whole subtree follows it to the disambiguated path.
+    expect(all).toContain('/Docs/Data Model/A-B (2)/Columns');
+    expect(all).toContain('/Docs/Data Model/A-B (2)/Views');
+    expect(all).toContain('/Docs/Data Model/A-B (2)/Forms');
+    expect(all).toContain('/Docs/Data Model/A-B (2)/Relationships');
+
+    // The collision is surfaced, not silent — a client can see it in pipeline logs.
+    expect(warn.mock.calls.map(c => c.join(' ')).join('\n')).toContain('collision');
+    warn.mockRestore();
   });
 
-  it('BUG: leaves ADO-reserved characters other than / ? # % in the path', () => {
-    // BUG: pinned — not a spec. s() (wikiAssembler.ts:33) handles exactly
-    // four characters. ADO wiki page paths also reject ':', '<', '>', '*', '|',
-    // '"' and '\'. A table named 'Ops: Q1 <draft>' therefore reaches the ADO API
-    // verbatim and the page write is rejected — the pipeline fails at publish time
-    // on a name the tool had every chance to sanitise. Lower severity than the
-    // collision above only because it fails loudly rather than silently.
+  it('disambiguates a collision from ? / # / % stripping too, not just slash-dashing', () => {
+    // The same many-to-one mapping, via a different rule: 'Q1?' and 'Q1' both
+    // strip to 'Q1'. Proves the fix is general, not special-cased to slashes.
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const pages = build({
+      mergedSolution: aSolution({
+        tables: [
+          aTable({ logicalName: 'acme_q1a', displayName: 'Q1?' }),
+          aTable({ logicalName: 'acme_q1b', displayName: 'Q1' }),
+        ],
+      }),
+    });
+    const all = paths(pages);
+    expect(all.filter((v, i) => all.indexOf(v) !== i)).toEqual([]);
+    expect(all).toContain('/Docs/Data Model/Q1');
+    expect(all).toContain('/Docs/Data Model/Q1 (2)');
+    vi.restoreAllMocks();
+  });
+
+  it('sanitises the ADO-reserved characters beyond / ? # % too', () => {
+    // Was pinned: s() handled exactly four characters. ADO wiki page paths also
+    // reject ':', '<', '>', '*', '|', '"' and '\'. A table named 'Ops: Q1
+    // <draft>' used to reach the ADO API verbatim and fail the page write at
+    // publish time — on a name the tool had every chance to sanitise up front.
     const pages = build({
       mergedSolution: aSolution({ tables: [aTable({ displayName: 'Ops: Q1 <draft>' })] }),
     });
-    expect(paths(pages)).toContain('/Docs/Data Model/Ops: Q1 <draft>');
+    expect(paths(pages)).toContain('/Docs/Data Model/Ops Q1 draft');
+    expect(paths(pages)).not.toContain('/Docs/Data Model/Ops: Q1 <draft>');
   });
 });
 
@@ -344,26 +364,32 @@ describe('buildWikiPages — Business Rules page', () => {
     expect(paths(pages)).toContain('/Docs/Data Model/Widget/Business Rules/Require Serial');
   });
 
-  it('BUG: pushes an empty Business Rules page under every table when there are no rules', () => {
-    // BUG: pinned — not a spec. Every other content-derived section is
-    // guarded by a length check (`Used By Flows` right above it is guarded by
-    // `tableFlows.length > 0`); the Business Rules base page at wikiAssembler.ts:112
-    // is pushed unconditionally. A solution with no business rules therefore gets
-    // one page per table reading "No business rules found for this table." — for a
-    // 60-table solution that is 60 empty pages and 60 ADO API writes.
-    //
-    // Reported as a defect. If this is later judged intentional, replace this
-    // pin with a comment saying why; do not just delete it.
+  it('omits the Business Rules page entirely for a table with no rules', () => {
+    // Was pinned: every other content-derived section is guarded by a length
+    // check ('Used By Flows' right above it is guarded by
+    // tableFlows.length > 0); the Business Rules base page was pushed
+    // unconditionally. A solution with no business rules got one empty
+    // "No business rules found for this table." page per table — for a
+    // 60-table solution, 60 empty pages and 60 wasted ADO writes per run.
     const pages = build({
       mergedSolution: aSolution({
         tables: [aTable({ logicalName: 'acme_widget', displayName: 'Widget' }), aTable({ logicalName: 'acme_part', displayName: 'Part' })],
       }),
       businessRules: [],
     });
+    expect(paths(pages)).not.toContain('/Docs/Data Model/Widget/Business Rules');
+    expect(paths(pages)).not.toContain('/Docs/Data Model/Part/Business Rules');
+  });
+
+  it('still creates the Business Rules page for a table that has rules, and only that table', () => {
+    const pages = build({
+      mergedSolution: aSolution({
+        tables: [aTable({ logicalName: 'acme_widget', displayName: 'Widget' }), aTable({ logicalName: 'acme_part', displayName: 'Part' })],
+      }),
+      businessRules: [aBusinessRule({ entity: 'acme_widget', name: 'Require Serial' })],
+    });
     expect(paths(pages)).toContain('/Docs/Data Model/Widget/Business Rules');
-    expect(paths(pages)).toContain('/Docs/Data Model/Part/Business Rules');
-    expect(contentAt(pages, '/Docs/Data Model/Widget/Business Rules'))
-      .toContain('No business rules found for this table.');
+    expect(paths(pages)).not.toContain('/Docs/Data Model/Part/Business Rules');
   });
 });
 
@@ -535,26 +561,27 @@ describe('buildWikiPages — flow/table cross-links', () => {
     expect(paths(pages)).toContain('/Docs/Data Model/Part/Used By Flows');
   });
 
-  it('BUG: a flow name needing sanitising links to a page path that does not exist', () => {
-    // BUG: pinned — not a spec. buildWikiPages sanitises the page path with
-    // s() but passes only the *base* path to the renderers, which build hrefs from
-    // the raw name. The two disagree the moment a name contains / ? # or %.
-    //
-    // Here the flow page is written at '.../Flows/Create-Update Widget' while both
-    // the Flows index and the table's Used By Flows page link to
-    // '.../Flows/Create/Update Widget' — a 404 on the client's wiki.
-    // Same class of bug affects global choices, email templates, model-driven apps
-    // and security roles. Reported as a defect.
+  it('a flow name needing sanitising still links to the page that actually exists', () => {
+    // Was pinned: buildWikiPages sanitised the page path with s() but the
+    // renderer built the href from the raw name — the two agreed only when the
+    // name had nothing to sanitise. The flow page was written at
+    // '.../Flows/Create-Update Widget' while both the Flows index and the
+    // table's Used By Flows page linked to '.../Flows/Create/Update Widget' —
+    // a 404 on the client's wiki, on every flow name containing / ? # or %.
     const pages = build({
       mergedSolution: aSolution({ tables: [aTable({ logicalName: 'acme_widget', displayName: 'Widget' })] }),
       flows: [aFlow({ name: 'Create/Update Widget', trigger: aTrigger({ entity: 'acme_widget' }), actions: [] })],
     });
 
-    expect(paths(pages)).toContain('/Docs/Automation/Flows/Create-Update Widget');
-    // ...but the link points somewhere else entirely.
-    expect(contentAt(pages, '/Docs/Automation/Flows'))
-      .toContain('(/Docs/Automation/Flows/Create/Update-Widget)');
+    const flowPagePath = '/Docs/Automation/Flows/Create-Update Widget';
+    expect(paths(pages)).toContain(flowPagePath);
     expect(paths(pages)).not.toContain('/Docs/Automation/Flows/Create/Update Widget');
+
+    // The link now targets the encoding of the REAL page path — computed with
+    // the actual production toADOWikiLink, not a hand-verified string, so this
+    // stays correct if that function's escaping ever changes.
+    expect(contentAt(pages, '/Docs/Automation/Flows'))
+      .toContain(`(${toADOWikiLink(flowPagePath)})`);
   });
 });
 
@@ -572,45 +599,40 @@ describe('buildWikiPages — security roles, choices, templates and apps', () =>
     expect(paths(pages)).toContain('/Docs/Global Choices/TierLevel');
   });
 
-  it('BUG: the global choices index links past the page it just named', () => {
-    // BUG: pinned — not a spec. Sharper than the flow case above, and a
-    // different defect: `encodeChoiceName` is exported *specifically* so the path
-    // and the link agree, wikiAssembler.ts:214 calls it for the path — and
-    // globalChoiceRenderer.ts:31 then builds the href off the RAW displayName and
-    // ignores the encoder entirely. securityRoleRenderer.ts:40 gets this right
-    // (it calls encodeRoleName), which is what makes this an oversight rather
-    // than a design.
-    //
-    // Page lands at 'TierLevel'; the index points at 'Tier/Level' — a 404, and
-    // in ADO a slash means the link also claims a child page that does not exist.
-    // Reported as a defect. If judged intentional, replace this pin with the
-    // reason; do not just delete it.
+  it('the global choices index links to the page it just named', () => {
+    // Was pinned, and sharper than the flow case above: encodeChoiceName is
+    // exported specifically so the path and the link agree, and wikiAssembler
+    // called it for the path — but the renderer built the href off the raw
+    // displayName and ignored the encoder entirely. securityRoleRenderer got
+    // this right (it calls encodeRoleName), which is what made this an
+    // oversight rather than a design. The page landed at 'TierLevel'; the
+    // index pointed at 'Tier/Level' — a 404, and in ADO a slash in a link also
+    // claims a child page that doesn't exist.
     const pages = build({ globalChoices: [aGlobalChoice({ displayName: 'Tier/Level' })] });
-    expect(paths(pages)).toContain('/Docs/Global Choices/TierLevel');
+    const choicePagePath = '/Docs/Global Choices/TierLevel';
+    expect(paths(pages)).toContain(choicePagePath);
     expect(contentAt(pages, '/Docs/Global Choices'))
-      .toContain('(/Docs/Global-Choices/Tier/Level)');
-    expect(paths(pages)).not.toContain('/Docs/Global Choices/Tier/Level');
+      .toContain(`(${toADOWikiLink(choicePagePath)})`);
   });
 
-  it('BUG: email template and model-driven app indexes link past their pages too', () => {
-    // BUG: pinned — not a spec. Same class as the flow and global-choice
-    // pins: emailTemplateRenderer.ts:41 and modelDrivenAppRenderer.ts:24 both
-    // build hrefs from the raw name while wikiAssembler.ts:223/232 write the
-    // sanitised path. Pinned here rather than left to prose so a fix to s() that
-    // misses the renderers cannot go green.
+  it('the email template and model-driven app indexes link to their real pages too', () => {
+    // Was pinned: same class as the flow and global-choice pins — both
+    // renderers built hrefs from the raw name while wikiAssembler wrote the
+    // sanitised path.
     const pages = build({
       emailTemplates: [anEmailTemplate({ title: 'Ship/Now' })],
       modelDrivenApps: [aModelDrivenApp({ displayName: 'Hub/Main' })],
     });
-    expect(paths(pages)).toContain('/Docs/Email Templates/Ship-Now');
-    expect(contentAt(pages, '/Docs/Email Templates'))
-      .toContain('(/Docs/Email-Templates/Ship/Now)');
 
-    expect(paths(pages)).toContain('/Docs/Model-Driven Apps/Hub-Main');
-    // '%2D' is correct ADO escaping for the literal dash in the *section* name
-    // 'Model-Driven Apps' — that part is right. The 'Hub/Main' tail is the bug.
+    const emailPagePath = '/Docs/Email Templates/Ship-Now';
+    expect(paths(pages)).toContain(emailPagePath);
+    expect(contentAt(pages, '/Docs/Email Templates'))
+      .toContain(`(${toADOWikiLink(emailPagePath)})`);
+
+    const appPagePath = '/Docs/Model-Driven Apps/Hub-Main';
+    expect(paths(pages)).toContain(appPagePath);
     expect(contentAt(pages, '/Docs/Model-Driven Apps'))
-      .toContain('(/Docs/Model%2DDriven-Apps/Hub/Main)');
+      .toContain(`(${toADOWikiLink(appPagePath)})`);
   });
 
   it('gives each email template a page under its title', () => {
@@ -715,15 +737,14 @@ describe('buildWikiPages — Data Model ERD', () => {
     expect(contentAt(pages, '/Docs/Data Model')).not.toContain(':::mermaid');
   });
 
-  it('BUG: uses only the first solution publisher prefix across a merged multi-solution ERD', () => {
-    // BUG: pinned — not a spec. wikiAssembler.ts:75 reads
-    // `solutions[0]?.publisher?.prefix`, but hands it the tables of the *merged*
-    // solution. When a client documents two solutions from different publishers,
-    // every relationship belonging to the second publisher fails the prefix test
-    // and vanishes from the ER diagram — silently, with no warning.
-    //
-    // Here both Contoso tables are custom to their own publisher, yet the diagram
-    // comes out empty because solutions[0] is Acme. Reported as a defect.
+  it('uses every solution publisher prefix across a merged multi-solution ERD', () => {
+    // Was pinned: wikiAssembler read only solutions[0]?.publisher?.prefix but
+    // handed it the tables of the MERGED solution. When a client documents two
+    // solutions from different publishers, every relationship belonging to any
+    // publisher but the first failed the prefix test and vanished from the ER
+    // diagram — silently, with no warning. Here both Contoso tables are custom
+    // to their own publisher, but the diagram came out empty because
+    // solutions[0] was Acme.
     const pages = build({
       config: withWiki('/Docs', { parse: { excludeStandardRelationships: true } }),
       solutions: [
@@ -745,7 +766,9 @@ describe('buildWikiPages — Data Model ERD', () => {
         ],
       }),
     });
-    expect(contentAt(pages, '/Docs/Data Model')).not.toContain(':::mermaid');
+    const dm = contentAt(pages, '/Docs/Data Model') ?? '';
+    expect(dm).toContain(':::mermaid');
+    expect(dm).toContain('Order ||--o{ Line');
   });
 });
 

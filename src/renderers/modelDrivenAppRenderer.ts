@@ -3,6 +3,7 @@
 import type { ModelDrivenAppModel } from '../ir/modelDrivenApp.js';
 import type { DocNode, InlineNode } from '../docmodel/nodes.js';
 import { h, pt, p, t, c, b, lnk, table, ct, cc, cell } from '../docmodel/nodes.js';
+import { encodePageSegment } from './rendererUtils.js';
 
 export function renderModelDrivenAppsIndex(
   apps: ModelDrivenAppModel[],
@@ -21,7 +22,7 @@ export function renderModelDrivenAppsIndex(
   nodes.push(table(
     ['App', 'Status', 'Form Factor', 'Custom Entities', 'Roles'],
     apps.map(app => [
-      cell(lnk(app.displayName, `${basePath}/${app.displayName}`)),
+      cell(lnk(app.displayName, `${basePath}/${encodePageSegment(app.displayName)}`)),
       ct(app.isActive ? 'Active' : 'Inactive'),
       ct(app.formFactor),
       ct(String(app.customEntities.length)),

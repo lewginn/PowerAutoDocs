@@ -6,7 +6,7 @@ import type { WebResourceModel, WebResourceFunction } from '../ir/index.js';
 import type { DocNode, InlineNode } from '../docmodel/nodes.js';
 import { h, pt, p, t, c, b, lnk, table, ct, cc, cell, bulletList, bullet } from '../docmodel/nodes.js';
 import { serialize } from '../docmodel/MarkdownSerializer.js';
-import { aiSummaryBlock } from './rendererUtils.js';
+import { aiSummaryBlock, encodePageSegment } from './rendererUtils.js';
 
 // -----------------------------------------------
 // Summary page
@@ -40,7 +40,7 @@ export function renderWebResourceSummary(
       jsResources.map(r => {
         const title = r.name.split('/').pop() ?? r.name;
         return [
-          basePath ? cell(lnk(title, `${basePath}/${title}`)) : ct(title),
+          basePath ? cell(lnk(title, `${basePath}/${encodePageSegment(title)}`)) : ct(title),
           ct(r.namespace ?? '—'),
           ct(String(r.functions?.length ?? 0)),
           ct(r.dependencies.length > 0 ? r.dependencies.join(', ') : '—'),

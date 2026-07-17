@@ -182,10 +182,11 @@ Neither provider hardcodes an env var name — the config names the variable and
 
 ### Renderers — `src/renderers/`
 
-Renderers consume IR and emit `DocNode[]`. **The builder helpers (`h`, `p`, `pt`, `table`, `cell`, `ct`, `cc`, `bulletList`, `bullet`, `toc`, `mermaid`, `codeBlock`, `bq`, `bqt`, `t`, `c`, `b`, `i`, `lnk`) live in `src/docmodel/nodes.ts`** (lines 110-178), *not* in `rendererUtils.ts`. Older docs got this wrong. `src/renderers/rendererUtils.ts` exports exactly two functions:
+Renderers consume IR and emit `DocNode[]`. **The builder helpers (`h`, `p`, `pt`, `table`, `cell`, `ct`, `cc`, `bulletList`, `bullet`, `toc`, `mermaid`, `codeBlock`, `bq`, `bqt`, `t`, `c`, `b`, `i`, `lnk`) live in `src/docmodel/nodes.ts`** (lines 110-178), *not* in `rendererUtils.ts`. Older docs got this wrong. `src/renderers/rendererUtils.ts` exports three functions:
 
 - `toADOWikiLink()` (`rendererUtils.ts:10`) — internal wiki link encoding
 - `aiSummaryBlock()` (`rendererUtils.ts:27`) — emits the "Summary" `DocNode` section, returning `[]` when `aiSummary` is absent so output is byte-identical to pre-AI pages
+- `encodePageSegment()` (added #110) — the ADO wiki page-path sanitiser, shared between `wikiAssembler.ts` (which builds the path) and every renderer building an `lnk()` href to it, so the two can never disagree the way four of them used to
 
 `rendererUtils.ts` is **not** exported from `src/renderers/index.ts` — import it directly (`from './rendererUtils.js'`), as `flowRenderer.ts:9` does.
 

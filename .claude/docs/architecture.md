@@ -93,7 +93,7 @@ src/
     environmentVariableRenderer.ts  globalChoiceRenderer.ts
     connectionReferenceRenderer.ts  emailTemplateRenderer.ts
     modelDrivenAppRenderer.ts
-    rendererUtils.ts      ← ONLY toADOWikiLink() and aiSummaryBlock().
+    rendererUtils.ts      ← toADOWikiLink(), aiSummaryBlock(), encodePageSegment().
                               The DocNode builders are NOT here — they're in docmodel/nodes.ts
   docmodel/               ← format-agnostic document model
     index.ts              ← barrel (omits PdfSerializer — import it directly)

@@ -3,6 +3,7 @@
 import type { EmailTemplateModel } from '../ir/emailTemplate.js';
 import type { DocNode } from '../docmodel/nodes.js';
 import { h, pt, p, t, c, b, lnk, table, ct, cc, cell, bulletList, bullet, codeBlock } from '../docmodel/nodes.js';
+import { encodePageSegment } from './rendererUtils.js';
 
 const LANGUAGE_MAP: Record<number, string> = {
   1033: 'English (United States)',
@@ -38,7 +39,7 @@ export function renderEmailTemplatesIndex(
         ? tpl.subject.substring(0, 80) + (tpl.subject.length > 80 ? '…' : '')
         : 'No subject';
       return [
-        cell(lnk(tpl.title, `${basePath}/${tpl.title}`)),
+        cell(lnk(tpl.title, `${basePath}/${encodePageSegment(tpl.title)}`)),
         ct(tpl.targetEntity),
         ct(subjectPreview),
       ];

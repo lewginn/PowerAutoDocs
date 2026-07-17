@@ -6,7 +6,7 @@ import type { PluginAssemblyModel, PluginStepModel } from '../ir/index.js';
 import type { DocNode, InlineNode } from '../docmodel/nodes.js';
 import { h, pt, p, t, c, b, i, lnk, table, ct, cc, cell, bulletList, bullet } from '../docmodel/nodes.js';
 import { serialize } from '../docmodel/MarkdownSerializer.js';
-import { toADOWikiLink, aiSummaryBlock } from './rendererUtils.js';
+import { toADOWikiLink, aiSummaryBlock, encodePageSegment } from './rendererUtils.js';
 
 // -----------------------------------------------
 // Top-level summary — index of all assemblies
@@ -80,7 +80,7 @@ export function renderAssemblyIndex(assembly: PluginAssemblyModel, basePath: str
       const steps    = stepsByClass.get(shortName) ?? [];
       const entities = [...new Set(steps.map(s => s.primaryEntity))].join(', ');
       return [
-        cell(lnk(shortName, `${basePath}/${shortName}`)),
+        cell(lnk(shortName, `${basePath}/${encodePageSegment(shortName)}`)),
         ct(steps.length.toString()),
         ct(entities || '—'),
       ];

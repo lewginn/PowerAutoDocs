@@ -42,8 +42,12 @@ drive-by.
 **DocNode builders live in `src/docmodel/nodes.ts`, not `rendererUtils.ts`.** `h`, `p`, `pt`,
 `bq`, `bqt`, `toc`, `mermaid`, `codeBlock`, `table`, `cell`, `ct`, `cc`, `bulletList`,
 `bullet`, `t`, `c`, `b`, `i`, `lnk` are all defined at `nodes.ts:110-179`.
-`src/renderers/rendererUtils.ts` holds exactly two functions: `toADOWikiLink()`
-(`rendererUtils.ts:10`) and `aiSummaryBlock()` (`rendererUtils.ts:27`).
+`src/renderers/rendererUtils.ts` holds three functions: `toADOWikiLink()`
+(`rendererUtils.ts:10`), `aiSummaryBlock()` (`rendererUtils.ts:27`), and
+`encodePageSegment()` (added #110 — the ADO page-path sanitiser shared between
+`wikiAssembler.ts` and every renderer that links to a page it built). The rule
+this file exists to enforce is unchanged: shared cross-renderer *behaviour*
+belongs here; a `DocNode` builder never does.
 
 **No format syntax in the DocNode layer, ever.** A `DocNode` carries semantic content only;
 all format syntax belongs in a serializer. The canonical example: `mermaid()` nodes hold raw

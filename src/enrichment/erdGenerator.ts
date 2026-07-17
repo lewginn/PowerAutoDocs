@@ -11,8 +11,8 @@ export interface ErdConfig {
  * Generates a Mermaid ER diagram from the merged solution tables.
  *
  * Filtering rules:
- * 1. Only include relationships where both sides have the publisher prefix
- *    (skips ownerid/createdby/systemuser noise automatically)
+ * 1. Only include relationships where both sides have ONE OF the publisher
+ *    prefixes (skips ownerid/createdby/systemuser noise automatically)
  * 2. Remove entities listed in erdConfig.excludeEntities
  * 3. Remove relationships listed in erdConfig.excludeRelationships by schema name
  * 4. Self-referential relationships are always skipped
@@ -23,7 +23,7 @@ export interface ErdConfig {
  */
 export function generateERDiagram(
   tables: TableModel[],
-  publisherPrefix?: string,
+  publisherPrefixes?: string | string[],
   erdConfig?: ErdConfig
 ): string {
   const excludeEntities = new Set(
@@ -33,12 +33,21 @@ export function generateERDiagram(
     (erdConfig?.excludeRelationships ?? []).map(r => r.toLowerCase())
   );
 
-  const prefix = publisherPrefix ? `${publisherPrefix.toLowerCase()}_` : null;
+  // A merged multi-solution run has one prefix per solution, not one overall
+  // — a single string is still accepted for the common single-solution case
+  // and for existing callers. Filtering is OFF (every table counts as
+  // "custom") only when the caller passes nothing at all, or nothing but
+  // blanks — matching the previous falsy-prefix behaviour exactly, but now
+  // any ONE matching prefix (not just the first) qualifies a table.
+  const prefixes = (Array.isArray(publisherPrefixes) ? publisherPrefixes : publisherPrefixes ? [publisherPrefixes] : [])
+    .map(p => p.trim().toLowerCase())
+    .filter(p => p !== '')
+    .map(p => `${p}_`);
 
   // Set of custom entity logical names
   const customEntityNames = new Set(
     tables
-      .filter(t => !prefix || t.logicalName.toLowerCase().startsWith(prefix))
+      .filter(t => prefixes.length === 0 || prefixes.some(prefix => t.logicalName.toLowerCase().startsWith(prefix)))
       .map(t => t.logicalName.toLowerCase())
   );
 
@@ -62,7 +71,7 @@ export function generateERDiagram(
       const to = rel.referencingEntity.toLowerCase();   // child/many side
 
       // Both sides must be custom entities
-      if (prefix && (!customEntityNames.has(from) || !customEntityNames.has(to))) continue;
+      if (prefixes.length > 0 && (!customEntityNames.has(from) || !customEntityNames.has(to))) continue;
 
       // Skip excluded entities
       if (excludeEntities.has(from) || excludeEntities.has(to)) continue;
