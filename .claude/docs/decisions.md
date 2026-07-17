@@ -25,8 +25,10 @@ Decisions that need no elaboration. The "why" column is the whole argument.
 | File casing | Capitalised path segments (`Other/Solution.xml`) | pac CLI on Windows emits capitals; Linux ADO agents are case-sensitive |
 | PDF library | `pdfmake`, standard 14 fonts | Self-contained output — no bundled TTFs, no native binaries |
 | Package name | `powerautodocs` | Renamed from `powerautodoc` after an accidental client data exposure; the old package was unpublished from npm (2026-03-27) and no longer resolves at all |
+| Test runner | Vitest | Pure-ESM + NodeNext + `.js` specifiers run as-is; Jest needs ts-jest/ESM config to reach the same place. `devDependency`, so clients never install it |
+| Test fixtures | Hand-written, fictional | `unpacked/` is real client data — a fixture copied from it would be client data in a public repo |
 
-Three of these have a sharper edge than the table conveys — see [IR-based pipeline](#the-ir-is-the-contract), [File casing](#file-casing-is-load-bearing-and-only-breaks-in-production) and [pdfmake](#pdfmake-and-the-standard-14-fonts) below.
+Four of these have a sharper edge than the table conveys — see [IR-based pipeline](#the-ir-is-the-contract), [Vitest](#vitest-and-a-suite-that-deliberately-stops-short), [File casing](#file-casing-is-load-bearing-and-only-breaks-in-production) and [pdfmake](#pdfmake-and-the-standard-14-fonts) below.
 
 ---
 
@@ -210,6 +212,52 @@ Adding a new failure mode means picking a `RunSummary` bucket in `src/logger.ts`
 
 ---
 
+## Vitest, and a suite that deliberately stops short
+
+Added under issue #102, once the product was close enough to a solid release that a silent regression on `main` cost more than the CI does.
+
+**Why Vitest over Jest.** The package is pure ESM (`"type": "module"`), `moduleResolution: NodeNext`, with `.js` specifiers in TypeScript imports. Vitest runs that as-is on an eight-line config. Jest needs ts-jest plus ESM configuration to reach the same place. There was no third contender worth the paragraph.
+
+**Why it was allowed past the dependency hard-stop.** The rule exists because every dependency is install weight paid by every client on an ephemeral ADO agent on every run, forever. A `devDependency` is not in that path: `npm ci --omit=dev` on the agent never sees it, and `files: ["dist"]` keeps it out of the tarball. The cost is CI time, not client time. **This reasoning is specific to devDependencies — it is not a loosening of the rule for runtime deps.**
+
+### What the suite covers, and what it refuses to
+
+Covered: `MarkdownSerializer` (DocNode → markdown), `rendererUtils`, `erdGenerator`, and the parsers with fixtures. These are pure or path-taking-and-fixture-satisfiable — no mocks anywhere in the suite.
+
+**Deliberately not covered — the seams don't exist yet:**
+
+| Not tested | Why not |
+|---|---|
+| Mermaid → PNG (`mermaidRenderer.ts`) | Launches a real browser through a module-level `browserPromise` singleton. Slow, flaky in CI, and hostile to per-test isolation. |
+| AI providers | `AiProvider` is already a clean one-method seam, but `enrichWithAiSummaries` resolves its own provider via `createProvider`. Injecting it is a prerequisite, not a test. |
+| Wiki publisher | Bare `fetch()` against hardcoded `dev.azure.com` URLs, no injected client. Stubbing global `fetch` mostly asserts the stub works. |
+| Word / PDF binary output | Byte-comparison is meaningless — zip ordering and timestamps churn. The `DocNode` AST is the real assertion boundary, and it *is* tested. |
+| `main()` | Reads `process.argv` directly and calls `process.exit(1)`; not drivable in-process. |
+
+**The principle:** a test that needs a mock to exist is usually asking for a refactor first. Writing the mock instead buys a green tick that asserts the mock works. If one of these becomes worth testing, fix the seam in its own PR and the test becomes easy.
+
+### Fixtures are synthetic, and that is a hard rule
+
+`unpacked/` holds 314 real client XML files that already parse — it is the obvious fixture source and it is forbidden. `tests/fixtures/` is committed and public; pointing tests at client data, or copying it in, launders it into git history. That is the failure that renamed the package. Fixtures are hand-written for a fictional Contoso solution. See [constraints.md](constraints.md) and `tests/fixtures/README.md`.
+
+The cost is real: it is why the suite covers two parsers rather than seventeen. Fixtures get written as coverage extends, one component at a time.
+
+---
+
+## CI gates PRs; the publish workflow re-gates itself
+
+`ci.yml` runs typecheck → build → test on every PR and every push to `main`. `npm-publish.yml` runs the same typecheck and test before `npm publish`.
+
+**The duplication is deliberate.** It looks redundant — the merge commit already passed CI. But a release can be cut from any ref, `workflow_dispatch` runs with no PR behind it at all (added in PR #93 precisely as an escape hatch), and **npm forbids republishing a version**. The last gate before an irreversible, client-facing step doesn't get to assume an earlier gate ran. ~40s against shipping a broken tarball to every client on `npx powerautodocs@latest` is not a close call.
+
+Typecheck runs *before* build so a type error in a **test** fails CI too — `npm run build` uses the root `tsconfig.json`, which only sees `src/`. `npm run typecheck` uses `tsconfig.test.json`, which covers both with `noEmit`.
+
+### Why tests live outside `src/`
+
+The root `tsconfig.json` is the build: `rootDir: ./src`, `include: src/**/*`, emitting to `dist/`. Anything it compiles ships to npm. Tests in `src/` would land in the published package — so `tests/` sits at the root, outside the build's view, and `tsconfig.test.json` typechecks it separately. This is why no `exclude` entry for tests was needed: the build simply never sees them.
+
+---
+
 ## File casing is load-bearing and only breaks in production
 
 The rule — capitalised folder **and** filename segments — is enforced nowhere but the hardcoded paths themselves:
@@ -218,7 +266,9 @@ The rule — capitalised folder **and** filename segments — is enforced nowher
 - `src/parsers/solutionManifestParser.ts:22` — same path
 - `src/parsers/connectionReferenceParser.ts:49` — `path.join(solutionRoot, 'Other', 'Customizations.xml')`
 
-**Why it bites:** macOS and Windows dev machines are case-insensitive. Write `path.join(root, 'other', 'solution.xml')` from habit and it passes locally, passes review, and fails only on the client's Linux ADO agent. There is no test and no CI to catch it. Copy the capitalisation from an existing call site rather than typing it.
+**Why it bites:** macOS and Windows dev machines are case-insensitive. Write `path.join(root, 'other', 'solution.xml')` from habit and it passes locally, passes review, and fails only on the client's Linux ADO agent. Copy the capitalisation from an existing call site rather than typing it.
+
+**CI does not save you here, and it is worth knowing why.** `ci.yml` runs on `ubuntu-latest`, so a lowercased path *would* fail there — but only if a test actually exercises that path. The parser tests use fixtures under `tests/fixtures/solutions/ContosoDemo/Other/Solution.xml`, so `parseSolutionManifest` is covered; the other two call sites listed above — `index.ts:60` and `connectionReferenceParser.ts:49` — are not. A test asserting the *string* is also worthless — it just restates the source. The real check is a Linux run against a correctly-capitalised fixture, which is what CI now gives us for the one parser that has one.
 
 ---
 
@@ -231,6 +281,8 @@ The rule — capitalised folder **and** filename segments — is enforced nowher
 - **`zod`** — config validation is hand-written in `config/loader.ts`.
 
 **Adding a new npm dependency requires asking Lewis first — this is a hard stop**, alongside `npm publish` and `package.json` version bumps. Everything else (branching, committing, merging, config/schema changes) you may do autonomously. See [Process](process.md).
+
+**`devDependencies` are cheaper but not free.** The rule's whole force is that clients install `dependencies` on an ephemeral agent every run; `npm ci --omit=dev` never touches a devDep, and `files: ["dist"]` keeps it out of the tarball. That is why `vitest` was approved where a runtime dep would not have been. It still costs CI time and supply-chain surface — **ask, and state which bucket it lands in.** Don't read this as a devDep free pass.
 
 Live non-obvious dependencies, for contrast: `@anthropic-ai/sdk` and `openai` (AI providers), `@mermaid-js/mermaid-cli` + `puppeteer` (diagram rendering), `docx`, `pdfmake`, `fast-xml-parser`, `js-yaml`.
 

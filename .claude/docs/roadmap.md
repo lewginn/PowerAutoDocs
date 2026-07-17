@@ -109,8 +109,14 @@ CLI flags are **already shipped**. `commander` is declared in `package.json` but
 | Issue | Item | Board status |
 |-------|------|--------------|
 | #97 | Plugin source code linking — read `.cs` source for plugin steps | Todo |
+| #102 | CI pipeline + Vitest test suite | Done — first pass shipped |
+| #103 | `MarkdownSerializer` emits a short row for a ragged table | Todo |
 
 #97 is the newest substantive issue (opened 2026-06-10) and is not slotted into a phase block in `architecture.jsx`. If you pick it up, add it to a phase block or accept that it lives outside the published roadmap.
+
+**#102 shipped the floor, not the finish.** CI (`ci.yml`) now typechecks, builds and tests every PR, and the Vitest suite covers `MarkdownSerializer`, `rendererUtils`, `erdGenerator` and two fixtured parsers. Fifteen parsers still have no fixtures, and Word/PDF/Mermaid/AI/wiki are deliberately untested pending injection seams — see [decisions.md](decisions.md#vitest-and-a-suite-that-deliberately-stops-short) for what was excluded and why. Extending coverage is good background work: pick a parser, hand-write a fictional fixture, never copy from `unpacked/`.
+
+**#103 is latent, not live** — no renderer builds a ragged table today. It was found by writing the tests, and there is a characterisation test pinned to the current wrong behaviour that must be updated when it's fixed.
 
 ---
 

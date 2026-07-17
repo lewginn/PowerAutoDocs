@@ -19,11 +19,14 @@ some are not. Each checklist below marks every step with one of:
 
 - **TS** — the compiler catches it. `npm run build` fails. Safe to forget.
 - **SILENT** — it compiles, it runs, the exit code is 0, and the output is quietly wrong or
-  missing a section. These are the dangerous ones. There is no test suite and no CI on PRs
-  (see [Process](process.md)), so nothing else will catch them for you.
+  missing a section. These are the dangerous ones, and **the test suite does not catch them
+  either** — it covers DocNode serialisation, `rendererUtils`, the ERD generator and the
+  fixtured parsers, none of which is where a wired-up-wrong renderer shows itself. Assume a
+  SILENT step is caught by nothing but you (see [Process](process.md)).
 
-**`npm run build` is the only compile gate.** No CI runs on pull requests. Run it locally
-before pushing — a TS error otherwise surfaces only when a release is cut.
+**CI (`ci.yml`) typechecks, builds and tests every PR** — so a TS error no longer waits for
+release day. Run `npm run typecheck && npm test` locally anyway; it takes seconds and CI is
+not a substitute for exercising the change end-to-end.
 
 **Barrels are not uniformly complete.** Do not assume the barrel is the public surface:
 
@@ -283,6 +286,10 @@ remind you.
 
 Update `docs/architecture.jsx` (it builds via `docs-viewer/` and auto-deploys to GitHub Pages
 on merge to main — a JSX syntax error breaks a public deploy; preview with `npm run docs`),
-run `npm run build`, and exercise the change end-to-end. See [Process](process.md) for what
-"tested locally" actually means here, how to inspect generated `.docx`/`.pdf` output without a
-test suite, and the PR conventions.
+run `npm run build && npm run typecheck && npm test`, and exercise the change end-to-end.
+
+If your change touches a layer the suite covers — `MarkdownSerializer`, `rendererUtils`,
+`erdGenerator`, or a parser with fixtures — **add to the suite in the same PR**. Fixtures are
+hand-written and fictional; never copy from `unpacked/`. See [Process](process.md) for what
+"tested locally" actually means here, how to inspect generated `.docx`/`.pdf` output, and the
+PR conventions.

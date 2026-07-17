@@ -16,7 +16,8 @@ This replaces the older, vaguer "confirm scope with Lewis before making changes 
 | 🟢 | Open a PR, review it, **merge it to `main`** | Single-author repo — you are the reviewer; see [The PR is the review](#the-pr-is-the-review) |
 | 🟢 | Change `src/config/schema.ts` / `loader.ts` — add or alter config fields | Mirror the change into `samples/doc-gen.config.sample.yml`, or client deployments silently drift |
 | 🟢 | Add IR fields, parsers, renderers, serializers | IR **additions** are safe; renames/removals are breaking — see the architecture doc |
-| 🟢 | Refactor, rename internal functions, restructure files | Nothing is compile-gated in CI, so `npm run build` locally is on you |
+| 🟢 | Refactor, rename internal functions, restructure files | CI compiles and tests every PR now — but it covers a fraction of the code, so run it locally and read [Verification](#verification) |
+| 🟢 | Add tests, fixtures, or CI steps | Fixtures must be **synthetic** — never derived from `unpacked/`. See [Adding to the suite](#adding-to-the-suite) |
 | 🟢 | Update `docs/architecture.jsx`, `README.md`, `.claude/docs/**` | Note `docs/**` on `main` auto-deploys to GitHub Pages |
 | 🟢 | Create GitHub issues, move board cards | Add every new issue to the Roadmap board immediately |
 | 🔴 | **`npm publish`** | Never. Ever. Manually. `.github/workflows/npm-publish.yml` does it on a GitHub Release. A manual publish from a dev machine ships whatever is in the working tree — including a `doc-gen.config.yml` with a live client PAT. The package was already renamed once (`powerautodoc` → `powerautodocs`) after an accidental client data exposure. |
@@ -129,7 +130,7 @@ House style, from PR #98:
 closes #N
 
 ## Test plan
-- [x] `npm run build` / `npx tsc --noEmit` clean
+- [x] `npm run build`, `npm run typecheck`, `npm test` clean (CI runs all three)
 - [x] Generated Word doc end-to-end against real client solution data, `wordDiagrams: true` and `false`
 - [x] Verified `nodes.ts`, `MarkdownSerializer.ts`, `flowRenderer.ts` are byte-identical to `main` — wiki output provably untouched
 - [x] Inspected generated docx XML: native `w:numPr` lists across 5 nesting levels, embedded PNG media
@@ -141,9 +142,11 @@ Boxes get ticked because you **ran** the thing, not because you intend to.
 
 #### The PR is the review
 
-`git log --format='%an' -20` → 20/20 Lewis Ginn. PRs are self-merged. There is no second human, no external reviewer, and **no CI on pull requests at all** — `.github/workflows/` has exactly two workflows and neither has a `pull_request:` trigger. A green PR means nothing; it means no checks ran.
+`git log --format='%an' -20` → 20/20 Lewis Ginn. PRs are self-merged. There is no second human and no external reviewer.
 
-So the PR body *is* the review artifact and the durable record. Write it as the thing a future agent reads to understand what was actually verified — because nobody is going to catch what you skipped.
+CI now runs on every PR (`ci.yml`: typecheck, build, test), so a **red** PR is a real signal — that much is new. But a **green** one still only means the tested fraction didn't regress; it says nothing about the `.docx`, the PDF, the diagrams, or the wiki.
+
+So the PR body *is* still the review artifact and the durable record. Write it as the thing a future agent reads to understand what was actually verified — because nobody is going to catch what you skipped.
 
 ### 9. Merge
 
@@ -162,21 +165,34 @@ Merge it yourself (🟢). Two styles are both in use, and the observable rule is
 
 ## Verification
 
-### There is no test suite. None. Anywhere.
+### There is a test suite, and CI runs it — but it covers a fraction of the code
 
-No jest, vitest or mocha. No `*.test.ts`, no `*.spec.ts`, no `__tests__` outside `docs-viewer/node_modules` (third-party packages' own tests). No `test` script in `package.json`. No eslint/prettier/biome config at the root.
+Vitest, added under issue #102. `npm test` runs it; `.github/workflows/ci.yml` runs typecheck + build + test on **every PR and every push to `main`**. `npm-publish.yml` re-runs the same checks before `npm publish`, because a release can be cut from any ref and a publish cannot be undone.
 
-This is deliberate and it is not your invitation to fix it. **Any test runner is a new npm dependency (🔴).** Do not scaffold one. Do not invent test files.
+**This changes what CI catches, not what verification means.** The suite covers the pure, mockable-free layers — DocNode serialisation, `rendererUtils`, the ERD generator, and the parsers that have fixtures. It does **not** cover Word/PDF binary output, Mermaid PNG rendering, the AI providers, the wiki publisher, or `main()`. Green CI means "nothing obviously regressed in the tested fraction". It does not mean the `.docx` is right.
 
-There is also **no CI compile gate**: `npm run build` is executed only by `npm-publish.yml`, i.e. *after* a release is cut. A PR can be merged with a TypeScript error and it will surface when Lewis cuts a release. **Building locally before you push is mandatory, not optional — it is the only compile gate in the entire process.**
+So: **the end-to-end run and artifact inspection below are still mandatory for anything touching output.** CI is a floor, not a substitute. Everything in "What verified actually means" still applies.
+
+### Adding to the suite
+
+Tests live in `tests/`, mirroring `src/` (`tests/docmodel/`, `tests/parsers/`, …). They are deliberately **outside `src/`** — the root `tsconfig.json` is the build, scoped to `src/` with `rootDir: ./src`, so anything it compiles lands in `dist/` and ships to npm. `tsconfig.test.json` typechecks `src/` + `tests/` with `noEmit`, and is what `npm run typecheck` uses.
+
+**Fixtures must be synthetic.** Every realistic solution on this machine (`unpacked/`, `unpackSolutions/`) is real client data and is gitignored. Copying any of it into `tests/fixtures/` launders client data into a public git history — the exact failure that renamed the package. Hand-write the XML for a fictional solution instead; `tests/fixtures/solutions/ContosoDemo/` is the shared root, and `tests/fixtures/README.md` states the rule.
+
+Two gotchas already paid for:
+
+- **You cannot `vi.spyOn` a Node built-in's exports.** `vi.spyOn(fs, 'readFileSync')` throws `Module namespace is not configurable in ESM`. The package is pure ESM, so use a real fixture or a `fs.mkdtempSync` tmpdir instead of reaching for a mock. Spying on `console.warn` is fine — that's a plain object property.
+- **Don't enshrine a bug in a characterisation test without saying so.** `MarkdownSerializer.test.ts` pins the ragged-table gap (#103) and says in a comment that it's a known gap, not the desired behaviour, so the next reader doesn't take it as a spec.
 
 ### What "verified" actually means here
 
-**1. It compiles.**
+**1. It compiles and the suite passes.**
 ```bash
 npm run build      # tsc → dist/, then addShebang + chmod
-npx tsc --noEmit   # type-only check (there is no `typecheck` script, despite PR #98 citing this)
+npm run typecheck  # tsc --noEmit over src/ + tests/
+npm test           # vitest run
 ```
+CI runs all three, so a red PR is now a real signal — but don't push and let CI find what a 200ms local run would have.
 
 **2. It runs end-to-end against real unpacked client solution data.** All four pipe stdout+stderr to `dev.log` (gitignored):
 ```bash
@@ -273,7 +289,7 @@ The full chain, for context when diagnosing "the publish didn't happen":
 
 1. **Lewis** bumps the version — a bare-number commit touching only `package.json` + `package-lock.json` (`ab1ef56` = `1.4.0`), the `npm version` default format. 🔴 Not you.
 2. **Lewis** tags and creates a GitHub Release. Tags are `v`-prefixed (`v1.2.0`, `v1.3.0`, `v1.4.0`); releases are titled descriptively — "v1.4.0 — PDF output", "v1.3.0 - AI Enrichment".
-3. **GitHub Actions** publishes. `.github/workflows/npm-publish.yml`: Node 20, `npm ci && npm run build && npm publish` with `NODE_AUTH_TOKEN: secrets.NPM_TOKEN`.
+3. **GitHub Actions** publishes. `.github/workflows/npm-publish.yml`: Node 20, `npm ci` → `npm run typecheck` → `npm test` → `npm run build` → `npm publish`, with `NODE_AUTH_TOKEN: secrets.NPM_TOKEN`. The typecheck and test steps duplicate `ci.yml` deliberately — a release can be cut from any ref, `workflow_dispatch` has no PR behind it, and npm forbids republishing a version, so the last gate before an irreversible step doesn't get to assume an earlier one ran.
 
 Current version: **1.4.0**. (Expect this line to be stale — trust `package.json`.)
 
