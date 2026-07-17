@@ -113,6 +113,8 @@ CLI flags are **already shipped** — flag parsing is hand-rolled off `process.a
 | #97 | Plugin source code linking — read `.cs` source for plugin steps | Todo |
 | #102 | CI pipeline + Vitest test suite | Done — first pass shipped |
 | #103 | `MarkdownSerializer` emits a short row for a ragged table | Todo |
+| #109 | Test coverage: publisher, pipeline entry point, enrichment | Done — closed the last gaps |
+| #110 | **42 defects found by #109 — pinned, not fixed** | Todo — the real follow-on |
 
 #97 is the newest substantive issue (opened 2026-06-10) and is not slotted into a phase block in `architecture.jsx`. If you pick it up, add it to a phase block or accept that it lives outside the published roadmap.
 
@@ -130,7 +132,7 @@ Still uncovered, and each is a decision rather than a gap: `PdfSerializer` and `
 
 **Writing those tests found ten defects, and that — not the tests themselves — is the argument for the remaining coverage.** Every one had been shipping to clients undetected, and none was found by reading the code; they surfaced the moment something asserted on real output. **All ten are now fixed.**
 
-**The argument then repeated itself, four times over.** #109's pass over `publisher/*`, `main()`, `logger` and enrichment found **42 more** (tracked on #109). Same shape: all shipping, none visible by reading. The two worth knowing without opening the issue —
+**The argument then repeated itself, four times over.** #109's pass over `publisher/*`, `main()`, `logger` and enrichment found **42 more** (tracked on #110). Same shape: all shipping, none visible by reading. The two worth knowing without opening the issue —
 
 - **A wiki page-path collision silently deletes a table's docs.** `s()` is many-to-one, so two tables whose display names sanitise identically (`A/B` and `A-B`) emit two complete page sets at one path. The publisher PUTs one over the other and `sortPagesForPublish` drops the duplicate. One real table's entire documentation vanishes from the client's wiki. No error, green pipeline.
 - **A wholly-failed publish reports success.** `publishToWiki` swallows every per-page error into `console.error` and returns `void`, so `index.ts`'s `Array.isArray(results)` branch is permanently dead and the `else` sets `pagesPublished = pages.length` unconditionally. Every page can fail and the client still reads "Published 340 pages… ✓ Completed successfully", exit 0.
