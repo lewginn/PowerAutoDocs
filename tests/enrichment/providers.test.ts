@@ -218,17 +218,26 @@ describe('AnthropicProvider.summarise', () => {
     expect(DEFAULT_ANTHROPIC_MODEL).toBe('claude-haiku-4-5');
   });
 
-  it('BUG: sends an empty model when config.model is an empty string', async () => {
-    // `config.model ?? DEFAULT_ANTHROPIC_MODEL` only catches null/undefined, so
-    // `model: ''` in doc-gen.config.yml is forwarded verbatim and the SDK rejects
-    // the whole run. loader.ts:125 treats model as optional and does not reject
-    // empty. Pinned, not blessed — reported as a defect.
+  it('falls back to the default model when config.model is an empty or whitespace-only string', async () => {
+    // Was pinned: `config.model ?? DEFAULT_ANTHROPIC_MODEL` only catches
+    // null/undefined, so `model: ''` in doc-gen.config.yml (loader.ts treats
+    // model as optional and never rejects empty) was forwarded to the SDK
+    // verbatim, failing the whole enrichment run on the first summarisation.
     const { provider, calls } = anthropicWith(textResponse('ok'), {
       apiKeyEnv: KEY_ENV,
       model: '',
     });
     await provider.summarise('prompt');
-    expect(calls[0].model).toBe('');
+    expect(calls[0].model).toBe(DEFAULT_ANTHROPIC_MODEL);
+  });
+
+  it('falls back to the default model when config.model is whitespace-only', async () => {
+    const { provider, calls } = anthropicWith(textResponse('ok'), {
+      apiKeyEnv: KEY_ENV,
+      model: '   ',
+    });
+    await provider.summarise('prompt');
+    expect(calls[0].model).toBe(DEFAULT_ANTHROPIC_MODEL);
   });
 
   it('sends config.model when one is given', async () => {
@@ -269,48 +278,60 @@ describe('AnthropicProvider.summarise', () => {
     await expect(provider.summarise('prompt')).resolves.toBe('The answer.');
   });
 
-  it('BUG: keeps only the first text block when the response has several', async () => {
-    // Not tagged BUG: the API returns one text block per response in practice,
-    // so this is pinning current behaviour, not blessing a spec. If a future
-    // model splits its prose across blocks, the tail is dropped silently.
+  it('joins every text block rather than keeping only the first', async () => {
+    // Was pinned: the API returns one text block per response in practice, so
+    // this was pinning current behaviour rather than blessing it — if a model
+    // ever splits its prose across blocks (e.g. interleaved with extended
+    // thinking), the tail was silently dropped.
     const { provider } = anthropicWith(
       { content: [{ type: 'text', text: 'First half.' }, { type: 'text', text: ' Second half.' }] },
       { apiKeyEnv: KEY_ENV },
     );
-    await expect(provider.summarise('prompt')).resolves.toBe('First half.');
+    await expect(provider.summarise('prompt')).resolves.toBe('First half. Second half.');
   });
 
-  it('BUG: returns a max_tokens-truncated summary without flagging it', async () => {
-    // max_tokens is hard-coded to 1024 and stop_reason is never inspected, so a
-    // summary the model was cut off mid-sentence on is published to the client's
-    // wiki/.docx looking exactly like a complete one. Pinned, not blessed —
-    // reported as a defect.
+  it('warns when the response is truncated by max_tokens, but still returns the partial summary', async () => {
+    // Was pinned: max_tokens is hard-coded to 1024 and stop_reason was never
+    // inspected, so a summary the model was cut off mid-sentence on was
+    // published to the client's wiki/.docx looking exactly like a complete
+    // one. The partial text is still useful — worth returning, not discarding
+    // — but it now comes with a visible warning in the run log.
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const { provider } = anthropicWith(
       textResponse('A flow that reads the account record and then', 'max_tokens'),
       { apiKeyEnv: KEY_ENV },
     );
     await expect(provider.summarise('prompt')).resolves.toBe('A flow that reads the account record and then');
+    expect(warn.mock.calls.map(c => c.join(' ')).join('\n')).toContain('truncated');
+    warn.mockRestore();
   });
 
-  it('BUG: returns a whitespace-only text block as an empty string', async () => {
-    // The mirror of the Azure whitespace gap below, on the DEFAULT provider, and
-    // the more damaging of the two: aiSummariser.ts:290-295 does not check the
-    // returned text, so '' is written to the component's aiSummary AND cached
-    // against the component's content hash. The client gets a blank AI summary
-    // heading that SURVIVES re-runs — the cache hit at aiSummariser.ts:281-284
-    // replays it until the component's own XML changes. Pinned, not blessed.
+  it('does not warn when the response completes normally', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { provider } = anthropicWith(textResponse('A complete summary.'), { apiKeyEnv: KEY_ENV });
+    await provider.summarise('prompt');
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it('throws rather than returning a whitespace-only text block as an empty string', async () => {
+    // Was pinned as the more damaging mirror of the Azure whitespace gap below,
+    // on the DEFAULT provider: aiSummariser.ts did not check the returned text,
+    // so '' was written to the component's aiSummary AND cached against the
+    // component's content hash — a blank AI summary heading that survived every
+    // re-run until the component's own XML changed. Throwing routes this
+    // through aiSummariser's existing skip-and-continue handling instead.
     const { provider } = anthropicWith(textResponse('   \n  '), { apiKeyEnv: KEY_ENV });
-    await expect(provider.summarise('prompt')).resolves.toBe('');
+    await expect(provider.summarise('prompt')).rejects.toThrow(/empty or whitespace-only/);
   });
 
-  it('BUG: returns an empty text block as an empty string instead of throwing', async () => {
-    // Azure throws "no message content" for exactly this input (see the Azure
-    // suite); Anthropic's guard only checks that a text BLOCK exists, never that
-    // it has text. Two providers, opposite behaviour on the same degenerate
-    // response — the Azure client gets a logged skip, the Anthropic client gets a
-    // silently cached blank. Pinned, not blessed — reported as a defect.
+  it('throws rather than returning an empty text block as an empty string', async () => {
+    // Was pinned: Azure already threw "no message content" for exactly this
+    // input; Anthropic's guard only checked that a text BLOCK existed, never
+    // that it had text. Two providers, opposite behaviour on the same
+    // degenerate response — now consistent.
     const { provider } = anthropicWith(textResponse(''), { apiKeyEnv: KEY_ENV });
-    await expect(provider.summarise('prompt')).resolves.toBe('');
+    await expect(provider.summarise('prompt')).rejects.toThrow(/empty or whitespace-only/);
   });
 
   it('caps max_tokens so one runaway component cannot dominate a run', async () => {
@@ -439,19 +460,24 @@ describe('AzureOpenAIProvider construction', () => {
 // ---------------------------------------------------------------------------
 
 describe('AzureOpenAIProvider vs ambient openai SDK env vars', () => {
-  it('BUG: managed identity dies if AZURE_OPENAI_API_KEY happens to be in the environment', () => {
-    // AzureOpenAIProvider.ts:40 passes `apiKey: undefined`, which does NOT
-    // suppress the SDK's default — node_modules/openai/azure.js:28 defaults the
-    // parameter to readEnv('AZURE_OPENAI_API_KEY'). With a stale key still in the
-    // pipeline environment the SDK then sees both a key and a token provider and
-    // hard-throws "mutually exclusive" (azure.js:38), naming arguments the client
-    // never wrote. Reported as a defect; pinned here, not blessed.
+  it('survives a stale AZURE_OPENAI_API_KEY in the environment under managed identity', () => {
+    // Was pinned: passing `apiKey: undefined` did NOT suppress the SDK's own
+    // default — node_modules/openai/azure.js destructures
+    // `apiKey = readEnv('AZURE_OPENAI_API_KEY')`, and a JS destructuring
+    // default only fires on a literal `undefined`, so the explicit `undefined`
+    // just deferred to the same default. A client migrating to managed
+    // identity but leaving a stale key mapped in their pipeline environment
+    // got both a key AND a token provider, and the SDK hard-threw "mutually
+    // exclusive" — naming arguments the client never wrote. The provider now
+    // passes '' instead: not `undefined` (so the SDK's default never fires),
+    // and falsy (so the SDK's own key/token-provider exclusivity check
+    // doesn't trip either).
     vi.stubEnv(ENDPOINT_ENV, FAKE_ENDPOINT);
     vi.stubEnv('AZURE_OPENAI_API_KEY', 'stale-fake-key-for-tests');
     expect(() => new AzureOpenAIProvider(azureConfig({
       apiKeyEnv: undefined,
       useManagedIdentity: true,
-    }))).toThrow(/mutually exclusive/);
+    }))).not.toThrow();
   });
 
   it('the API key path is immune to the same leak, because it passes a real key', () => {
@@ -544,12 +570,13 @@ describe('AzureOpenAIProvider.summarise', () => {
     await expect(provider.summarise('prompt')).rejects.toThrow(/no message content/);
   });
 
-  it('BUG: returns a whitespace-only completion as an empty string', async () => {
-    // '  ' is truthy, so the guard passes and .trim() yields ''. The component
-    // gets an empty AI summary rather than being skipped — inconsistent with the
-    // empty-string case above. Pinned, not blessed — reported as a defect.
+  it('throws rather than returning a whitespace-only completion as an empty string', async () => {
+    // Was pinned: '   ' is truthy, so the `!text` guard alone passed and
+    // .trim() yielded '' — the component got a blank AI summary rather than
+    // being skipped, inconsistent with the empty-string case right above,
+    // which already threw. Now both degrade the same way.
     const { provider } = azureWith(choiceResponse('   \n  '));
-    await expect(provider.summarise('prompt')).resolves.toBe('');
+    await expect(provider.summarise('prompt')).rejects.toThrow(/no message content/);
   });
 
   it('propagates an SDK failure rather than returning an empty summary', async () => {

@@ -37,7 +37,17 @@ export class AzureOpenAIProvider implements AiProvider {
         endpoint,
         deployment: config.deployment,
         apiVersion: config.apiVersion,
-        apiKey: undefined,
+        // '' — NOT undefined. node_modules/openai/azure.js destructures
+        // `apiKey = readEnv('AZURE_OPENAI_API_KEY')`, and a JS destructuring
+        // default only fires on a literal `undefined` — so `apiKey: undefined`
+        // here did NOT suppress the SDK's own env-var fallback; it just
+        // deferred to it. A client migrating to managed identity but leaving a
+        // stale AZURE_OPENAI_API_KEY mapped in their pipeline then got both a
+        // key AND a token provider, and the SDK hard-throws "mutually
+        // exclusive". '' is not `undefined`, so it wins over the default, and
+        // it is falsy, so the SDK's own `azureADTokenProvider && apiKey` check
+        // does not fire either — the token provider is used cleanly.
+        apiKey: '',
         // The 'openai' Azure client accepts an azureADTokenProvider; resolved
         // lazily so environments without managed identity configured don't
         // fail at import time — only when actually used without a key.
@@ -73,7 +83,15 @@ export class AzureOpenAIProvider implements AiProvider {
     });
 
     const text = response.choices[0]?.message?.content;
-    if (!text) {
+    // `!text` alone let a whitespace-only completion ('   ') through — it's
+    // truthy — so the component got a blank AI summary instead of being
+    // skipped, inconsistent with the empty-string case right next to it. A
+    // blank summary returned here is worse than a thrown one: aiSummariser.ts
+    // caches whatever comes back against the component's content hash, so a
+    // silent blank survives every re-run until the component's own XML
+    // changes, where a thrown error goes through the existing
+    // skip-and-continue handling instead.
+    if (!text || !text.trim()) {
       throw new Error('Azure OpenAI provider: response contained no message content');
     }
     return text.trim();
