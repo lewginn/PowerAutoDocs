@@ -85,11 +85,13 @@ type ConsoleSpy = MockInstance<(...args: unknown[]) => void>;
 
 let log: ConsoleSpy;
 let error: ConsoleSpy;
+let warn: ConsoleSpy;
 
 beforeEach(() => {
   // publishToWiki narrates every page to stdout.
   log = vi.spyOn(console, 'log').mockImplementation(() => {}) as ConsoleSpy;
   error = vi.spyOn(console, 'error').mockImplementation(() => {}) as ConsoleSpy;
+  warn = vi.spyOn(console, 'warn').mockImplementation(() => {}) as ConsoleSpy;
 });
 
 afterEach(() => {
@@ -97,6 +99,7 @@ afterEach(() => {
 });
 
 const logged = (): string => log.mock.calls.map(c => c.join(' ')).join('\n');
+const warned = (): string => warn.mock.calls.map(c => c.join(' ')).join('\n');
 
 // -----------------------------------------------------------------------------
 
@@ -245,7 +248,24 @@ describe('publishToWiki — auth header', () => {
 });
 
 describe('publishToWiki — parent pages', () => {
-  it('creates a placeholder for each intermediate path that is not a content page', async () => {
+  it('publishes strictly parent-before-child, even when a placeholder is nested under a content page', async () => {
+    // Was pinned as two separate wrong orderings:
+    //  1. the /Root/Data Model/Widget placeholder was PUT while its own
+    //     content-page parent /Root/Data Model did not exist yet — the old
+    //     code ensured ALL placeholders in one phase, then published ALL
+    //     content in a second phase, so a placeholder nested under a content
+    //     page never waited for it;
+    //  2. /Root/Data Model published AFTER its own descendant, because a page
+    //     whose immediate parent is a placeholder was treated as an
+    //     independent root by sortPagesForPublish and roots sorted on the
+    //     full path, so the longer path won.
+    // Both traced to the same root cause: ancestor-ensuring and
+    // content-publishing were two disjoint phases. Fixed by walking each
+    // page's real ancestor chain — content or placeholder — immediately
+    // before that page, so every ancestor, of either kind, is guaranteed to
+    // exist first. This shape is real: /WikiNode/Automation is a content
+    // page, /WikiNode/Automation/Flows is a placeholder, and the flow pages
+    // under it are content.
     const fake = makeFake();
     const pages = [
       aPage('/Root/Data Model'),
@@ -254,30 +274,23 @@ describe('publishToWiki — parent pages', () => {
 
     await publishToWiki(aWikiConfig(), pages, fake.fetch);
 
-    // /Root and /Root/Data Model/Widget are structural only, so they are stubbed
-    // out first. /Root/Data Model is real content — it must not be stubbed.
-    const placeholders = putCalls(fake).slice(0, 2);
-    expect(placeholders.map(c => pathOf(c.url))).toEqual(['/Root', '/Root/Data Model/Widget']);
-    expect(placeholders.map(bodyOf)).toEqual(['# Root\n', '# Widget\n']);
-
-    // Exactly one PUT per path: the content pages were not also stubbed.
-    //
-    // BUG: pinned deliberately — not a spec. Two orderings here are wrong:
-    //  1. the /Root/Data Model/Widget placeholder is PUT while its own parent
-    //     /Root/Data Model does not exist yet, because the ensure pass skips
-    //     ancestors that are content pages and publishes them later;
-    //  2. /Root/Data Model is published *after* its own descendant, because a
-    //     page whose immediate parent is a placeholder is treated as a root by
-    //     sortPagesForPublish, and roots sort on the full path, so the longer
-    //     path wins. This shape is real: /WikiNode/Automation is a content page,
-    //     /WikiNode/Automation/Flows is a placeholder, and the flow pages under
-    //     it are content. Reported.
+    // Every path published exactly once, strictly in parent-before-child
+    // order — /Root/Data Model (content) before /Root/Data Model/Widget
+    // (placeholder) before its own child.
     expect(putPaths(fake)).toEqual([
       '/Root',
+      '/Root/Data Model',
       '/Root/Data Model/Widget',
       '/Root/Data Model/Widget/Columns',
-      '/Root/Data Model',
     ]);
+
+    // The two structural placeholders got the stub body; the two real content
+    // pages got their real content, not a stub.
+    const calls = putCalls(fake);
+    expect(bodyOf(calls[0])).toBe('# Root\n');
+    expect(bodyOf(calls[2])).toBe('# Widget\n');
+    expect(bodyOf(calls[1])).toBe('body');
+    expect(bodyOf(calls[3])).toBe('body');
   });
 
   it('ensures parents shortest-path-first', async () => {
@@ -318,14 +331,23 @@ describe('publishToWiki — parent pages', () => {
     expect(putPaths(fake).filter(p => p === '/Root')).toHaveLength(1);
   });
 
-  it('creates placeholder siblings in first-seen order, not Z→A', async () => {
-    // BUG: pinned deliberately — not a spec. sortPagesForPublish goes to
-    // real trouble to publish content siblings Z→A so ADO's newest-first sidebar
-    // displays them A→Z, but placeholder parents never go through it: they are
-    // sorted by depth only, and Set insertion order (stable sort) then decides
-    // the rest. These three folder names are the real ones wikiAssembler emits
-    // under /WikiNode/Automation, in the order it emits them — so the client's
-    // sidebar shows Plugins, Classic Workflows, Flows. Reported.
+  it('creates placeholder siblings Z→A, same as content, so the sidebar reads A→Z throughout', async () => {
+    // Was pinned: sortPagesForPublish goes to real trouble to publish content
+    // siblings Z→A so ADO's newest-first sidebar displays them A→Z, but
+    // placeholder parents never went through it — they sorted by depth only,
+    // with ties left in Set insertion order. These three folder names are the
+    // real ones wikiAssembler emits under /WikiNode/Automation, in the order
+    // it emits them, so the client's sidebar used to read Plugins, Classic
+    // Workflows, Flows instead of alphabetical.
+    //
+    // Fixed alongside the parent-before-child ordering bug above: ensuring
+    // and publishing are now one interleaved walk (a placeholder is created
+    // immediately before the first content page that needs it, not in a
+    // separate first-come batch), so the exact PUT sequence changed shape —
+    // it is no longer "all placeholders, then all content". What matters,
+    // and is asserted directly below, is unchanged: each placeholder folder
+    // still publishes before its own content, and the three top-level
+    // folders still publish in Z→A order relative to EACH OTHER.
     const fake = makeFake();
     const pages = [
       aPage('/Root/Automation/Flows/Send Email'),
@@ -335,19 +357,14 @@ describe('publishToWiki — parent pages', () => {
 
     await publishToWiki(aWikiConfig(), pages, fake.fetch);
 
-    expect(putPaths(fake).slice(0, 5)).toEqual([
+    expect(putPaths(fake)).toEqual([
       '/Root',
       '/Root/Automation',
-      '/Root/Automation/Flows',
-      '/Root/Automation/Classic Workflows',
       '/Root/Automation/Plugins',
-    ]);
-
-    // The content pages under them *are* sorted Z→A, which is what makes the
-    // placeholder order stand out as an oversight rather than a choice.
-    expect(putPaths(fake).slice(5)).toEqual([
       '/Root/Automation/Plugins/Contoso.Plugins',
+      '/Root/Automation/Flows',
       '/Root/Automation/Flows/Send Email',
+      '/Root/Automation/Classic Workflows',
       '/Root/Automation/Classic Workflows/Legacy',
     ]);
   });
@@ -501,13 +518,17 @@ describe('publishToWiki — sibling ordering', () => {
     ]);
   });
 
-  it('drops all but the first page when two pages share a path', async () => {
-    // BUG: pinned deliberately — not a spec. sortPagesForPublish dedupes on
-    // path via its `visited` set, and the safety-net loop re-checks the same set,
-    // so a second WikiPage at an already-visited path is never published and
-    // never reported: no PUT, no console.error, and index.ts still counts it in
-    // `pagesPublished = pages.length`. Last-write-wins is the usual semantic for
-    // an overwriting publisher; first-wins-silently is not. Reported.
+  it('warns and drops all but the first page when two pages share a path', async () => {
+    // Was pinned: sortPagesForPublish dedupes on path via its `visited` set,
+    // and the safety-net loop re-checks the same set, so a second WikiPage at
+    // an already-visited path was never published and never reported — no
+    // PUT, no console output, and index.ts still counted it in
+    // `pagesPublished = pages.length`. Last-write-wins is the usual semantic
+    // for an overwriting publisher; first-wins-silently was not. The drop
+    // itself is unchanged — publishing whichever content wins is still the
+    // only sane behaviour for two pages claiming one path — but it is now
+    // announced, matching the same "warn, don't silently drop" pattern
+    // wikiAssembler's own path-collision fix uses (#110).
     const fake = makeFake();
 
     await publishToWiki(
@@ -518,8 +539,8 @@ describe('publishToWiki — sibling ordering', () => {
 
     expect(putPaths(fake)).toEqual(['/Root', '/Root/Widget']);
     expect(bodyOf(putCalls(fake)[1])).toBe('first');
-    // Silently — nothing told the operator a page was discarded.
-    expect(error.mock.calls).toHaveLength(0);
+    expect(warned()).toContain('collision');
+    expect(warned()).toContain('/Root/Widget');
   });
 
   it('publishes a page the tree walk never reaches', async () => {

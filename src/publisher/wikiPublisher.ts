@@ -53,6 +53,28 @@ function buildAuthHeader(pat: string): string {
   return `Basic ${Buffer.from(`:${pat}`).toString('base64')}`;
 }
 
+/**
+ * The nearest ancestor of `path` that is itself a CONTENT page, skipping over
+ * any number of placeholder gaps in between — or null if none exists (path is
+ * a true independent root). Used instead of the immediate parent so that a
+ * content page separated from its real content ancestor by one or more
+ * placeholder folders (e.g. content /Root/Data Model, placeholder
+ * /Root/Data Model/Widget, content /Root/Data Model/Widget/Columns) is still
+ * recognised as that ancestor's descendant, not an unrelated root competing
+ * with it on full-path string comparison.
+ */
+function nearestContentAncestor(path: string, pagePaths: Set<string>): string | null {
+  const parts = path.split('/').filter(Boolean);
+  // i >= 0, not i > 0: i === 0 checks the literal wiki root '/' as a
+  // candidate ancestor, which matters whenever '/' is itself a content page
+  // (a single-segment page's only possible ancestor is the root).
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const candidate = '/' + parts.slice(0, i).join('/');
+    if (pagePaths.has(candidate)) return candidate;
+  }
+  return null;
+}
+
 // -----------------------------------------------
 // Sort pages so siblings publish Z→A
 // ADO sidebar shows newest-first, so Z→A publish = A→Z display
@@ -61,14 +83,35 @@ function buildAuthHeader(pat: string): string {
 function sortPagesForPublish(pages: WikiPage[]): WikiPage[] {
   const pagePaths = new Set(pages.map(p => p.path));
 
-  // Group pages by parent path
+  // A duplicate INPUT path would otherwise be dropped with no trace: the
+  // dedupe below (visited) keeps only the first occurrence, silently
+  // discarding every later page's real content. Warn once per colliding path
+  // before that happens, so it is visible in the run log instead of only in
+  // a diff between what was meant to publish and what did.
+  const pathCounts = new Map<string, number>();
+  for (const page of pages) {
+    pathCounts.set(page.path, (pathCounts.get(page.path) ?? 0) + 1);
+  }
+  for (const [path, count] of pathCounts) {
+    if (count > 1) {
+      console.warn(
+        `  ⚠ Wiki page path collision: ${count} pages share the path "${path}" — ` +
+        `only the first will be published, the rest are silently dropped.`
+      );
+    }
+  }
+
+  // Group pages by their nearest CONTENT ancestor, not their immediate
+  // parent — the immediate parent is often a placeholder, which is never
+  // itself in `pages`, so grouping on it alone left a page like
+  // /Root/Data Model/Widget/Columns with no group to belong to at all.
   const grouped = new Map<string, WikiPage[]>();
   for (const page of pages) {
-    const parts = page.path.split('/').filter(Boolean);
-    const parent = '/' + parts.slice(0, -1).join('/');
-    const siblings = grouped.get(parent) ?? [];
+    const ancestor = nearestContentAncestor(page.path, pagePaths);
+    if (ancestor === null) continue;
+    const siblings = grouped.get(ancestor) ?? [];
     siblings.push(page);
-    grouped.set(parent, siblings);
+    grouped.set(ancestor, siblings);
   }
 
   const result: WikiPage[] = [];
@@ -88,12 +131,13 @@ function sortPagesForPublish(pages: WikiPage[]): WikiPage[] {
     }
   }
 
-  // Start from root pages (whose parent is not in the pages list)
-  const roots = pages.filter(p => {
-    const parts = p.path.split('/').filter(Boolean);
-    const parent = '/' + parts.slice(0, -1).join('/');
-    return !pagePaths.has(parent);
-  });
+  // Start from root pages — those with no CONTENT ancestor at any depth, not
+  // just an immediate one. A content page one level below a placeholder used
+  // to be misclassified as a root purely because its immediate parent wasn't
+  // itself a content page, so it competed on full-path string comparison
+  // against completely unrelated subtrees and could sort — and therefore
+  // publish — before its own real ancestor.
+  const roots = pages.filter(p => nearestContentAncestor(p.path, pagePaths) === null);
 
   roots.sort((a, b) => b.path.localeCompare(a.path));
   for (const root of roots) {
@@ -207,55 +251,75 @@ export async function publishToWiki(
     throw new Error(`Wiki connection failed [${testResponse.status}] — check organisation, project and wikiIdentifier in config.`);
   }
 
-  // Collect all unique intermediate parent paths
-  const parentPaths = new Set<string>();
-  for (const page of pages) {
-    const parts = page.path.split('/').filter(Boolean);
-    for (let i = 1; i < parts.length; i++) {
-      parentPaths.add('/' + parts.slice(0, i).join('/'));
+  const results: PublishResult[] = [];
+  const pageByPath = new Map(pages.map(p => [p.path, p]));
+  // Shared across both helpers below so a path is ensured/published exactly
+  // once, however many times it's reached as someone else's ancestor.
+  const handled = new Set<string>();
+
+  // Publishes one page (content or a synthesised placeholder), recording the
+  // outcome. Shared by both the real content pages below and by a content
+  // page reached early as an ancestor.
+  async function publishOne(path: string, content: string): Promise<void> {
+    try {
+      const existing = await getPage(config, path, doFetch);
+      await putPage(config, path, content, doFetch, existing?.eTag);
+      results.push({ path, success: true });
+    } catch (err) {
+      const reason = (err as Error)?.message ?? String(err);
+      console.error(`  ✗ Failed: ${path}`, err);
+      results.push({ path, success: false, reason });
     }
   }
 
-  // Ensure parents exist top-down (shortest path first)
-  const sortedParents = [...parentPaths].sort(
-    (a, b) => a.split('/').length - b.split('/').length
-  );
+  // Ensures every ancestor of `path` exists, shallowest first, BEFORE `path`
+  // itself is published. An ancestor that is itself a content page is
+  // published here as content, not stubbed as a placeholder — this is the
+  // fix: ancestor-ensuring and content-publishing used to be two disjoint
+  // phases (all placeholders, THEN all content), so a placeholder nested
+  // under a content page — e.g. a content "Data Model" page with a
+  // placeholder "Widget" folder beneath it — was created while its own
+  // content-page parent didn't exist yet. Walking the real ancestor chain,
+  // content or placeholder, in order removes that possibility structurally
+  // rather than special-casing it.
+  async function ensureAncestors(path: string): Promise<void> {
+    const parts = path.split('/').filter(Boolean);
+    for (let i = 1; i < parts.length; i++) {
+      const ancestor = '/' + parts.slice(0, i).join('/');
+      if (handled.has(ancestor)) continue;
+      handled.add(ancestor);
 
-  const results: PublishResult[] = [];
-
-  // Placeholder parents degrade like content pages rather than aborting the run.
-  // This loop used to sit outside any try/catch, so a transient 500 on a
-  // placeholder — tolerated on a content page — took the whole publish down and
-  // no content page published at all.
-  for (const parentPath of sortedParents) {
-    const isContentPage = pages.some(p => p.path === parentPath);
-    if (!isContentPage) {
-      try {
-        await ensurePage(config, parentPath, doFetch);
-      } catch (err) {
-        const reason = (err as Error)?.message ?? String(err);
-        console.error(`  ✗ Failed to create parent: ${parentPath} — ${reason}`);
-        results.push({ path: parentPath, success: false, reason });
+      const contentPage = pageByPath.get(ancestor);
+      if (contentPage) {
+        await publishOne(ancestor, contentPage.content);
+      } else {
+        // Placeholder parents degrade like content pages rather than
+        // aborting the run — a transient 500 here must not cost every page
+        // beneath it.
+        try {
+          await ensurePage(config, ancestor, doFetch);
+        } catch (err) {
+          const reason = (err as Error)?.message ?? String(err);
+          console.error(`  ✗ Failed to create parent: ${ancestor} — ${reason}`);
+          results.push({ path: ancestor, success: false, reason });
+        }
       }
     }
   }
 
-  // Sort pages so siblings publish Z→A → display A→Z in ADO sidebar
+  // Sort pages so siblings publish Z→A → display A→Z in ADO sidebar. Driving
+  // the walk in this order — rather than "all placeholders, then all
+  // content" — is what lets ensureAncestors interleave a content-page
+  // ancestor at exactly the point it's needed, and still preserves the Z→A
+  // sibling discipline for both content pages AND the placeholder folders
+  // pulled in ahead of them.
   const sortedPages = sortPagesForPublish(pages);
 
-  // Publish all pages — always overwrite. Per-page failures are still
-  // skip-and-continue (one bad page must not cost the other 339), but they are
-  // now *returned* rather than only printed, so the caller can count them.
   for (const page of sortedPages) {
-    try {
-      const existing = await getPage(config, page.path, doFetch);
-      await putPage(config, page.path, page.content, doFetch, existing?.eTag);
-      results.push({ path: page.path, success: true });
-    } catch (err) {
-      const reason = (err as Error)?.message ?? String(err);
-      console.error(`  ✗ Failed: ${page.path}`, err);
-      results.push({ path: page.path, success: false, reason });
-    }
+    if (handled.has(page.path)) continue; // already published as an ancestor
+    handled.add(page.path);
+    await ensureAncestors(page.path);
+    await publishOne(page.path, page.content);
   }
 
   console.log('\nPublish complete.');
