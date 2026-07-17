@@ -1,0 +1,8 @@
+{
+  "environmentvariablevalues": {
+    "environmentvariablevalue": {
+      "schemaname": "contoso_apiEndpoint",
+      "value": "https://api-uat.contoso.example/v1"
+    }
+  }
+}
