@@ -1,0 +1,48 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_commondataserviceforapps": {
+        "connection": { "connectionReferenceLogicalName": "contoso_sharedcommondataserviceforapps_ab12c" }
+      }
+    },
+    "definition": {
+      "triggers": {
+        "When_a_sync_is_requested": {
+          "type": "Request"
+        }
+      },
+      "actions": {
+        "Start_sync_job": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": { "operationId": "PerformBoundAction" },
+            "parameters": { "entityName": "contoso_widgets" }
+          },
+          "runAfter": {}
+        },
+        "Poll_for_completion": {
+          "type": "Until",
+          "expression": {
+            "equals": ["@outputs('Start_sync_job')?['body/contoso_status']", "Complete"]
+          },
+          "limit": { "count": 60, "timeout": "PT1H" },
+          "actions": {
+            "Check_sync_status": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": { "operationId": "GetItem" },
+                "parameters": { "entityName": "contoso_widgets" }
+              },
+              "runAfter": {}
+            },
+            "Delay_between_polls": {
+              "type": "Wait",
+              "runAfter": { "Check_sync_status": ["Succeeded"] }
+            }
+          },
+          "runAfter": { "Start_sync_job": ["Succeeded"] }
+        }
+      }
+    }
+  }
+}

@@ -215,6 +215,17 @@ function parseActions(actions: Record<string, any>, depth: number = 0, parentNam
       description = switchLabel ? `Switch on ${switchLabel}` : 'Switch condition';
     }
 
+    if (type === 'Until') {
+      const expr = action?.expression ? serializeExpression(action.expression) : '';
+      const limit: string = action?.limit?.count ?? '';
+      const limitPart = limit ? ` (max ${limit} iterations)` : '';
+      const innerCount = Object.keys(action?.actions ?? {}).length;
+      const countPart = ` (${innerCount} action${innerCount !== 1 ? 's' : ''})`;
+      description = expr
+        ? `Loop until ${expr}${limitPart}${countPart}`
+        : `Loop — until${limitPart}${countPart}`;
+    }
+
     results.push({
       name,
       type,
@@ -249,6 +260,15 @@ function parseActions(actions: Record<string, any>, depth: number = 0, parentNam
         if (c?.actions) results.push(...parseActions(c.actions, depth + 1, `${name} (${caseKey})`));
       }
       if (action?.default?.actions) results.push(...parseActions(action.default.actions, depth + 1, `${name} (default)`));
+    }
+
+    // Recurse into Until ("Do until" loop body) — same shape as Foreach: a
+    // single nested actions object that repeats. Without this, every action
+    // inside a "Do until" loop was missing from BOTH the action table and the
+    // Mermaid diagram — a client reading the generated docs for a polling
+    // loop saw a single step with no indication it loops and no visible body.
+    if (type === 'Until') {
+      if (action?.actions) results.push(...parseActions(action.actions, depth + 1, name));
     }
   }
 

@@ -489,14 +489,12 @@ describe('generateMermaidDiagram — nesting and node identity', () => {
   });
 });
 
-describe('generateMermaidDiagram — pinned bugs', () => {
-  // These pin CURRENT behaviour so a change is visible in review. They are
-  // recorded gaps, not a specification — see the defect report on this module.
-
-  it('BUG: drops every action inside a Switch case from the diagram', () => {
-    // flowParser.ts:246-252 recurses into cases and default, so the flow's action
-    // TABLE lists these actions while the diagram silently omits them. The Switch
-    // itself renders as a bare rectangle with nothing downstream of it.
+describe('generateMermaidDiagram — Switch and Until', () => {
+  it('draws every Switch case and the default branch, labelled by case name', () => {
+    // Was pinned: flowParser.ts recurses into cases and default, so the flow's
+    // action TABLE always listed these actions while the diagram silently
+    // omitted them — the Switch rendered as a dead-end box, understating what
+    // the flow actually does.
     const dsl = generateMermaidDiagram(aTrigger(), {
       Switch_on_Tier: {
         type: 'Switch',
@@ -508,29 +506,71 @@ describe('generateMermaidDiagram — pinned bugs', () => {
     expect(nodes(dsl)).toEqual([
       '  N0(["DataverseCreate: acme_widget"])',
       '  N1["Switch on Tier"]',
+      '  N2["Send Gift"]',
+      '  N3["Do Nothing"]',
     ]);
-    expect(nodes(dsl).some(l => l.includes('Send Gift'))).toBe(false);
+    expect(edges(dsl)).toEqual([
+      '  N1 -->|"Gold"| N2',
+      '  N1 -->|"Default"| N3',
+      '  N0 --> N1',
+    ]);
+  });
+
+  it('omits a case with no actions rather than drawing an empty branch', () => {
+    const dsl = generateMermaidDiagram(aTrigger(), {
+      Switch_on_Tier: {
+        type: 'Switch',
+        runAfter: {},
+        cases: { Empty: { actions: {} } },
+      },
+    });
+    expect(nodes(dsl)).toEqual([
+      '  N0(["DataverseCreate: acme_widget"])',
+      '  N1["Switch on Tier"]',
+    ]);
     expect(edges(dsl)).toEqual(['  N0 --> N1']);
   });
 
-  it('BUG: drops every action inside an Until loop and omits the loop glyph', () => {
-    // flowParser.ts:52 maps Until → 'Loop — until', so the codebase knows the
-    // type exists; the generator neither recurses into it nor marks it as a loop.
+  it('draws an Until loop body and marks it with the loop glyph', () => {
+    // Was pinned: flowParser.ts:52 maps Until → 'Loop — until', so the codebase
+    // knew the type existed; the generator neither recursed into it nor marked
+    // it as a loop. A polling loop — a common Power Automate pattern — drew as
+    // a single ordinary step with no indication it loops and no visible body.
     const dsl = generateMermaidDiagram(aTrigger(), {
       Do_until: { type: 'Until', runAfter: {}, actions: { Poll_Status: act('Compose') } },
     });
     expect(nodes(dsl)).toEqual([
       '  N0(["DataverseCreate: acme_widget"])',
-      '  N1["Do until"]', // no ↺ glyph, and Poll Status is absent entirely
+      '  N1["↺ Do until"]',
+      '  N2["Poll Status"]',
+    ]);
+    expect(edges(dsl)).toEqual([
+      '  N1 --> N2',
+      '  N0 --> N1',
     ]);
   });
 
-  it('BUG: does not escape double quotes in the trigger label', () => {
-    // nodeDef() escapes " → ' for every action label (mermaidGenerator.ts:12), but
-    // the trigger node is built inline at :137 and bypasses it. entity comes
-    // straight from unvalidated flow JSON (flowParser.ts:105), so a quote in it
-    // would terminate the label early and break the whole diagram.
+  it('draws an empty Until loop with the glyph but no body edge', () => {
+    const dsl = generateMermaidDiagram(aTrigger(), {
+      Do_until: { type: 'Until', runAfter: {}, actions: {} },
+    });
+    expect(nodes(dsl)).toEqual([
+      '  N0(["DataverseCreate: acme_widget"])',
+      '  N1["↺ Do until"]',
+    ]);
+    expect(edges(dsl)).toEqual(['  N0 --> N1']);
+  });
+});
+
+describe('generateMermaidDiagram — trigger label escaping', () => {
+  it('escapes double quotes in the trigger label like every action label', () => {
+    // Was pinned: nodeDef() escapes " → ' for every action label, but the
+    // trigger node is built inline and bypassed it. trigger.entity comes
+    // straight from unvalidated flow JSON, so a quote in it terminated the
+    // Mermaid string literal early and broke the WHOLE diagram, not just the
+    // trigger node — worse blast radius than any single action label bug.
     const dsl = generateMermaidDiagram(aTrigger({ entity: 'acme_"odd"' }), {});
-    expect(lines(dsl)).toContain('  N0(["DataverseCreate: acme_"odd""])');
+    expect(lines(dsl)).toContain(`  N0(["DataverseCreate: acme_'odd'"])`);
+    expect(dsl).not.toContain('acme_"odd"');
   });
 });
