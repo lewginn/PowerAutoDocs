@@ -94,8 +94,12 @@ export async function buildPdfDocument(
     ? generateERDiagram(mergedSolution.tables, publisherPrefixes, config.erd)
     : generateERDiagram(mergedSolution.tables, undefined, config.erd);
 
-  push(content, [h(1, 'Data Model')], 0);
-  if (erdDiagram) push(content, [mermaid(erdDiagram)], 0);
+  // Guarded like every other section — see the identical fix and comment in
+  // docAssembler.ts (#110).
+  if (mergedSolution.tables.length > 0 || erdDiagram) {
+    push(content, [h(1, 'Data Model')], 0);
+    if (erdDiagram) push(content, [mermaid(erdDiagram)], 0);
+  }
 
   const flowDeps = resolveFlowTableDependencies(flows, mergedSolution.tables);
 

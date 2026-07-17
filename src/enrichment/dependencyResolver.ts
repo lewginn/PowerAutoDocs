@@ -54,6 +54,15 @@ export function resolveFlowTableDependencies(
       if (action.entityName) entityNames.add(action.entityName.toLowerCase());
     }
 
+    // Dedupe on the RESOLVED table, not the raw entity string. Two different
+    // entity references — a trigger's singular logical name and an action's
+    // plural entity-set name, e.g. 'acme_widget' and 'acme_widgets' — resolve
+    // to the same TableModel, but the entityNames Set above only dedupes
+    // exact string matches, so both survive into this loop. Without this, the
+    // same flow was pushed into tableToFlows twice for one table (listed
+    // twice under "Used By Flows" in every output format), and the same
+    // table was pushed into flowToTables twice for one flow.
+    const matchedTableNames = new Set<string>();
     const matchedTables: TableModel[] = [];
     for (const entityName of entityNames) {
       const table = singularCandidates(entityName)
@@ -61,11 +70,15 @@ export function resolveFlowTableDependencies(
         .find((t): t is TableModel => t !== undefined);
       if (!table) continue;
 
+      const key = table.logicalName.toLowerCase();
+      if (matchedTableNames.has(key)) continue;
+      matchedTableNames.add(key);
+
       matchedTables.push(table);
 
-      const existing = tableToFlows.get(table.logicalName.toLowerCase()) ?? [];
+      const existing = tableToFlows.get(key) ?? [];
       existing.push(flow);
-      tableToFlows.set(table.logicalName.toLowerCase(), existing);
+      tableToFlows.set(key, existing);
     }
 
     if (matchedTables.length > 0) {
