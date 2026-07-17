@@ -6,7 +6,7 @@
 import {
   Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
   HeadingLevel, AlignmentType, WidthType, ShadingType, TableLayoutType,
-  Footer, PageNumber, convertInchesToTwip, TableOfContents,
+  Footer, PageNumber, convertInchesToTwip, TableOfContents, ImageRun,
 } from 'docx';
 import type { DocNode, InlineNode, BulletItem } from './nodes.js';
 
@@ -28,7 +28,18 @@ function inlineRuns(inlines: InlineNode[]): TextRun[] {
       case 'text':
         return new TextRun({ text: node.value, italics: false });
       case 'code':
-        return new TextRun({ text: node.value, font: 'Courier New', size: 18, italics: false });
+        // Light shading mimics the wiki's code "chip". Without it, Courier New
+        // alone doesn't separate logical names from prose strongly enough —
+        // a flow step like **Name** — List records on `tasks` reads as one
+        // undifferentiated run of text, which is most of what made the Word
+        // action lists feel mushy next to the wiki's.
+        return new TextRun({
+          text: node.value,
+          font: 'Courier New',
+          size: 18,
+          italics: false,
+          shading: { type: ShadingType.SOLID, color: 'auto', fill: 'F2F2F2' },
+        });
       case 'bold':
         return new TextRun({ text: node.value, bold: true, italics: false });
       case 'italic':
@@ -156,12 +167,26 @@ function serializeTable(headers: string[], rows: InlineNode[][][]): Table {
 // Bullet list serialisation
 // -----------------------------------------------
 
+// Word's native multilevel bullets — the same thing the wiki's nested markdown
+// lists get from the browser: a real indent staircase, a distinct glyph per
+// level (●/○/▪), and hanging indents so wrapped text lines up under the text
+// rather than falling back to the margin.
+//
+// A previous attempt hand-rolled this with explicit per-depth `indent`
+// values. Don't: hand-rolled indents are a plain paragraph wearing a bullet
+// costume, so they carry no list semantics and renderers are free to lay them
+// out however they like — Pages flattened them into a near-vertical column,
+// which is what made nesting look broken. Native lists render consistently in
+// Word, Word Online, Pages and LibreOffice alike.
+//
+// Spacing is deliberately tight (no `before`) so a long action tree reads as
+// one dense block, like the wiki's list, instead of a sparse page of stripes.
 function bulletItems(items: BulletItem[]): Paragraph[] {
   return items.map(item =>
     new Paragraph({
       children: inlineRuns(item.inlines),
       bullet: { level: item.depth },
-      spacing: { after: 60 },
+      spacing: { after: 40 },
     })
   );
 }
@@ -183,7 +208,46 @@ const HEADING_SPACING: Record<number, { before: number; after: number }> = {
 
 type DocxBlock = Paragraph | Table;
 
-export function serializeBlock(node: DocNode, headingOffset: number): DocxBlock | DocxBlock[] {
+/**
+ * Renders Mermaid DSL to a PNG for embedding. Kept as an injected callback
+ * rather than an import so the docmodel layer stays free of the
+ * puppeteer/mermaid-cli dependency chain — docAssembler.ts supplies the real
+ * implementation (src/enrichment/mermaidRenderer.ts). Returning null (or
+ * omitting the callback) falls back to skipping the diagram, same as before
+ * this existed.
+ */
+export type MermaidRenderer = (code: string) => Promise<{ data: Buffer; width: number; height: number } | null>;
+
+const TWIPS_PER_PIXEL = 15; // 1440 twips/inch ÷ 96px/inch
+
+async function serializeMermaid(code: string, renderMermaid?: MermaidRenderer): Promise<DocxBlock[]> {
+  if (!renderMermaid) return [];
+
+  const rendered = await renderMermaid(code);
+  if (!rendered) return [];
+
+  const widthPx  = Math.min(rendered.width, PAGE_WIDTH_TWIPS / TWIPS_PER_PIXEL);
+  const scale     = widthPx / rendered.width;
+  const heightPx  = rendered.height * scale;
+
+  return [
+    new Paragraph({
+      children: [new ImageRun({
+        type: 'png',
+        data: rendered.data,
+        transformation: { width: widthPx, height: heightPx },
+      })],
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 120 },
+    }),
+  ];
+}
+
+export async function serializeBlock(
+  node: DocNode,
+  headingOffset: number,
+  renderMermaid?: MermaidRenderer,
+): Promise<DocxBlock | DocxBlock[]> {
   switch (node.type) {
     case 'heading': {
       const absLevel  = Math.min(node.level + headingOffset, 4);
@@ -217,8 +281,7 @@ export function serializeBlock(node: DocNode, headingOffset: number): DocxBlock 
       return bulletItems(node.items);
 
     case 'mermaid':
-      // Mermaid diagrams are only rendered in ADO Wiki — skip in Word output
-      return [];
+      return serializeMermaid(node.code, renderMermaid);
 
     case 'code_block': {
       const lines = node.text.split('\n');
@@ -246,11 +309,17 @@ export function serializeBlock(node: DocNode, headingOffset: number): DocxBlock 
 // Public API
 // -----------------------------------------------
 
-export function serializeBlocks(nodes: DocNode[], headingOffset = 0): (Paragraph | Table)[] {
-  return nodes.flatMap(node => {
-    const result = serializeBlock(node, headingOffset);
-    return Array.isArray(result) ? result : [result];
-  });
+export async function serializeBlocks(
+  nodes: DocNode[],
+  headingOffset = 0,
+  renderMermaid?: MermaidRenderer,
+): Promise<(Paragraph | Table)[]> {
+  const blocks: (Paragraph | Table)[] = [];
+  for (const node of nodes) {
+    const result = await serializeBlock(node, headingOffset, renderMermaid);
+    blocks.push(...(Array.isArray(result) ? result : [result]));
+  }
+  return blocks;
 }
 
 export function buildToc(): TableOfContents {

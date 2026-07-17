@@ -32,6 +32,7 @@ export const CONFIG_DEFAULTS: DocGenConfig = {
     wordFilename: 'solution-documentation.docx',
     pdf: false,
     pdfFilename: 'solution-documentation.pdf',
+    wordDiagrams: true,
   },
   parse: {
     customColumnsOnly: false,

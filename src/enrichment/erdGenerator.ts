@@ -17,8 +17,9 @@ export interface ErdConfig {
  * 3. Remove relationships listed in erdConfig.excludeRelationships by schema name
  * 4. Self-referential relationships are always skipped
  *
- * Returns a Mermaid erDiagram string wrapped in ADO Wiki :::mermaid fences,
- * or empty string if no qualifying relationships found.
+ * Returns a raw Mermaid erDiagram string (no ADO fence — that's added by
+ * MarkdownSerializer's 'mermaid' case), or empty string if no qualifying
+ * relationships found.
  */
 export function generateERDiagram(
   tables: TableModel[],
@@ -103,7 +104,7 @@ export function generateERDiagram(
     lines.push(`    ${fromLabel} ||--o{ ${toLabel} : " "`);
   }
 
-  return `:::mermaid\n${lines.join('\n')}\n:::`;
+  return lines.join('\n');
 }
 
 /**
