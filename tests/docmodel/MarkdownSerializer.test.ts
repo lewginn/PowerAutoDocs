@@ -80,13 +80,21 @@ describe('table serialisation', () => {
     expect(row).toBe('| `String` |');
   });
 
-  // Characterisation, NOT endorsement: a row with fewer cells than headers emits a
-  // short row, which is malformed markdown. serializeTable is half-guarded against
-  // this — the width calc handles a missing cell via `r[i] ?? ''`, but the body map
-  // iterates the row, so the cell never gets emitted. No renderer builds a ragged
-  // table today, so this is latent. Tracked in #103; update this test when it's fixed.
-  it('BUG: emits a short row when a row has fewer cells than headers (#103)', () => {
+  it('pads a row with fewer cells than headers, rather than emitting it short (#103)', () => {
+    // Was pinned: the width calc already handled a missing cell via
+    // `r[i] ?? ''`, but the body emission iterated the row's own cells
+    // instead of the header count, so the trailing column was silently
+    // dropped rather than padded empty like the width calc already assumed
+    // every row would be. No renderer built a ragged table at the time this
+    // was found — latent, not live — but the fix is the same one-line change
+    // either way: iterate over widths (one entry per header column), not
+    // over the row.
     const out = serialize([table(['A', 'B'], [[ct('x')]])]);
+    expect(out.split('\n')[2]).toBe('| x |   |');
+  });
+
+  it('drops extra cells beyond the header count, the other direction of raggedness', () => {
+    const out = serialize([table(['A'], [[ct('x'), ct('y')]])]);
     expect(out.split('\n')[2]).toBe('| x |');
   });
 

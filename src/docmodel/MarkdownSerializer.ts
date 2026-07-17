@@ -44,8 +44,12 @@ function serializeTable(headers: string[], rows: InlineNode[][][]): string {
 
   const header  = '| ' + headers.map((h, i) => pad(h, widths[i])).join(' | ') + ' |';
   const divider = '| ' + widths.map(w => '-'.repeat(w)).join(' | ') + ' |';
+  // Iterate over widths (one entry per HEADER column), not over the row's own
+  // cells (#103) — a row with fewer cells than headers used to emit a short
+  // markdown row, silently dropping the trailing columns instead of padding
+  // them empty like the width calculation above already assumes every row does.
   const body    = cellStrings.map(
-    row => '| ' + row.map((cell, i) => pad(cell ?? '', widths[i])).join(' | ') + ' |'
+    row => '| ' + widths.map((w, i) => pad(row[i] ?? '', w)).join(' | ') + ' |'
   );
 
   return [header, divider, ...body].join('\n');
