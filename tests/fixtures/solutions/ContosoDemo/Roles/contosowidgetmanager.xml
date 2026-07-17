@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Role id="{aa222222-2222-4222-8222-222222222222}" name="Contoso Widget Manager">
+  <RoleTemplateId>{00000000-0000-0000-0000-000000000000}</RoleTemplateId>
+  <IsInherited>2</IsInherited>
+  <CanBeDeleted>1</CanBeDeleted>
+  <IsCustomizable>1</IsCustomizable>
+  <IsAutoAssigned>0</IsAutoAssigned>
+  <IsManaged>0</IsManaged>
+  <RolePrivileges>
+    <RolePrivilege name="prvCreatecontoso_widget" level="Global" />
+    <RolePrivilege name="prvReadcontoso_widget" level="Deep" />
+    <RolePrivilege name="prvWritecontoso_widget" level="Local" />
+    <RolePrivilege name="prvDeletecontoso_widget" level="Basic" />
+    <RolePrivilege name="prvAppendcontoso_widget" level="Local" />
+    <RolePrivilege name="prvAppendTocontoso_widget" level="Global" />
+    <RolePrivilege name="prvReadcontoso_GadgetLog" level="Global" />
+    <RolePrivilege name="prvWritecontoso_GadgetLog" level="Basic" />
+    <RolePrivilege name="prvReadaccount" level="Global" />
+    <RolePrivilege name="prvCreateaccount" level="Deep" />
+    <RolePrivilege name="prvReadfabrikam_ledger" level="Global" />
+    <RolePrivilege name="prvBulkDeletecontoso_widget" level="Global" />
+  </RolePrivileges>
+</Role>

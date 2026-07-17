@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<EntityRelationships>
+  <EntityRelationship Name="contoso_widget_contoso_order">
+    <ReferencingEntityName>contoso_order</ReferencingEntityName>
+    <ReferencedEntityName>contoso_widget</ReferencedEntityName>
+    <ReferencingAttributeName>contoso_widgetid</ReferencingAttributeName>
+  </EntityRelationship>
+  <EntityRelationship Name="msdyn_order_sync">
+    <EntityRelationshipType>ManyToOne</EntityRelationshipType>
+    <ReferencingEntityName>contoso_order</ReferencingEntityName>
+    <ReferencedEntityName>msdyn_solutionhealthrule</ReferencedEntityName>
+    <ReferencingAttributeName>msdyn_healthruleid</ReferencingAttributeName>
+  </EntityRelationship>
+</EntityRelationships>

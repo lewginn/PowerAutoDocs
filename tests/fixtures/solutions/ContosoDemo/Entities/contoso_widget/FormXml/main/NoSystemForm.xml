@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Well-formed XML with no <systemform>. One junk file in FormXml must not cost
+  the entity its real forms.
+-->
+<forms type="main">
+  <notasystemform>
+    <FormActivationState>1</FormActivationState>
+  </notasystemform>
+</forms>

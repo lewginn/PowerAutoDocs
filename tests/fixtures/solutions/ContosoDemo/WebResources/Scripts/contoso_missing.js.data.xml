@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WebResource>
+  <WebResourceId>{e2222222-2222-4222-8222-222222222222}</WebResourceId>
+  <Name>contoso_/Scripts/contoso_missing.js</Name>
+  <DisplayName>Widget Ribbon Scripts</DisplayName>
+  <FileName>/WebResources/Scripts/contoso_missing.js</FileName>
+  <WebResourceType>3</WebResourceType>
+  <IntroducedVersion>1.0.0.0</IntroducedVersion>
+  <DependencyXml></DependencyXml>
+</WebResource>

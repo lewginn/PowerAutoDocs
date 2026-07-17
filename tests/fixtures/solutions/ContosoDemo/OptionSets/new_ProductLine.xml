@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<optionset Name="new_ProductLine" localizedName="Product Line">
+  <OptionSetType>picklist</OptionSetType>
+  <IsGlobal>1</IsGlobal>
+  <options>
+    <option value="200000000">
+      <labels>
+        <label description="Widgets" languagecode="1033" />
+      </labels>
+    </option>
+  </options>
+</optionset>

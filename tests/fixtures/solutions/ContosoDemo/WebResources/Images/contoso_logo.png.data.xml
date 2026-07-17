@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WebResource>
+  <WebResourceId>{e4444444-4444-4444-8444-444444444444}</WebResourceId>
+  <Name>contoso_/Images/contoso_logo.png</Name>
+  <FileName>/WebResources/Images/contoso_logo.png</FileName>
+  <WebResourceType>5</WebResourceType>
+  <IntroducedVersion>1.0.0.0</IntroducedVersion>
+</WebResource>

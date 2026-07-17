@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Workflow WorkflowId="{9a1f0c3e-4000-4000-8000-000000000003}" Name="Alpha server rule">
+  <Category>2</Category>
+  <StateCode>1</StateCode>
+  <PrimaryEntity>contoso_escalation</PrimaryEntity>
+</Workflow>

@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Activity x:Class="ContosoWidgetApproval"
+          xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
+          xmlns:mxs="clr-namespace:Microsoft.Xrm.Sdk.Workflow;assembly=Microsoft.Xrm.Sdk.Workflow"
+          xmlns:mxswa="clr-namespace:Microsoft.Xrm.Sdk.Workflow.Activities;assembly=Microsoft.Xrm.Sdk.Workflow"
+          xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <mxswa:Workflow>
+    <mxs:ActivityReference AssemblyQualifiedName="Microsoft.Crm.Workflow.Activities.ConditionSequence, Microsoft.Crm.Workflow"
+                           DisplayName="ConditionStep1: Check status">
+      <mxs:ActivityReference.Properties>
+        <mxs:Collection x:TypeArguments="Activity" x:Key="Activities">
+          <mxswa:GetEntityProperty Attribute="contoso_status" EntityName="contoso_widget" DisplayName="Read status" />
+          <mxs:ActivityReference AssemblyQualifiedName="Microsoft.Crm.Workflow.Activities.ConditionBranch, Microsoft.Crm.Workflow"
+                                 DisplayName="ConditionBranchStep1">
+            <mxs:ActivityReference.Properties>
+              <mxs:ActivityReference AssemblyQualifiedName="Microsoft.Crm.Workflow.Activities.Composite, Microsoft.Crm.Workflow">
+                <mxs:ActivityReference.Properties>
+                  <mxs:Collection x:TypeArguments="Activity" x:Key="Activities">
+                    <Sequence DisplayName="UpdateStep1: Stamp approval">
+                      <mxswa:GetEntityProperty Attribute="contoso_amount" EntityName="contoso_widget" />
+                      <mxswa:SetEntityProperty Attribute="contoso_approvedon" EntityName="contoso_widget" />
+                      <mxswa:SetEntityProperty Attribute="contoso_approvedby" EntityName="contoso_widget" />
+                      <mxswa:UpdateEntity EntityName="contoso_widget" DisplayName="Update the widget" />
+                    </Sequence>
+                    <mxs:ActivityReference AssemblyQualifiedName="Microsoft.Crm.Workflow.Activities.ConditionSequence, Microsoft.Crm.Workflow"
+                                           DisplayName="ConditionStep2: Check amount">
+                      <mxs:ActivityReference.Properties>
+                        <mxs:Collection x:TypeArguments="Activity" x:Key="Activities">
+                          <mxswa:GetEntityProperty Attribute="contoso_amount" EntityName="contoso_widget" />
+                          <mxs:ActivityReference AssemblyQualifiedName="Microsoft.Crm.Workflow.Activities.ConditionBranch, Microsoft.Crm.Workflow"
+                                                 DisplayName="ConditionBranchStep2">
+                            <mxs:ActivityReference.Properties>
+                              <mxs:ActivityReference AssemblyQualifiedName="Microsoft.Crm.Workflow.Activities.Composite, Microsoft.Crm.Workflow">
+                                <mxs:ActivityReference.Properties>
+                                  <mxs:Collection x:TypeArguments="Activity" x:Key="Activities">
+                                    <Sequence DisplayName="StopWorkflowStep1: Over the limit">
+                                      <Sequence.Variables>
+                                        <Variable x:TypeArguments="x:String" Name="stepLabelDescription"
+                                                  Default="Widget amount exceeds the approval limit." />
+                                      </Sequence.Variables>
+                                      <mxswa:TerminateWorkflow ExceptionMessage="Over the limit" DisplayName="Stop" />
+                                    </Sequence>
+                                  </mxs:Collection>
+                                </mxs:ActivityReference.Properties>
+                              </mxs:ActivityReference>
+                            </mxs:ActivityReference.Properties>
+                          </mxs:ActivityReference>
+                        </mxs:Collection>
+                      </mxs:ActivityReference.Properties>
+                    </mxs:ActivityReference>
+                  </mxs:Collection>
+                </mxs:ActivityReference.Properties>
+              </mxs:ActivityReference>
+            </mxs:ActivityReference.Properties>
+          </mxs:ActivityReference>
+        </mxs:Collection>
+      </mxs:ActivityReference.Properties>
+    </mxs:ActivityReference>
+    <Sequence DisplayName="CustomStep1: Call a custom assembly">
+      <mxswa:ActivityReference AssemblyQualifiedName="Contoso.Plugins.DoThing, Contoso.Plugins" DisplayName="Do thing" />
+    </Sequence>
+  </mxswa:Workflow>
+</Activity>

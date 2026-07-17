@@ -1,0 +1,1 @@
+Not an XML export — the parser must skip non-.xml entries in this folder.

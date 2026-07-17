@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<savedqueries>
+  <savedquery>
+    <IsCustomizable>1</IsCustomizable>
+    <isquickfindquery>1</isquickfindquery>
+    <isdefault>0</isdefault>
+    <returnedtypecode>contoso_widget</returnedtypecode>
+    <layoutxml>
+      <grid name="resultset" object="10000" jump="contoso_name" select="1" icon="1" preview="0">
+        <row name="result" id="contoso_widgetid">
+          <cell name="contoso_name" width="300" />
+        </row>
+      </grid>
+    </layoutxml>
+    <querytype>4</querytype>
+    <fetchxml>
+      <fetch version="1.0" mapping="logical">
+        <entity name="contoso_widget">
+          <attribute name="contoso_name" />
+          <filter type="and">
+            <condition attribute="statecode" operator="eq" value="0" />
+          </filter>
+          <filter type="or" isquickfindfields="1">
+            <condition attribute="contoso_name" operator="like" value="{0}" />
+            <condition attribute="contoso_legacycode" operator="like" value="{0}" />
+          </filter>
+        </entity>
+      </fetch>
+    </fetchxml>
+    <LocalizedNames>
+      <LocalizedName description="Quick Find Active Widgets" languagecode="1033" />
+    </LocalizedNames>
+  </savedquery>
+</savedqueries>

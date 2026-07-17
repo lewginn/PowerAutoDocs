@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Role id="{aa444444-4444-4444-8444-444444444444}" name="Contoso Malformed Role">
+  <IsCustomizable>maybe</IsCustomizable>
+  <RolePrivileges>
+    <RolePrivilege name="thisisnotaprivilegename" level="Global" />
+    <RolePrivilege name="prv" level="Global" />
+    <RolePrivilege name="prvReadcontoso_widget" level="Omniscient" />
+    <RolePrivilege name="prvCreatecontoso_widget" />
+  </RolePrivileges>
+</Role>

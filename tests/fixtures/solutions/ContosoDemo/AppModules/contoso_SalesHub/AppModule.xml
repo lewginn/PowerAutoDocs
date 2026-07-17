@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AppModule>
+  <UniqueName>contoso_SalesHub</UniqueName>
+  <LocalizedNames>
+    <LocalizedName description="Centre des ventes Contoso" languagecode="1036" />
+    <LocalizedName description="Contoso Sales Hub" languagecode="1033" />
+  </LocalizedNames>
+  <Descriptions>
+    <Description description="Where the Contoso sales team works widgets and orders." languagecode="1033" />
+    <Description description="Description française." languagecode="1036" />
+  </Descriptions>
+  <statecode>0</statecode>
+  <FormFactor>1</FormFactor>
+  <AppModuleComponents>
+    <AppModuleComponent type="1" schemaName="contoso_widget" />
+    <AppModuleComponent type="1" schemaName="account" />
+    <AppModuleComponent type="1" schemaName="contoso_order" />
+    <AppModuleComponent type="1" schemaName="contact" />
+    <AppModuleComponent type="26" schemaName="contoso_SalesDashboard" />
+    <AppModuleComponent type="1" />
+  </AppModuleComponents>
+  <AppModuleRoleMaps>
+    <Role id="{3f0a1b20-0000-4000-8000-000000000001}" />
+    <Role id="{3f0a1b20-0000-4000-8000-000000000002}" />
+    <Role id="{3f0a1b20-0000-4000-8000-000000000003}" />
+  </AppModuleRoleMaps>
+  <appsettings>
+    <appsetting settingdefinitionid.uniquename="contoso_EnableQuickCreate">
+      <value>true</value>
+    </appsetting>
+    <appsetting settingdefinitionid.uniquename="contoso_DefaultView">
+      <value>Active Widgets</value>
+    </appsetting>
+    <appsetting>
+      <value>orphaned setting with no definition name</value>
+    </appsetting>
+  </appsettings>
+</AppModule>

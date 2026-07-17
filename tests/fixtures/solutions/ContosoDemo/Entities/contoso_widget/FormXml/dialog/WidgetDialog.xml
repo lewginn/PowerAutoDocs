@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Lives under FormXml/dialog — a folder name mapFormType does not know, so the
+  form must still be documented, just typed 'Other'.
+-->
+<forms type="dialog">
+  <systemform>
+    <IsCustomizable>1</IsCustomizable>
+    <FormActivationState>1</FormActivationState>
+    <form>
+      <tabs>
+        <tab name="tab_dialog" id="{dddddddd-dddd-dddd-dddd-dddddddddddd}">
+          <labels>
+            <label description="Dialog" languagecode="1033" />
+          </labels>
+          <columns>
+            <column width="100%">
+              <sections>
+                <section name="section_dialog" id="{eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee}">
+                  <labels>
+                    <label description="Dialog Body" languagecode="1033" />
+                  </labels>
+                  <rows>
+                    <row>
+                      <cell id="{ffff1111-0000-0000-0000-000000000001}">
+                        <control id="contoso_isapproved" classid="{67FAC785-CD58-4f9f-ABB3-4B7DDC6ED5ED}" datafieldname="contoso_isapproved" />
+                      </cell>
+                    </row>
+                  </rows>
+                </section>
+              </sections>
+            </column>
+          </columns>
+        </tab>
+      </tabs>
+    </form>
+    <LocalizedNames>
+      <LocalizedName description="Widget Dialog" languagecode="1033" />
+    </LocalizedNames>
+  </systemform>
+</forms>

@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<forms type="main">
+  <systemform>
+    <IsCustomizable>1</IsCustomizable>
+    <CanBeDeleted>0</CanBeDeleted>
+    <FormActivationState>1</FormActivationState>
+    <IsDefault>1</IsDefault>
+    <form>
+      <tabs>
+        <tab name="tab_general" id="{11111111-1111-1111-1111-111111111111}" IsUserDefined="0" locklevel="0" expanded="true">
+          <labels>
+            <label description="General" languagecode="1033" />
+            <label description="Général" languagecode="1036" />
+          </labels>
+          <columns>
+            <column width="50%">
+              <sections>
+                <section name="section_identity" id="{22222222-2222-2222-2222-222222222222}" showlabel="true" columns="1">
+                  <labels>
+                    <label description="Identity" languagecode="1033" />
+                  </labels>
+                  <rows>
+                    <row>
+                      <cell id="{aaaa1111-0000-0000-0000-000000000001}">
+                        <labels>
+                          <label description="Widget Name" languagecode="1033" />
+                        </labels>
+                        <control id="contoso_name" classid="{4273EDBD-AC1D-40d3-9FB2-095C621B552D}" datafieldname="contoso_name" />
+                      </cell>
+                    </row>
+                    <row>
+                      <cell id="{aaaa1111-0000-0000-0000-000000000002}">
+                        <control id="contoso_partid" classid="{270BD3DB-D9AF-4782-9025-509E298DEC0A}" datafieldname="contoso_partid" />
+                      </cell>
+                      <cell id="{aaaa1111-0000-0000-0000-000000000003}" showlabel="false">
+                        <labels>
+                          <label description="Spacer" languagecode="1033" />
+                        </labels>
+                      </cell>
+                    </row>
+                  </rows>
+                </section>
+              </sections>
+            </column>
+            <column width="50%">
+              <sections>
+                <section name="section_stock" id="{33333333-3333-3333-3333-333333333333}" showlabel="true" columns="1">
+                  <labels>
+                    <label description="Stock" languagecode="1033" />
+                  </labels>
+                  <rows>
+                    <row>
+                      <cell id="{aaaa1111-0000-0000-0000-000000000004}">
+                        <control id="contoso_quantity" classid="{C6D124CA-7EDA-4a60-AEA9-7FB8D318B68F}" datafieldname="contoso_quantity" />
+                      </cell>
+                    </row>
+                    <row>
+                      <cell id="{aaaa1111-0000-0000-0000-000000000005}">
+                        <control id="widget_spacer" classid="{5C5600E0-1D6E-4205-A272-BE80DA87FD42}" datafieldname="" />
+                      </cell>
+                    </row>
+                  </rows>
+                </section>
+              </sections>
+            </column>
+          </columns>
+        </tab>
+        <tab name="tab_unlabelled" id="{44444444-4444-4444-4444-444444444444}" IsUserDefined="1" expanded="false">
+          <columns>
+            <column width="100%">
+              <sections>
+                <section name="section_unlabelled" id="{55555555-5555-5555-5555-555555555555}" showlabel="false" columns="1">
+                  <rows>
+                    <row>
+                      <cell id="{aaaa1111-0000-0000-0000-000000000006}">
+                        <control id="contoso_notes" classid="{E0DECE4B-6FC8-4a8f-A065-082708572369}" datafieldname="contoso_notes" />
+                      </cell>
+                    </row>
+                  </rows>
+                </section>
+              </sections>
+            </column>
+          </columns>
+        </tab>
+      </tabs>
+      <header id="{66666666-6666-6666-6666-666666666666}">
+        <rows>
+          <row>
+            <cell id="{bbbb1111-0000-0000-0000-000000000001}">
+              <control id="ownerid" classid="{270BD3DB-D9AF-4782-9025-509E298DEC0A}" datafieldname="ownerid" />
+            </cell>
+            <cell id="{bbbb1111-0000-0000-0000-000000000002}">
+              <control id="statecode" classid="{3EF39988-22BB-4f0b-BBBE-64B5A3748AEE}" datafieldname="statecode" />
+            </cell>
+          </row>
+        </rows>
+      </header>
+    </form>
+    <LocalizedNames>
+      <LocalizedName description="Widget" languagecode="1033" />
+    </LocalizedNames>
+  </systemform>
+</forms>

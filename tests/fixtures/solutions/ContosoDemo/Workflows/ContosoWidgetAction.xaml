@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Activity x:Class="ContosoWidgetAction"
+          xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
+          xmlns:mxs="clr-namespace:Microsoft.Xrm.Sdk.Workflow;assembly=Microsoft.Xrm.Sdk.Workflow"
+          xmlns:mxswa="clr-namespace:Microsoft.Xrm.Sdk.Workflow.Activities;assembly=Microsoft.Xrm.Sdk.Workflow"
+          xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <mxswa:Workflow>
+    <Sequence DisplayName="CreateStep1: Raise an escalation">
+      <mxswa:SetEntityProperty Attribute="contoso_name" EntityName="contoso_escalation" />
+      <mxswa:SetEntityProperty Attribute="contoso_tier" EntityName="contoso_escalation" />
+      <mxswa:CreateEntity EntityName="contoso_escalation" DisplayName="Create escalation" />
+    </Sequence>
+    <Sequence DisplayName="StopWorkflowStep2: Escalation already open">
+      <mxswa:TerminateWorkflow ExceptionMessage="Already open" DisplayName="Stop" />
+    </Sequence>
+  </mxswa:Workflow>
+</Activity>

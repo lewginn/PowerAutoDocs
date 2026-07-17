@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<forms type="quick">
+  <systemform>
+    <IsCustomizable>1</IsCustomizable>
+    <FormActivationState>1</FormActivationState>
+    <form>
+      <tabs>
+        <tab name="tab_quick" id="{99999999-9999-9999-9999-999999999999}">
+          <labels>
+            <label description="Quick Create" languagecode="1033" />
+          </labels>
+          <columns>
+            <column width="100%">
+              <sections>
+                <section name="section_quick" id="{aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa}">
+                  <labels>
+                    <label description="New Widget" languagecode="1033" />
+                  </labels>
+                  <rows>
+                    <row>
+                      <cell id="{dddd1111-0000-0000-0000-000000000001}">
+                        <control id="contoso_name" classid="{4273EDBD-AC1D-40d3-9FB2-095C621B552D}" datafieldname="contoso_name" />
+                      </cell>
+                    </row>
+                    <row>
+                      <cell id="{dddd1111-0000-0000-0000-000000000002}">
+                        <control id="contoso_partid" classid="{270BD3DB-D9AF-4782-9025-509E298DEC0A}" datafieldname="contoso_partid" />
+                      </cell>
+                    </row>
+                  </rows>
+                </section>
+              </sections>
+            </column>
+          </columns>
+        </tab>
+      </tabs>
+    </form>
+    <LocalizedNames>
+      <LocalizedName description="Widget Quick Create" languagecode="1033" />
+    </LocalizedNames>
+  </systemform>
+</forms>

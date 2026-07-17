@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  A deactivated form. Solutions accumulate these; documenting a form no user can
+  open would be actively misleading, so the parser drops it.
+-->
+<forms type="main">
+  <systemform>
+    <IsCustomizable>1</IsCustomizable>
+    <FormActivationState>0</FormActivationState>
+    <form>
+      <tabs>
+        <tab name="tab_old" id="{77777777-7777-7777-7777-777777777777}">
+          <labels>
+            <label description="Old Layout" languagecode="1033" />
+          </labels>
+          <columns>
+            <column width="100%">
+              <sections>
+                <section name="section_old" id="{88888888-8888-8888-8888-888888888888}">
+                  <labels>
+                    <label description="Old Fields" languagecode="1033" />
+                  </labels>
+                  <rows>
+                    <row>
+                      <cell id="{cccc1111-0000-0000-0000-000000000001}">
+                        <control id="contoso_legacycode" classid="{4273EDBD-AC1D-40d3-9FB2-095C621B552D}" datafieldname="contoso_legacycode" />
+                      </cell>
+                    </row>
+                  </rows>
+                </section>
+              </sections>
+            </column>
+          </columns>
+        </tab>
+      </tabs>
+    </form>
+    <LocalizedNames>
+      <LocalizedName description="Retired Widget Form" languagecode="1033" />
+    </LocalizedNames>
+  </systemform>
+</forms>

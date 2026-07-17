@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<savedqueries>
+  <savedquery>
+    <IsCustomizable>1</IsCustomizable>
+    <CanBeDeleted>0</CanBeDeleted>
+    <isquickfindquery>0</isquickfindquery>
+    <isprivate>0</isprivate>
+    <isdefault>1</isdefault>
+    <returnedtypecode>contoso_widget</returnedtypecode>
+    <layoutxml>
+      <grid name="resultset" object="10000" jump="contoso_name" select="1" icon="1" preview="1">
+        <row name="result" id="contoso_widgetid">
+          <cell name="contoso_name" width="200" />
+          <cell name="contoso_quantity" width="100" />
+          <cell name="part_link.contoso_partnumber" width="150" />
+          <cell name="orphan_alias.contoso_code" width="150" />
+          <cell width="50" />
+        </row>
+      </grid>
+    </layoutxml>
+    <querytype>0</querytype>
+    <fetchxml>
+      <fetch version="1.0" mapping="logical">
+        <entity name="contoso_widget">
+          <attribute name="contoso_name" />
+          <attribute name="contoso_quantity" />
+          <filter type="and">
+            <condition attribute="statecode" operator="eq" value="0" />
+            <condition attribute="contoso_quantity" operator="gt" value="0" />
+            <condition operator="null" />
+          </filter>
+          <link-entity name="contoso_part" from="contoso_partid" to="contoso_partid" alias="part_link" link-type="inner">
+            <attribute name="contoso_partnumber" />
+            <filter type="or">
+              <condition attribute="statecode" operator="eq" value="0" />
+            </filter>
+            <link-entity name="account" from="accountid" to="contoso_supplierid" alias="supplier_link" link-type="outer">
+              <attribute name="name" />
+            </link-entity>
+          </link-entity>
+        </entity>
+      </fetch>
+    </fetchxml>
+    <LocalizedNames>
+      <LocalizedName description="Active Widgets" languagecode="1033" />
+      <LocalizedName description="Gadgets actifs" languagecode="1036" />
+    </LocalizedNames>
+  </savedquery>
+</savedqueries>

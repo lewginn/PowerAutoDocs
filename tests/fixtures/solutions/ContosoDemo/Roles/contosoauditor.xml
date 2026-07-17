@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Role id="{aa111111-1111-4111-8111-111111111111}" name="Contoso Zone Auditor">
+  <RoleTemplateId>{00000000-0000-0000-0000-000000000000}</RoleTemplateId>
+  <IsInherited>2</IsInherited>
+  <CanBeDeleted>1</CanBeDeleted>
+  <IsCustomizable>1</IsCustomizable>
+  <IsAutoAssigned>0</IsAutoAssigned>
+  <IsManaged>0</IsManaged>
+  <RolePrivileges />
+</Role>

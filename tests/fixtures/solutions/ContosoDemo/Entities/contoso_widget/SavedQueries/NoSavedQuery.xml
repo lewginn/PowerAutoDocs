@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Well-formed XML that is not a saved query. One unrecognised file must not cost
+  the entity every other view it has.
+-->
+<savedqueries>
+  <notasavedquery>
+    <isdefault>1</isdefault>
+  </notasavedquery>
+</savedqueries>

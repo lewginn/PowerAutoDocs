@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WebResource>
+  <WebResourceId>{e1111111-1111-4111-8111-111111111111}</WebResourceId>
+  <Name>contoso_/Scripts/contoso_widgetform.js</Name>
+  <DisplayName>Widget Form Scripts</DisplayName>
+  <FileName>/WebResources/Scripts/contoso_widgetform.js</FileName>
+  <WebResourceType>3</WebResourceType>
+  <IntroducedVersion>1.2.0.0</IntroducedVersion>
+  <IsCustomizable>1</IsCustomizable>
+  <CanBeDeleted>1</CanBeDeleted>
+  <DependencyXml>&lt;Dependencies&gt;&lt;Dependency componentType="WebResource"&gt;&lt;Library name="contoso_/Scripts/contoso_common.js" displayName="Contoso Common" libraryUniqueId="{f1111111-1111-4111-8111-111111111111}" /&gt;&lt;/Dependency&gt;&lt;Dependency componentType="WebResource"&gt;&lt;Library name="contoso_/Styles/contoso_theme.css" displayName="Contoso Theme" libraryUniqueId="{f2222222-2222-4222-8222-222222222222}" /&gt;&lt;/Dependency&gt;&lt;/Dependencies&gt;</DependencyXml>
+</WebResource>

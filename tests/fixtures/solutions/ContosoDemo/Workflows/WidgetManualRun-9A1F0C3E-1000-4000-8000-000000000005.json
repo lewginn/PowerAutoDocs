@@ -1,0 +1,16 @@
+{
+  "properties": {
+    "definition": {
+      "triggers": {
+        "Manually_trigger_a_flow": {
+          "type": "Request",
+          "kind": "Button",
+          "inputs": {}
+        }
+      },
+      "actions": {
+        "Return_response": { "type": "Response", "runAfter": {} }
+      }
+    }
+  }
+}

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Workflow WorkflowId="{9a1f0c3e-3000-4000-8000-000000000002}" Name="Zeta widget action">
+  <Category>3</Category>
+  <Mode>1</Mode>
+  <Scope>2</Scope>
+  <RunAs>1</RunAs>
+  <StateCode>0</StateCode>
+  <StatusCode>1</StatusCode>
+  <PrimaryEntity>contoso_escalation</PrimaryEntity>
+  <OnDemand>0</OnDemand>
+  <TriggerOnCreate>0</TriggerOnCreate>
+  <TriggerOnDelete>1</TriggerOnDelete>
+  <UpdateStage>40</UpdateStage>
+  <XamlFileName>/Workflows/ContosoWidgetAction.xaml</XamlFileName>
+</Workflow>

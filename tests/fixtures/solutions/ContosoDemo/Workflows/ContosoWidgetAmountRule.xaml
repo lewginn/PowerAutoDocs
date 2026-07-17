@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Activity x:Class="ContosoWidgetAmountRule"
+          xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
+          xmlns:mxs="clr-namespace:Microsoft.Xrm.Sdk.Workflow;assembly=Microsoft.Xrm.Sdk.Workflow"
+          xmlns:mxswa="clr-namespace:Microsoft.Xrm.Sdk.Workflow.Activities;assembly=Microsoft.Xrm.Sdk.Workflow"
+          xmlns:mcwc="clr-namespace:Microsoft.Crm.Workflow.Activities;assembly=Microsoft.Crm.Workflow"
+          xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <mxswa:Workflow>
+    <mxs:ActivityReference AssemblyQualifiedName="Microsoft.Crm.Workflow.Activities.ConditionSequence, Microsoft.Crm.Workflow"
+                           DisplayName="Step1">
+      <mxs:ActivityReference.Properties>
+        <mxs:Collection x:TypeArguments="Activity" x:Key="Activities">
+          <mxswa:GetEntityProperty Attribute="contoso_amount" EntityName="contoso_widget" />
+          <mxs:ActivityReference AssemblyQualifiedName="Microsoft.Crm.Workflow.Activities.ConditionBranch, Microsoft.Crm.Workflow"
+                                 DisplayName="Step2">
+            <mxs:ActivityReference.Properties>
+              <mxs:ActivityReference AssemblyQualifiedName="Microsoft.Crm.Workflow.Activities.Composite, Microsoft.Crm.Workflow">
+                <mxs:ActivityReference.Properties>
+                  <mxs:Collection x:TypeArguments="Activity" x:Key="Activities">
+                    <Sequence DisplayName="SetValueStep1">
+                      <mcwc:SetAttributeValue DisplayName="Clear discount" TargetAttribute="contoso_discount" />
+                      <mxswa:SetEntityProperty Attribute="contoso_discount" EntityName="contoso_widget" />
+                    </Sequence>
+                    <Sequence DisplayName="SetRequiredStep1">
+                      <mcwc:SetFieldRequiredLevel ControlId="contoso_reason" RequiredLevel="Recommended" DisplayName="Recommend reason" />
+                    </Sequence>
+                  </mxs:Collection>
+                </mxs:ActivityReference.Properties>
+              </mxs:ActivityReference>
+            </mxs:ActivityReference.Properties>
+          </mxs:ActivityReference>
+        </mxs:Collection>
+      </mxs:ActivityReference.Properties>
+    </mxs:ActivityReference>
+    <mxs:ActivityReference AssemblyQualifiedName="Microsoft.Crm.Workflow.Activities.ConditionSequence, Microsoft.Crm.Workflow"
+                           DisplayName="Step3">
+      <mxs:ActivityReference.Properties>
+        <mxs:Collection x:TypeArguments="Activity" x:Key="Activities">
+          <mxs:ActivityReference AssemblyQualifiedName="Microsoft.Crm.Workflow.Activities.ConditionBranch, Microsoft.Crm.Workflow"
+                                 DisplayName="Step4">
+            <mxs:ActivityReference.Properties>
+              <mxs:ActivityReference AssemblyQualifiedName="Microsoft.Crm.Workflow.Activities.Composite, Microsoft.Crm.Workflow">
+                <mxs:ActivityReference.Properties>
+                  <mxs:Collection x:TypeArguments="Activity" x:Key="Activities">
+                    <Sequence DisplayName="SetValueStep2">
+                      <mxswa:SetEntityProperty Attribute="contoso_reviewnote" EntityName="contoso_widget" />
+                    </Sequence>
+                  </mxs:Collection>
+                </mxs:ActivityReference.Properties>
+              </mxs:ActivityReference>
+            </mxs:ActivityReference.Properties>
+          </mxs:ActivityReference>
+        </mxs:Collection>
+      </mxs:ActivityReference.Properties>
+    </mxs:ActivityReference>
+  </mxswa:Workflow>
+</Activity>

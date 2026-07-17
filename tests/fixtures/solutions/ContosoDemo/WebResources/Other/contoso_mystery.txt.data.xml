@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WebResource>
+  <WebResourceId>{e5555555-5555-4555-8555-555555555555}</WebResourceId>
+  <Name>contoso_/Other/contoso_mystery.txt</Name>
+  <DisplayName>Mystery Resource</DisplayName>
+  <FileName>/WebResources/Other/contoso_mystery.txt</FileName>
+  <WebResourceType>99</WebResourceType>
+</WebResource>

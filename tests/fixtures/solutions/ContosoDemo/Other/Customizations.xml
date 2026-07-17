@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ImportExportXml version="9.2.24051.196" SolutionPackageVersion="9.2" languagecode="1033" generatedBy="CrmLive">
+  <Entities />
+  <connectionreferences>
+    <connectionreference connectionreferencelogicalname="contoso_sharedcontosowidgets_g5h6i">
+      <connectionreferencedisplayname>Contoso Widget API</connectionreferencedisplayname>
+      <connectorid>/providers/Microsoft.PowerApps/apis/shared_contosowidgets</connectorid>
+    </connectionreference>
+    <connectionreference connectionreferencelogicalname="contoso_sharedcommondataserviceforapps_a1b2c">
+      <connectionreferencedisplayname>Contoso Dataverse</connectionreferencedisplayname>
+      <connectorid>/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps</connectorid>
+      <iscustomizable>1</iscustomizable>
+      <statecode>0</statecode>
+      <statuscode>1</statuscode>
+    </connectionreference>
+    <connectionreference connectionreferencelogicalname="contoso_sharedoffice365_d3e4f">
+      <connectionreferencedisplayname>Contoso Outlook Mailbox</connectionreferencedisplayname>
+      <connectorid>/providers/Microsoft.PowerApps/apis/shared_office365</connectorid>
+      <iscustomizable>1</iscustomizable>
+    </connectionreference>
+    <connectionreference connectionreferencelogicalname="contoso_sharedcontosoledgerapi_j7k8l">
+      <connectorid>/providers/Microsoft.PowerApps/apis/shared_contoso_ledger_api</connectorid>
+    </connectionreference>
+    <connectionreference>
+      <connectionreferencedisplayname>Orphan with no logical name</connectionreferencedisplayname>
+      <connectorid>/providers/Microsoft.PowerApps/apis/shared_teams</connectorid>
+    </connectionreference>
+  </connectionreferences>
+  <Roles />
+</ImportExportXml>

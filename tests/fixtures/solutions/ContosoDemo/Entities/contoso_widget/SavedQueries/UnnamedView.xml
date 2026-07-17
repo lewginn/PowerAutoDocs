@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  A view localised only into French (1036). Exports from non-English-base
+  environments really do ship views with no 1033 label, so the parser has to
+  fall back to the file name rather than produce a nameless view.
+-->
+<savedqueries>
+  <savedquery>
+    <IsCustomizable>1</IsCustomizable>
+    <isquickfindquery>0</isquickfindquery>
+    <isdefault>0</isdefault>
+    <returnedtypecode>contoso_widget</returnedtypecode>
+    <layoutxml>
+      <grid name="resultset" object="10000" jump="contoso_name" select="1" icon="1" preview="0">
+        <row name="result" id="contoso_widgetid">
+          <cell name="contoso_name" width="200" />
+        </row>
+      </grid>
+    </layoutxml>
+    <querytype>0</querytype>
+    <fetchxml>
+      <fetch version="1.0" mapping="logical">
+        <entity name="contoso_widget">
+          <attribute name="contoso_name" />
+        </entity>
+      </fetch>
+    </fetchxml>
+    <LocalizedNames>
+      <LocalizedName description="Gadgets sans nom" languagecode="1036" />
+    </LocalizedNames>
+  </savedquery>
+</savedqueries>

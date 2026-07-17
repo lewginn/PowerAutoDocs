@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<optionset Name="contoso_ApprovalStatus" localizedName="Widget Approval Status">
+  <OptionSetType>bool</OptionSetType>
+  <IsGlobal>1</IsGlobal>
+  <Descriptions>
+    <Description description="Whether a widget has cleared Contoso review." languagecode="1033" />
+  </Descriptions>
+  <displaynames>
+    <displayname description="Widget Approval Status" languagecode="1033" />
+  </displaynames>
+  <options>
+    <option value="0">
+      <labels>
+        <label description="Rejected" languagecode="1033" />
+      </labels>
+    </option>
+    <option value="1">
+      <labels>
+        <label description="Approved" languagecode="1033" />
+      </labels>
+    </option>
+  </options>
+</optionset>
