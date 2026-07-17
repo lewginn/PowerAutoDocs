@@ -222,7 +222,11 @@ Added under issue #102, once the product was close enough to a solid release tha
 
 ### What the suite covers, and what it refuses to
 
-Covered: **all 17 parsers** (against hand-authored `ContosoDemo` fixtures), **all 14 renderers** (against the `ir.ts` factories), `MarkdownSerializer`, **`DocxSerializer`**, `wordTheme`, `erdGenerator` and `config/loader`. These are pure, path-taking-and-fixture-satisfiable, or reachable through an existing injection seam — **no mocks anywhere in the suite**, which is the property worth protecting.
+Covered: **every module with runtime behaviour.** All 17 parsers (against hand-authored `ContosoDemo` fixtures), all 14 renderers (against the `ir.ts` factories), `MarkdownSerializer`, `DocxSerializer`, `wordTheme`, `erdGenerator`, `config/loader`, all four `publisher/*` modules, `logger`, `main()`, and the enrichment layer including the AI providers. 1090 tests, ~3s.
+
+**Still no mocks anywhere in the suite** — that property survived closing the gaps, and it is still the one worth protecting. Where a dependency had to be replaced, it is a plain fake passed as an argument through a seam, not a framework mock. `vi.mock` of a `src/` module and `vi.stubGlobal` are both absent, and should stay absent. Console spies, `vi.stubEnv` and the `process.exit` spy are present and are not mocks of our code.
+
+**The rest of `config/` needs no tests and that is not a gap.** `defaults.ts`, `renderOptions.ts` and `schema.ts` are constants and types — `schema.ts` has exactly one runtime line (a model-name string) — and `config/index.ts` is re-exports. `loader.ts` is the only runtime and is covered. Do not "finish" this row.
 
 ### How DocxSerializer is tested, and why that way
 
@@ -233,25 +237,29 @@ Covered: **all 17 parsers** (against hand-authored `ContosoDemo` fixtures), **al
 - **No browser.** The `renderMermaid` parameter is the seam; a stub returns a fake PNG. Both degradation paths are pinned (no renderer, and a renderer returning `null`) because those must yield a document *without* diagrams rather than fail the run.
 - **`adm-zip` is a `devDependency`** for exactly this, and `tests/types/adm-zip.d.ts` declares the three members used rather than adding `@types/adm-zip` — the dependency rule covers devDeps too.
 
-Still uncovered, and *not* for want of a seam — these are simply gaps:
+Still uncovered:
 
 | Gap | Size | Note |
 |---|---|---|
-| `publisher/*` | 4 modules | **Now the biggest real gap.** `docAssembler` orders sections, applies heading offsets, builds the TOC and drives the *real* Mermaid renderer — none of that is exercised, so nothing assembles a whole document. `wikiPublisher` needs an HTTP seam. |
-| `mermaidGenerator`, `dependencyResolver` | pure | No excuse — both are pure functions. Cheap wins for whoever picks this up next. |
-| `PdfSerializer` | 419 lines | **Deliberately skipped:** PDF output is planned for deprecation (Lewis, 2026-07-17). Do not invest here without checking that decision still holds. |
+| `PdfSerializer`, `pdfAssembler` | 419 + 222 lines | **Deliberately skipped:** PDF output is planned for deprecation (Lewis, confirmed 2026-07-17). The only untested runtime left, and the only row here that is a decision rather than a gap. Do not "finish" it without checking that decision still holds — see [roadmap.md](roadmap.md). |
+| Real Mermaid PNG rendering | the browser path | `renderDiagramPng`'s cache **miss** launches Chrome. The cache-hit path, `resolveChromeExecutable` and the 3× nominal conversion are all covered; only the launch itself is not. Rendering a real diagram in CI buys little and costs flakiness. |
+| The successful diagram path in `docAssembler` | — | Needs a real browser for the same reason. The degraded path — the one with a `dropOrphanedDiagramHeadings` branch that only exists for it — is covered. |
 
-**Deliberately not covered — the seams don't exist yet:**
+### The three seams, and the principle that produced them
 
-| Not tested | Why not |
+This section used to list `main()`, the wiki publisher and the AI providers as untestable, each with the note that the seam was the prerequisite. **The principle held, so the seams were fixed** (`213a957`) rather than mocked around:
+
+| Was | Now |
 |---|---|
-| Mermaid → PNG (`mermaidRenderer.ts`) | Launches a real browser through a module-level `browserPromise` singleton. Slow, flaky in CI, and hostile to per-test isolation. |
-| AI providers | `AiProvider` is already a clean one-method seam, but `enrichWithAiSummaries` resolves its own provider via `createProvider`. Injecting it is a prerequisite, not a test. |
-| Wiki publisher | Bare `fetch()` against hardcoded `dev.azure.com` URLs, no injected client. Stubbing global `fetch` mostly asserts the stub works. |
-| Word / PDF binary output | Comparing whole files is meaningless — zip ordering and timestamps churn. The `DocNode` AST is the real assertion boundary, and every renderer is now tested at it. *Caveat learned since:* "don't byte-compare" is not "don't look". Unzipping the `.docx` and asserting on a **single** `<w:t>` run in `word/document.xml` is stable and is how the backtick bug in `formatBoundary.test.ts`'s history was proven — the DocNode assertion said what was wrong, the `.docx` said it mattered. `DocxSerializer` (690 lines) is still untested and is the largest gap in the repo. |
-| `main()` | `index.ts:446` calls `main()` at **module load**, so merely importing the module runs the whole pipeline — there is nothing a test can import. It also reads `process.argv` directly and calls `process.exit(1)`. The seam is an `import.meta.url === process.argv[1]` guard, which would make the module importable; that is a change to the published bin entry, so it wants its own PR and a real `npx` smoke test, not a drive-by. |
+| `index.ts` called `main()` at module load — nothing a test could import | Guarded by `import.meta.url === argv[1]`. Both CLI paths smoke-tested; importing provably does not run the pipeline |
+| `publishToWiki` called bare `fetch()` | `doFetch: FetchLike = fetch` — a hand-written recording fake pins the Z→A ordering and the eTag round-trip |
+| `enrichWithAiSummaries` resolved its own provider via `createProvider` | `makeProvider: ProviderFactory = createProvider` — a fake provider pins cache hit/miss without spending a token |
 
-**The principle:** a test that needs a mock to exist is usually asking for a refactor first. Writing the mock instead buys a green tick that asserts the mock works. If one of these becomes worth testing, fix the seam in its own PR and the test becomes easy.
+All three default to the previous behaviour, so clients see nothing.
+
+**The principle, restated because it is what did the work:** a test that needs a mock to exist is usually asking for a refactor first. Writing the mock instead buys a green tick that asserts the mock works. The counter-evidence to "stubbing global `fetch` mostly asserts the stub works" is that the Z→A sibling ordering — which exists so ADO's newest-first sidebar displays A→Z — was completely unpinned, and is real logic that an injected client tests as itself. The dismissal was right about the stub and wrong about there being nothing worth testing.
+
+**Word / PDF binary output** keeps its own note: comparing whole files is meaningless — zip ordering and timestamps churn. The `DocNode` AST is the real assertion boundary. *But "don't byte-compare" is not "don't look".* Unzipping the `.docx` and asserting on a **single** `<w:t>` run is stable, is how the backtick bug was proven, and is now how `docAssembler` is tested as well as `DocxSerializer`.
 
 ### Fixtures are synthetic, and that is a hard rule
 
