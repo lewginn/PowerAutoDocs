@@ -167,15 +167,20 @@ Merge it yourself (🟢). Two styles are both in use, and the observable rule is
 
 ## Verification
 
-### There is a test suite, and CI runs it — but it covers a fraction of the code
+### There is a test suite, CI runs it, and it now covers every layer with runtime behaviour
 
-Vitest, added under issue #102. `npm test` runs it; `.github/workflows/ci.yml` runs typecheck + build + test on **every PR and every push to `main`**. `npm-publish.yml` re-runs the same checks before `npm publish`, because a release can be cut from any ref and a publish cannot be undone.
+Vitest, added under #102, completed under #109. `npm test` runs it; `.github/workflows/ci.yml` runs typecheck + build + test on **every PR and every push to `main`**. `npm-publish.yml` re-runs the same checks before `npm publish`, because a release can be cut from any ref and a publish cannot be undone.
 
-**This changes what CI catches, not what verification means.** The suite (693 tests) covers the mock-free layers: all 17 parsers, all 14 renderers, `MarkdownSerializer`, `DocxSerializer`, `wordTheme`, the ERD generator and `config/loader`. It does **not** cover `publisher/*`, `PdfSerializer`, real Mermaid PNG rendering, the AI providers, the wiki publisher, or `main()`. Green CI means "nothing obviously regressed in the tested fraction". It does not mean the `.docx` is right.
+**This changes what CI catches, not what verification means.** The suite (1090 tests, ~3s) covers all 17 parsers, all 14 renderers, `MarkdownSerializer`, `DocxSerializer`, `wordTheme`, `erdGenerator`, `config/loader`, all four `publisher/*` modules, `logger`, `main()`, and enrichment including the AI providers. It is still **mock-free** — keep it that way; see [decisions.md](decisions.md#vitest-and-a-suite-that-deliberately-stops-short).
 
-**Know exactly how far the Word coverage goes.** `DocxSerializer` tests build a real `.docx` and assert on `word/document.xml`, so escaping, heading levels, code chips, bullets, tables and the Mermaid degradation paths are genuinely pinned. But **nothing assembles a whole document**: `docAssembler` — which orders sections, applies heading offsets, builds the TOC and calls the real browser-backed Mermaid renderer — is untested, as is `wikiPublisher`. The suite has never rendered a real diagram, published a page, or produced a document longer than a handful of nodes.
+**Green CI still does not mean the `.docx` is right**, and the reasons are now specific rather than general:
 
-The backtick bug is why this distinction is written down rather than assumed: every renderer test passed while the `.docx` shipped literal backticks, and only unzipping one revealed it. That class of gap is exactly the size of the artifact inspection below.
+- **The real diagram path has never run.** Every test either disables `wordDiagrams` or points `POWERAUTODOCS_CHROME_PATH` at nothing. The *degraded* path is pinned; the successful one is not. The suite has still never rendered a real diagram.
+- **Nothing has ever published a page.** `wikiPublisher` is tested against an injected fake — ordering, eTags and the PAT guard are real assertions, but no test has spoken to ADO.
+- **PDF is uncovered by decision** (`PdfSerializer`, `pdfAssembler`) — see [roadmap.md](roadmap.md).
+- **A pinned bug is not a fixed bug.** ~35 tests pin current *wrong* behaviour with a `BUG:` comment. They will stay green while the defect ships. Read the comment, don't just read the tick.
+
+**`docAssembler` is now covered, so the old "nothing assembles a whole document" warning is retired** — a real `.docx` is built and asserted against unzipped `word/document.xml`, including the heading-offset contract. The backtick bug is still why this distinction is written down rather than assumed: every renderer test passed while the `.docx` shipped literal backticks, and only unzipping one revealed it. That class of gap is exactly the size of the artifact inspection below — which remains mandatory for anything touching output.
 
 So: **the end-to-end run and artifact inspection below are still mandatory for anything touching output.** CI is a floor, not a substitute. Everything in "What verified actually means" still applies.
 

@@ -7,6 +7,17 @@ export interface WikiPage {
   content: string;
 }
 
+/**
+ * The HTTP seam. Production passes nothing and gets global `fetch`; a test
+ * passes a hand-written fake and gets a real assertion boundary.
+ *
+ * This exists because the alternative — stubbing global `fetch` — mostly
+ * asserts the stub works (decisions.md). An injected client means the ordering
+ * logic in sortPagesForPublish, the eTag round-trip and the PAT guard are
+ * tested as themselves, with no mocking framework involved.
+ */
+export type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
+
 interface WikiPageGetResult {
   path: string;
   eTag?: string;
@@ -85,10 +96,10 @@ function sortPagesForPublish(pages: WikiPage[]): WikiPage[] {
 // -----------------------------------------------
 // GET page — returns eTag if exists, null if 404
 // -----------------------------------------------
-async function getPage(config: WikiConfig, pagePath: string): Promise<WikiPageGetResult | null> {
+async function getPage(config: WikiConfig, pagePath: string, doFetch: FetchLike): Promise<WikiPageGetResult | null> {
   const url = `${buildBaseUrl(config)}?path=${encodeURIComponent(pagePath)}&api-version=7.0`;
 
-  const response = await fetch(url, {
+  const response = await doFetch(url, {
     headers: {
       'Authorization': buildAuthHeader(config.pat),
       'Content-Type': 'application/json',
@@ -114,6 +125,7 @@ async function putPage(
   config: WikiConfig,
   pagePath: string,
   content: string,
+  doFetch: FetchLike,
   eTag?: string
 ): Promise<void> {
   const url = `${buildBaseUrl(config)}?path=${encodeURIComponent(pagePath)}&api-version=7.0`;
@@ -127,7 +139,7 @@ async function putPage(
     headers['If-Match'] = eTag;
   }
 
-  const response = await fetch(url, {
+  const response = await doFetch(url, {
     method: 'PUT',
     headers,
     body: JSON.stringify({ content }),
@@ -144,11 +156,11 @@ async function putPage(
 // -----------------------------------------------
 // Ensure a parent page exists (placeholder if not)
 // -----------------------------------------------
-async function ensurePage(config: WikiConfig, pagePath: string): Promise<void> {
-  const existing = await getPage(config, pagePath);
+async function ensurePage(config: WikiConfig, pagePath: string, doFetch: FetchLike): Promise<void> {
+  const existing = await getPage(config, pagePath, doFetch);
   if (!existing) {
     const title = pagePath.split('/').filter(Boolean).pop() ?? pagePath;
-    await putPage(config, pagePath, `# ${title}\n`, undefined);
+    await putPage(config, pagePath, `# ${title}\n`, doFetch, undefined);
   }
 }
 
@@ -157,7 +169,8 @@ async function ensurePage(config: WikiConfig, pagePath: string): Promise<void> {
 // -----------------------------------------------
 export async function publishToWiki(
   config: WikiConfig,
-  pages: WikiPage[]
+  pages: WikiPage[],
+  doFetch: FetchLike = fetch
 ): Promise<void> {
   console.log(`\nPublishing ${pages.length} pages to ${config.wikiIdentifier}...`);
   console.log(`Organisation: ${config.organisation} · Project: ${config.project}\n`);
@@ -169,7 +182,7 @@ export async function publishToWiki(
 
   // Quick auth check — GET the wiki root
   const testUrl = `https://dev.azure.com/${encodeURIComponent(config.organisation)}/${encodeURIComponent(config.project)}/_apis/wiki/wikis/${encodeURIComponent(config.wikiIdentifier)}?api-version=7.0`;
-  const testResponse = await fetch(testUrl, {
+  const testResponse = await doFetch(testUrl, {
     headers: { 'Authorization': buildAuthHeader(config.pat) },
   });
   if (testResponse.status === 401 || testResponse.status === 403) {
@@ -196,7 +209,7 @@ export async function publishToWiki(
   for (const parentPath of sortedParents) {
     const isContentPage = pages.some(p => p.path === parentPath);
     if (!isContentPage) {
-      await ensurePage(config, parentPath);
+      await ensurePage(config, parentPath, doFetch);
     }
   }
 
@@ -206,8 +219,8 @@ export async function publishToWiki(
   // Publish all pages — always overwrite
   for (const page of sortedPages) {
     try {
-      const existing = await getPage(config, page.path);
-      await putPage(config, page.path, page.content, existing?.eTag);
+      const existing = await getPage(config, page.path, doFetch);
+      await putPage(config, page.path, page.content, doFetch, existing?.eTag);
     } catch (err) {
       console.error(`  ✗ Failed: ${page.path}`, err);
     }

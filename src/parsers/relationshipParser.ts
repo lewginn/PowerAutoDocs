@@ -31,6 +31,23 @@ function parseRelationshipFile(filePath: string, publisherPrefix: string): Relat
         const referencingAttribute: string = rel.ReferencingAttributeName ?? '';
         const description = getEnglishDescription(rel.RelationshipDescription);
 
+        // A relationship needs both ends to mean anything — it cannot be drawn on
+        // the ERD or listed under a table without them.
+        //
+        // This is not paranoia about absent fields: fast-xml-parser is not
+        // validating, so a truncated export parses "successfully" into a name-only
+        // entry with empty entities and never throws. The try/catch around this
+        // function in parseAllRelationships is therefore dead for that case, and
+        // the empty entry reached the IR and the ERD.
+        if (!referencingEntity || !referencedEntity) {
+            console.warn(
+                `  Skipping relationship '${name || '(unnamed)'}' in ${path.basename(filePath)} — ` +
+                `missing ${!referencingEntity ? 'ReferencingEntityName' : 'ReferencedEntityName'}. ` +
+                `The file is probably truncated.`
+            );
+            continue;
+        }
+
         // Use publisherPrefix from config — fallback to checking for any underscore prefix
         // if prefix is not configured (handles the warning case in loader.ts)
         const isCustom = publisherPrefix

@@ -150,6 +150,21 @@ describe('parseSecurityRoles', () => {
     expect(roles('contoso')).toHaveLength(4);
   });
 
+  it('skips a file with no Role root and still returns every other role', () => {
+    // contosotruncated.xml has no <Role> node. This parser had no guard and no
+    // try/catch, so it threw a TypeError out of the whole sweep — and because
+    // index.ts wraps component parsers in tryParse, the blast radius was *every*
+    // security role vanishing from the docs over one bad file. Every sibling
+    // parser skips and continues; this is the test that holds it to that.
+    expect(() => roles('contoso')).not.toThrow();
+    expect(roles('contoso').map(r => r.name)).toEqual([
+      'Contoso Malformed Role',
+      'Contoso Widget Manager',
+      'Contoso Widget Reader',
+      'Contoso Zone Auditor',
+    ]);
+  });
+
   it('returns empty for a solution with no Roles folder', () => {
     // Every sweeping parser must tolerate an absent component folder — most real
     // solutions contain only a few component types.

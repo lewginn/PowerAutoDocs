@@ -51,8 +51,22 @@ function extractClassName(pluginTypeName: string): string {
  * Extract assembly name from fully qualified type name.
  * "AppName.CE.Plugins.ApplicationPostOperation" → "AppName.CE.Plugins"
  */
+/**
+ * Best-effort guess at a step's assembly from its plugin type name, by stripping
+ * the class name off the end.
+ *
+ * This is only correct when the type sits directly in the assembly's root
+ * namespace — `Contoso.Crm.Plugins.Widgets.WidgetSyncHandler` yields
+ * `Contoso.Crm.Plugins.Widgets`, which is a namespace, not an assembly.
+ *
+ * So it must never be used to decide which assembly owns a step: that is done by
+ * longest-prefix match against the real assemblies found on disk (see
+ * parseAllPlugins). Using this guess for ownership is what caused nested-namespace
+ * types to be listed twice, once under a phantom assembly. It survives only to
+ * label a genuinely orphaned step, where there is no assembly file to match and a
+ * guess beats nothing.
+ */
 function extractAssemblyName(pluginTypeName: string): string {
-    // Strip the last segment (class name)
     const parts = pluginTypeName.split('.');
     return parts.slice(0, -1).join('.');
 }
@@ -188,9 +202,31 @@ export function parseAllPlugins(unpackedPath: string): PluginAssemblyModel[] {
     }
 
     // --- Combine assemblies with their steps ---
-    for (const [assemblyName, assemblyData] of assemblyMap.entries()) {
-        const steps = allSteps.filter(s => s.pluginTypeName.startsWith(assemblyName + '.'));
+    //
+    // A step belongs to the assembly whose name is the LONGEST prefix of its
+    // plugin type name. Two reasons it has to be the longest rather than any
+    // match, and each was a real double-count:
+    //
+    //  - A type may sit in a nested namespace. `Contoso.Crm.Plugins.Widgets
+    //    .WidgetSyncHandler` legitimately belongs to assembly
+    //    `Contoso.Crm.Plugins`.
+    //  - Two assemblies may nest (`Contoso.Crm` and `Contoso.Crm.Plugins`).
+    //    Both prefix-match that type, and claiming it twice would list the same
+    //    registered step under two assemblies.
+    //
+    // Ownership is then tracked by step identity, so the orphan pass below can
+    // ask "did anything claim this?" rather than re-deriving a name.
+    const assemblyNames = [...assemblyMap.keys()];
+    const ownerOf = (step: PluginStepModel): string | undefined =>
+        assemblyNames
+            .filter(name => step.pluginTypeName.startsWith(name + '.'))
+            .sort((a, b) => b.length - a.length)[0];
 
+    const claimed = new Set<PluginStepModel>();
+
+    for (const [assemblyName, assemblyData] of assemblyMap.entries()) {
+        const steps = allSteps.filter(s => ownerOf(s) === assemblyName);
+        steps.forEach(s => claimed.add(s));
 
         assemblies.push({
             assemblyName,
@@ -202,9 +238,15 @@ export function parseAllPlugins(unpackedPath: string): PluginAssemblyModel[] {
         });
     }
 
-    // Any steps from assemblies not found in PluginAssemblies folder (edge case)
-    const coveredAssemblies = new Set(assemblies.map(a => a.assemblyName));
-    const orphanSteps = allSteps.filter(s => !coveredAssemblies.has(s.assemblyName));
+    // Steps whose assembly has no folder under PluginAssemblies/ — e.g. a step
+    // registered against an assembly that ships outside this solution.
+    //
+    // "Unclaimed" is identity-based on purpose. This used to compare the step's
+    // own `assemblyName`, which is *guessed* by lopping the last segment off the
+    // type name (see extractAssemblyName) — so a nested-namespace type produced a
+    // guess that matched no real assembly, and the step was emitted a second time
+    // under a phantom assembly named after its namespace.
+    const orphanSteps = allSteps.filter(s => !claimed.has(s));
     if (orphanSteps.length > 0) {
         const orphanAssemblyNames = [...new Set(orphanSteps.map(s => s.assemblyName))];
         for (const name of orphanAssemblyNames) {

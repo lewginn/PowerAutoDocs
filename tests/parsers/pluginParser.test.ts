@@ -166,27 +166,32 @@ describe('parseAllPlugins', () => {
   });
 
   // ---------------------------------------------------------------------------
-  // KNOWN BUG — pinned so the fix is a deliberate, visible change.
-  //
-  // Steps are joined with `pluginTypeName.startsWith(assemblyName + '.')`, but a step's
-  // own `assemblyName` is derived by lopping off the last dotted segment. For a type in a
-  // namespace *below* the assembly root (Contoso.Crm.Plugins.Widgets.WidgetSyncHandler in
-  // an assembly named Contoso.Crm.Plugins) the two disagree: the step matches the real
-  // assembly, but its derived assemblyName is absent from `coveredAssemblies`, so the
-  // orphan pass emits it a second time under a phantom assembly. Nested plugin namespaces
-  // are ordinary, so this double-counts real steps in client documentation.
+  // Nested namespaces. A plugin type routinely sits in a namespace *below* the
+  // assembly root — Contoso.Crm.Plugins.Widgets.WidgetSyncHandler in an assembly
+  // named Contoso.Crm.Plugins. Ownership is a longest-prefix match against the
+  // assemblies actually found on disk; it must never use the step's own guessed
+  // assemblyName, which lops the last segment and yields the namespace.
   // ---------------------------------------------------------------------------
-  it('BUG: a nested-namespace plugin type is emitted twice, under a phantom assembly', () => {
+  it('lists a nested-namespace plugin type exactly once, under its real assembly', () => {
     const syncSteps = assemblies()
       .flatMap(a => a.steps)
       .filter(s => s.className === 'WidgetSyncHandler');
-    expect(syncSteps).toHaveLength(2);
+    expect(syncSteps).toHaveLength(1);
 
-    const phantom = assembly('Contoso.Crm.Plugins.Widgets');
-    expect(phantom).toBeDefined();
-    expect(phantom.version).toBe('Unknown');
-    // Once fixed, WidgetSyncHandler should appear exactly once, under Contoso.Crm.Plugins.
     expect(assembly('Contoso.Crm.Plugins').steps.map(s => s.className))
       .toContain('WidgetSyncHandler');
+  });
+
+  it('invents no phantom assembly named after a namespace', () => {
+    // Contoso.Crm.Plugins.Widgets is a namespace inside Contoso.Crm.Plugins, not
+    // an assembly. It previously appeared as its own entry, version 'Unknown'.
+    expect(assemblies().map(a => a.assemblyName)).not.toContain('Contoso.Crm.Plugins.Widgets');
+  });
+
+  it('claims every step exactly once across all assemblies', () => {
+    // The general invariant behind both cases above: no registered step may be
+    // documented twice, whatever its namespace depth.
+    const all = assemblies().flatMap(a => a.steps.map(s => s.id));
+    expect(all).toHaveLength(new Set(all).size);
   });
 });

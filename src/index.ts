@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { pathToFileURL } from 'url';
 import { loadConfig } from './config/index.js';
 import {
   parseSolution, parseSolutionManifest,
@@ -443,7 +444,18 @@ export async function main(configDir?: string): Promise<void> {
   }
 }
 
-main().catch((err) => {
-  console.error(`\n✗ Fatal error: ${err?.message ?? err}`);
-  process.exit(1);
-});
+// Only run when invoked as the CLI entry point, not when imported. Importing
+// this module used to fire main() as a side effect, which made the whole
+// pipeline untestable — a test that imported main() ran a real solution parse.
+// process.argv[1] is the resolved script path under both `node dist/index.js`
+// and `tsx src/index.ts`; comparing it to import.meta.url via pathToFileURL
+// keeps the CLI behaviour byte-identical while leaving main() importable.
+const isCliEntry = process.argv[1] !== undefined
+  && import.meta.url === pathToFileURL(process.argv[1]).href;
+
+if (isCliEntry) {
+  main().catch((err) => {
+    console.error(`\n✗ Fatal error: ${err?.message ?? err}`);
+    process.exit(1);
+  });
+}

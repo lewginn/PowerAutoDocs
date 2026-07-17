@@ -113,18 +113,31 @@ CLI flags are **already shipped** — flag parsing is hand-rolled off `process.a
 | #97 | Plugin source code linking — read `.cs` source for plugin steps | Todo |
 | #102 | CI pipeline + Vitest test suite | Done — first pass shipped |
 | #103 | `MarkdownSerializer` emits a short row for a ragged table | Todo |
+| #109 | Test coverage: publisher, pipeline entry point, enrichment | Done — closed the last gaps |
+| #110 | **42 defects found by #109 — pinned, not fixed** | Todo — the real follow-on |
 
 #97 is the newest substantive issue (opened 2026-06-10) and is not slotted into a phase block in `architecture.jsx`. If you pick it up, add it to a phase block or accept that it lives outside the published roadmap.
 
-**#102's second pass extended the suite to 693 tests.** CI (`ci.yml`) typechecks, builds and tests every PR. Coverage is now **all 17 parsers**, **all 14 renderers** and **`DocxSerializer`** (asserted against a real unzipped `.docx`), plus `MarkdownSerializer`, `wordTheme`, `erdGenerator` and `config/loader`.
+**#109 closed the remaining gaps: the suite is now 1090 tests, ~3s.** CI (`ci.yml`) typechecks, builds and tests every PR. Coverage is **every module with runtime behaviour** — all 17 parsers, all 14 renderers, `MarkdownSerializer`, `DocxSerializer` (asserted against a real unzipped `.docx`), `wordTheme`, `erdGenerator`, `config/loader`, all four `publisher/*` modules, `logger`, `main()`, and the enrichment layer including the AI providers.
 
-Still uncovered: **`publisher/*` is now the biggest real gap** — `docAssembler` assembles the whole document and drives the real Mermaid renderer, so nothing yet tests a full run; `wikiPublisher` needs an HTTP seam. Plus `mermaidGenerator` and `dependencyResolver`, which are pure and have no excuse. `PdfSerializer` is deliberately skipped — see the PDF deprecation note below. See [decisions.md](decisions.md#vitest-and-a-suite-that-deliberately-stops-short).
+Getting there needed three seams opened in source, not mocks — `main()` was unimportable, `publishToWiki` called bare `fetch()`, `enrichWithAiSummaries` resolved its own provider. The suite is still **mock-free**. See [decisions.md](decisions.md#vitest-and-a-suite-that-deliberately-stops-short) for why that property is worth protecting.
 
-**PDF output is planned for deprecation** (Lewis, 2026-07-17). This is why `PdfSerializer` (419 lines) was left untested while `DocxSerializer` was covered. Nothing has been removed yet and `output.pdf` still works — but do not invest in PDF features, tests or refactors without confirming the plan still holds. If it goes, `pdfmake` and `@types/pdfmake` go with it, which is a further dependency saving on every client run.
+Still uncovered, and each is a decision rather than a gap: `PdfSerializer` and `pdfAssembler` (PDF deprecation, below), and the real-browser Mermaid render (the cache-hit path and the 3× conversion are covered; only the Chrome launch is not).
 
-**Writing those tests found ten defects, and that — not the tests themselves — is the argument for the remaining coverage.** Every one had been shipping to clients undetected, and none was found by reading the code; they surfaced the moment something asserted on real output.
+**The `config/` row is finished and looks unfinished.** `defaults.ts`, `renderOptions.ts` and `schema.ts` are constants and types; `config/index.ts` is re-exports. `loader.ts` is the only runtime and is covered. A coverage table will keep reporting 1-of-4 forever — that is correct, not a to-do.
 
-Fixed in the same pass:
+**PDF output is planned for deprecation** (Lewis, 2026-07-17; **re-confirmed 2026-07-17** when #109 asked whether `pdfAssembler` should be covered — the answer was no, on this decision). This is why `PdfSerializer` (419 lines) and `pdfAssembler` (222 lines) are the only untested runtime in the repo while their Word twins are both covered. Nothing has been removed yet and `output.pdf` still works — but do not invest in PDF features, tests or refactors without confirming the plan still holds. If it goes, `pdfmake` and `@types/pdfmake` go with it, which is a further dependency saving on every client run.
+
+**Their untested-ness is load-bearing in one direction:** `pdfAssembler` mirrors `docAssembler` section-for-section, so a component added to all three assemblers now has a covered Word path and an uncovered PDF one. The classic silent failure named above ("missing the PDF assembler") will no longer be caught by the suite for PDF. That is the accepted cost of not investing in a format on its way out — not an oversight to fix.
+
+**Writing those tests found ten defects, and that — not the tests themselves — is the argument for the remaining coverage.** Every one had been shipping to clients undetected, and none was found by reading the code; they surfaced the moment something asserted on real output. **All ten are now fixed.**
+
+**The argument then repeated itself, four times over.** #109's pass over `publisher/*`, `main()`, `logger` and enrichment found **42 more** (tracked on #110). Same shape: all shipping, none visible by reading. The two worth knowing without opening the issue —
+
+- **A wiki page-path collision silently deletes a table's docs.** `s()` is many-to-one, so two tables whose display names sanitise identically (`A/B` and `A-B`) emit two complete page sets at one path. The publisher PUTs one over the other and `sortPagesForPublish` drops the duplicate. One real table's entire documentation vanishes from the client's wiki. No error, green pipeline.
+- **A wholly-failed publish reports success.** `publishToWiki` swallows every per-page error into `console.error` and returns `void`, so `index.ts`'s `Array.isArray(results)` branch is permanently dead and the `else` sets `pagesPublished = pages.length` unconditionally. Every page can fail and the client still reads "Published 340 pages… ✓ Completed successfully", exit 0.
+
+**`grep -rn 'BUG:' tests/` no longer returns nothing — it returns ~35.** The old instruction here ("keep it that way, or pin the reason") was written when the count was zero, and the pins do each carry a reason, a source line and a note on whether the behaviour might be intentional. But treat this as **debt and a prompt to fix the source, not a settled state** — the ten above were fixed in the pass that found them, and these were not, only because 42 is a different size of job from 10. A pin is a deferral, not a decision.
 
 | Fixed | Why it mattered |
 |---|---|
@@ -132,15 +145,14 @@ Fixed in the same pass:
 | Email merge fields lost their spaces | `order{number}has shipped` in every subject and body with a mid-sentence field. |
 | Four renderers baked markdown backticks into heading text | Correct in the wiki, literal backticks in the `.docx`. Now fenced by `formatBoundary.test.ts`. |
 | `loadConfig` returned the shared `CONFIG_DEFAULTS` object | A `--word` run with no config file rewrote the exported defaults for the process. |
+| `pluginParser` documented a nested-namespace plugin type **twice** | Ownership is now a longest-prefix match against assemblies found on disk, and orphan detection is by step identity — not by the *guessed* name `extractAssemblyName` derives. Also fixed a second latent double-count where two nested assemblies both claimed a type. |
+| `webResourceParser` published a nameless ghost resource | A truncated `.data.xml` parses into a truthy-but-empty object; it now needs a name to be published. |
+| `webResourceParser` returned the literal `"/**"` as a description | The tagless-JSDoc fallback's line cleaner never stripped the block's own opening delimiter. Most Power Platform JSDoc omits `@description`, so this was the common path. |
+| `environmentVariableRenderer` emitted a header with no cell | `currentValueCell` was commented out while its header push was left in. |
+| `securityRoleParser` lost **every** role over one bad file | No `try/catch` and no `<Role>` guard, so a malformed file threw out of the whole sweep; `tryParse` in `index.ts` then zeroed the component. Now skips per file, like every sibling. |
+| `relationshipParser` leaked an entity-less relationship into the ERD | Its `catch` is dead for malformed XML — a truncated export parses leniently rather than throwing. Skipped at source. |
 
-**Still open** — each pinned by a test that asserts the wrong behaviour on purpose, so it fails loudly when fixed. Find them with `grep -rn 'BUG:' tests/`:
-
-- `pluginParser` double-counts a nested-namespace plugin type, emitting it again under a phantom assembly.
-- `webResourceParser` publishes a nameless ghost resource from a truncated `.data.xml`.
-- `webResourceParser` JSDoc without `@description` yields the literal `"/**"`.
-- `environmentVariableRenderer` `showCurrentValue` adds a header with no matching cell (latent — no assembler passes the option).
-
-Unpinned and worth a look: `securityRoleParser` has no `try/catch`, so one malformed `Roles/*.xml` takes down the whole sweep rather than skipping; `relationshipParser`'s catch is dead for malformed XML, letting a garbage entry reach the ERD.
+**The pattern worth carrying forward:** three of the ten (the web-resource ghost, the security-role sweep crash, the relationship leak) came from the same wrong assumption — that `fast-xml-parser` throws on bad input. **It does not: it is not validating**, so a truncated or half-written file parses *successfully* into a truthy-but-empty object. A `try/catch` around a parse is therefore not a malformed-input guard, and two of those three had one that could never fire. Guard on the *shape* you need (`if (!name) return null`), not on an exception. See the [playbook](playbooks.md) when adding a parser.
 
 **#103 is latent, not live** — no renderer builds a ragged table today. It was found by writing the tests, and there is a characterisation test pinned to the current wrong behaviour that must be updated when it's fixed.
 

@@ -21,11 +21,16 @@ function defaultValueCell(model: EnvironmentVariableModel): InlineNode[] {
   return [i('Not set')];
 }
 
-// function currentValueCell(model: EnvironmentVariableModel): InlineNode[] {
-//   if (model.secretStore > 0) return [i('[secret — stored externally]')];
-//   if (model.currentValue !== undefined) return [c(model.currentValue)];
-//   return [i('Not set')];
-// }
+/**
+ * Only reached when the caller opts in via showCurrentValue, which defaults to
+ * false — a current value is live environment data and can be a connection
+ * string or an endpoint. A secret-store variable is masked either way.
+ */
+function currentValueCell(model: EnvironmentVariableModel): InlineNode[] {
+  if (model.secretStore > 0) return [i('[secret — stored externally]')];
+  if (model.currentValue !== undefined) return [c(model.currentValue)];
+  return [i('Not set')];
+}
 
 export function renderEnvironmentVariablesPage(
   envVars: EnvironmentVariableModel[],
@@ -69,8 +74,11 @@ export function renderEnvironmentVariablesPage(
         ct(v.type),
         ct(v.isRequired ? 'Yes' : 'No'),
       ];
+      // These two must mirror the header pushes above exactly. The cell was once
+      // commented out while the 'Current Value' header push was left in, so every
+      // row came out one cell short of the headers whenever the option was on.
       if (options.showDefaultValue) row.push(defaultValueCell(v));
-      // if (options.showCurrentValue) row.push(currentValueCell(v));
+      if (options.showCurrentValue) row.push(currentValueCell(v));
       row.push(ct(secretStoreLabel(v.secretStore)));
       return row;
     })

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Truncated mid-document, as a half-written or interrupted `pac solution unpack`
+  leaves a file. There is no <Role> root here at all.
+
+  Distinct from contosomalformed.xml, which is a well-formed <Role> carrying junk
+  *inside* it: that exercises the value-level fallbacks, this exercises the
+  file-level guard. Nothing reached this path before, which is how a missing
+  <Role> node throwing a TypeError out of the entire sweep went unnoticed.
+
+  fast-xml-parser is not validating, so this parses "successfully" into an object
+  with no Role node rather than throwing — the guard, not the try/catch, is what
+  catches it.
+-->
+<RoleWrapper>
+  <Role id="{bb555555-5555-4555-8555-5555555
