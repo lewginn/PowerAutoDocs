@@ -220,8 +220,11 @@ false hit — the new prompt never runs and your change looks like a no-op.
 ## 3. Add a new output format / serializer
 
 Derived from how PDF was actually added — commit `8393a12`
-(*"feat: add PDF output via pdfmake — closes #67"*). That commit is the reference
-implementation; read it before starting.
+(*"feat: add PDF output via pdfmake — closes #67"*). That commit is still the reference
+implementation for the *mechanics* of wiring a new serializer/assembler; read it before
+starting. PDF itself, though, is planned for deprecation (Lewis, 2026-07-17, see
+[decisions.md](decisions.md#pdfmake-and-the-standard-14-fonts)) — don't read this section as
+a case *for* adding more formats like it, just as the pattern to follow if you do.
 
 **Stop first:** a new output format almost always means a new npm dependency. That is a hard
 stop — ask Lewis before installing. (`pdfmake` also needed `@types/pdfmake` as a

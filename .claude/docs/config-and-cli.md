@@ -65,7 +65,7 @@ Array of `SolutionEntry` (schema.ts:6). Each is parsed independently and merged 
 | `wiki` | boolean? | `true` | Publish to ADO Wiki. `false` nulls `config.wiki` outright (index.ts:117-119). |
 | `word` | boolean? | `true` | Generate `.docx`. (schema.ts's doc comment claimed `false` — corrected to match `CONFIG_DEFAULTS`.) |
 | `wordFilename` | string? | `solution-documentation.docx` | Joined onto `output.path`. |
-| `pdf` | boolean? | `false` | Generate `.pdf`. Local only — never published to the wiki. |
+| `pdf` | boolean? | `false` | Generate `.pdf`. Local only — never published to the wiki. **Deprecated — planned removal** (Lewis, 2026-07-17); see [roadmap.md](roadmap.md#open-work-outside-the-phase-plan) for the reasoning. |
 | `pdfFilename` | string? | `solution-documentation.pdf` | |
 | `wordDiagrams` | boolean? | `true` | Embed Mermaid diagrams as PNGs in the Word doc. **Word-scoped only** — there is no PDF equivalent; `PdfSerializer` skips Mermaid by design. Degrades to a console warning (not a failure) when no browser is found — see [Chrome resolution](#puppeteerrccjs-and-chrome-resolution). |
 | `wordTheme` | object? | *(absent — see below)* | Visual theme for the `.docx`. **Word-scoped only** — the PDF is pdfmake and unthemed. See [`output.wordTheme`](#outputwordtheme). |
@@ -235,7 +235,7 @@ Parsed by hand off `process.argv.slice(2)` at `src/index.ts:73-86`. **`commander
 |------|--------|
 | `--word` | Word output |
 | `--wiki` | Wiki publish |
-| `--pdf` | PDF output |
+| `--pdf` | PDF output. **Deprecated — planned removal** (Lewis, 2026-07-17), see [roadmap.md](roadmap.md#open-work-outside-the-phase-plan). |
 | `--regenerate-ai` | Ignore cached AI summaries and regenerate every one. Does **not** affect output selection. |
 
 ### Precedence
@@ -360,7 +360,7 @@ All four `dev*` scripts redirect stdout **and** stderr into `dev.log` (gitignore
 | `doc-gen.config.yml` | local config, **live PAT** | gitignored |
 | `dist/` | build output | gitignored |
 
-`npm test` (Vitest, 693 tests) covers all 17 parsers, all 14 renderers, `MarkdownSerializer`, `DocxSerializer`, `wordTheme`, `erdGenerator` and `config/loader`. It does **not** touch `publisher/*`, `PdfSerializer`, real Mermaid rendering or the AI providers — so no test assembles a full document or publishes a wiki page. Passing tests are not a verified change. For what verification actually means here — including how to inspect the generated `.docx`/`.pdf` — see [process.md](process.md).
+`npm test` (Vitest, 1113 tests) covers all 17 parsers, all 14 renderers, `MarkdownSerializer`, `DocxSerializer`, `wordTheme`, `erdGenerator`, `config/loader`, all four `publisher/*` modules, `logger`, `main()`, and the enrichment layer including the AI providers — see [roadmap.md](roadmap.md#open-work-outside-the-phase-plan). It does **not** touch `PdfSerializer`/`pdfAssembler` (deprecated, see the `output.pdf` row above) or a real-browser Mermaid launch — so no test exercises actual PDF byte output or a cold Puppeteer render. Passing tests are not a verified change. For what verification actually means here — including how to inspect the generated `.docx`/`.pdf` — see [process.md](process.md).
 
 ---
 
