@@ -159,7 +159,7 @@ Merge it yourself (🟢). Two styles are both in use, and the observable rule is
 
 ### 10. Confirm the board moved
 
-`closes #N` closes the *issue*; the board card is a separate object and the sync is **not** reliable. The documented failure mode has actually happened and is still sitting there: **issue #1 "AI Enrichment Layer" is closed and shipped in v1.3.0, but its card still reads `In Progress`** — the stalest card on the board. Check yours, and move it to `Done` by hand if needed.
+`closes #N` closes the *issue*; the board card is a separate object and the sync is **not** reliable. The documented failure mode has actually happened: issue #1 "AI Enrichment Layer" sat with its board card reading `In Progress` for over a month after the issue itself closed and shipped in v1.3.0 — caught and fixed 2026-07-18 during a full board cleanse. Check yours after every merge, and move it to `Done` by hand if needed.
 
 (PRs #89/#91/#92/#93/#96/#98 are absent from the board. That is correct — the board tracks issues, not PRs.)
 
@@ -302,17 +302,22 @@ The full chain, for context when diagnosing "the publish didn't happen":
 2. **Lewis** tags and creates a GitHub Release. Tags are `v`-prefixed (`v1.2.0`, `v1.3.0`, `v1.4.0`); releases are titled descriptively — "v1.4.0 — PDF output", "v1.3.0 - AI Enrichment".
 3. **GitHub Actions** publishes. `.github/workflows/npm-publish.yml`: Node 24, `npm ci` → `npm run typecheck` → `npm test` → `npm run build` → `npm publish`, with `NODE_AUTH_TOKEN: secrets.NPM_TOKEN`. The typecheck and test steps duplicate `ci.yml` deliberately — a release can be cut from any ref, `workflow_dispatch` has no PR behind it, and npm forbids republishing a version, so the last gate before an irreversible step doesn't get to assume an earlier one ran.
 
-Current version: **1.4.0**. (Expect this line to be stale — trust `package.json`.)
+Current version: **1.5.0**. (Expect this line to be stale — trust `package.json`.)
 
-### The v1.4.0 incident, so you don't re-derive it
+### Two npm-publish trigger incidents, so you don't re-derive them
 
-The workflow originally fired on `release: types: [created]`. `created` does not fire when a **draft** release is later published via the UI — only `published` does. **v1.4.0 silently skipped its npm publish.** Fixed in PR #93: it now listens on `[created, published]` and adds `workflow_dispatch` as a manual escape hatch:
+The workflow now fires on `release: types: [published]` only, plus `workflow_dispatch` as a manual escape hatch:
 
 ```bash
 gh workflow run "Publish to npm"    # re-trigger without a release event
 ```
 
-If a publish appears not to have happened, check the Actions tab for a *missing* run before assuming a *failed* one.
+It got there in two steps, both worth knowing if a publish looks wrong:
+
+1. **v1.4.0 silently skipped its npm publish.** The workflow originally fired on `types: [created]` only. `created` does not fire when a **draft** release is later published via the UI — only `published` does. Fixed in PR #93 by adding `published` to the trigger list, making it `[created, published]`.
+2. **That fix then caused a different failure: publishing directly (not as a draft) fires `created` and `published` simultaneously**, so the workflow ran twice per release, and the second run always failed with a 403 since npm forbids republishing a version. Fixed after v1.5.0 by removing `created` — `published` alone covers both the direct-publish and draft-then-published cases.
+
+If a publish appears not to have happened, check the Actions tab for a *missing* run before assuming a *failed* one; if it ran twice, the second failure is expected and not itself the bug.
 
 ### Node version
 

@@ -14,7 +14,7 @@ The what-exists matrix: every input source, parser, IR model, renderer, enrichme
 | ⬜ Not built | No file, no IR type, no wiring. The path column is the *intended* location, not an existing one |
 | ⚠️ Built but unwired | The code exists but nothing calls it |
 
-MoSCoW priorities (M/S/C/W) are carried over from `docs/architecture.jsx`, which is the origin of the prioritisation. Where this doc and `architecture.jsx` disagree, **this doc is correct** — see [Known drift in architecture.jsx](#known-drift-in-docsarchitecturejsx) at the bottom.
+MoSCoW priorities (M/S/C/W) are carried over from `docs/architecture.jsx`, which is the origin of the prioritisation. Where this doc and `architecture.jsx` disagree, **this doc is correct** — re-verify against source rather than trusting either blindly; architecture.jsx was last reconciled against this doc on 2026-07-18.
 
 This doc answers *what exists*. It does not cover *how the layers fit together* (see `architecture.md`), *how to configure it* (see `config-and-cli.md`), or *how to land a change* (see `process.md`).
 
@@ -49,13 +49,20 @@ All input is an unpacked Power Platform solution folder, produced by `pac CLI` b
 | Column Security Profiles | S |
 | Routing Rule Sets | S |
 | Custom Connectors | S |
+| Virtual Tables | S |
+| Copilot Studio Agents | S |
+| Masking Rules (Secured/Attribute) | S |
 | PCF Controls | C |
 | Duplicate Detection Rules | C |
 | SLAs | C |
 | Dashboards | C |
 | Service Endpoints | C |
 | Power Pages | C |
+| Settings (org/solution config) | C |
+| Custom Pages | C |
 | Canvas App Source | **W — out of scope** |
+
+Scheduled (recurrence-triggered) flows are **already parsed** as a `FlowTriggerType` of `'Scheduled'` — what's missing is the recurrence metadata (interval, start time, timezone) on top of that, not a new source (#116).
 
 ---
 
@@ -90,7 +97,7 @@ All input is an unpacked Power Platform solution folder, produced by `pac CLI` b
 
 ### ⬜ Not built
 
-PCF, Business Process Flow, Duplicate Detection Rule, SLA, Dashboard, Column Security Profile, Service Endpoint, Routing Rule Set, Custom Connector, Power Pages. Priorities mirror the Layer 01 table above.
+PCF, Business Process Flow, Duplicate Detection Rule, SLA, Dashboard, Column Security Profile, Service Endpoint, Routing Rule Set, Custom Connector, Power Pages, Virtual Table, Agent (Copilot Studio), Settings, Masking Rule, Custom Page. Priorities mirror the Layer 01 table above.
 
 ---
 
@@ -122,6 +129,8 @@ PCF, Business Process Flow, Duplicate Detection Rule, SLA, Dashboard, Column Sec
 | `RoutingRuleSetModel` | `ir/routingRule.ts` | ⬜ Not built |
 | `CustomConnectorModel` | `ir/customConnector.ts` | ⬜ Not built |
 | `DuplicateDetectionRuleModel`, `SLAModel`, `DashboardModel`, `ServiceEndpointModel`, `PowerPagesModel` | — | ⬜ Not built |
+| `AgentModel`, `SettingsModel`, `MaskingRuleModel`, `CustomPageModel` | — | ⬜ Not built |
+| `VirtualTableModel` (or an additive extension of `TableModel`, open design question) | — | ⬜ Not built |
 
 **`ir/webResource.ts` has a capital R.** Older docs said `webresource.ts`. Get this wrong and it compiles on macOS and fails on the Linux ADO agent — the same class of bug the "capitalised filenames" decision exists to prevent.
 
@@ -269,15 +278,4 @@ It is **not** standalone: it is imported by `docs-viewer/` (a separate Vite/Reac
 
 When a feature lands, `architecture.jsx` must be updated to match this doc. **The update process — how to edit it, preview it, and what deploys — belongs in [process.md](process.md).** This doc is only the statement of truth about what is built.
 
-### Known drift in `docs/architecture.jsx`
-
-Verified stale at the time of writing. Fix opportunistically when you touch the file:
-
-| Location | Says | Reality |
-|----------|------|---------|
-| Enrichment → Dependency Resolver | `done: false` | ✅ Built and wired into all three assemblers |
-| Output → Markdown Renderer detail | "All renderers emit markdown strings directly — string builder pattern with `markdownTable()` helper" | Renderers emit `DocNode[]`; `MarkdownSerializer` does the conversion. Only the legacy `write*Markdown()` helpers still build strings |
-| IR → WebResourceModel tag | `ir/webresource.ts` | `ir/webResource.ts` (capital R) |
-| Input → Classic Workflows detail | "Category=0 → classic workflow" | Parser excludes Category=2 and maps Category=3 → `'action'`, everything else → `'workflow'` |
-| Enrichment → AI Summary Cache Manager | "Committed `.powerautodocs-ai-cache.json`" | Committed in the *client's* repo; gitignored in this repo. See `config-and-cli.md` |
-| Pipeline → GitHub Actions npm Publish | "Triggers on GitHub Release created" | Triggers on `[created, published]` — `created` alone silently skipped the v1.4.0 publish. See `process.md` |
+`docs/architecture.jsx` was reconciled against this doc on 2026-07-18 (the Dependency Resolver `done` flag, the Markdown Renderer and Mermaid-fence wording, the `ir/webResource.ts` casing, the Classic Workflow category mapping, and the AI cache location were all fixed then) and also gained entries for the five components added to the tracker that day (Virtual Table, Agent, Settings, Masking Rule, Custom Page). Re-verify rather than trust that reconciliation as either file changes further.
