@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<powerpagesites>
+  <powerpagesite powerpagesiteid="50000000-1000-4000-8000-000000000000">
+    <content>{"defaultlanguage":"40000000-1000-4000-8000-000000000001","headerwebtemplateid":"c0000000-0000-4000-8000-000000000004","footerwebtemplateid":"c0000000-0000-4000-8000-000000000004","website_language":1033,"defaultbotconsumerid":"c0000000-0000-4000-8000-000000000010"}</content>
+    <datamodelversion>2</datamodelversion>
+    <iscustomizable>1</iscustomizable>
+    <name>Contoso Customer Portal</name>
+    <statecode>0</statecode>
+    <statuscode>1</statuscode>
+  </powerpagesite>
+</powerpagesites>

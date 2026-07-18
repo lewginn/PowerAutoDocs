@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<powerpagesitelanguages>
+  <powerpagesitelanguage powerpagesitelanguageid="40000000-1000-4000-8000-000000000001">
+    <content>{"publishingstate":"c0000000-0000-4000-8000-000000000001","systemlanguage":1033}</content>
+    <displayname>English (United States)</displayname>
+    <iscustomizable>1</iscustomizable>
+    <languagecode>en-US</languagecode>
+    <lcid>1033</lcid>
+    <name>English</name>
+    <powerpagesiteid>
+      <powerpagesiteid>50000000-1000-4000-8000-000000000000</powerpagesiteid>
+    </powerpagesiteid>
+    <statecode>0</statecode>
+    <statuscode>1</statuscode>
+  </powerpagesitelanguage>
+</powerpagesitelanguages>

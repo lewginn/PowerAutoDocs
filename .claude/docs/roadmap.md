@@ -30,7 +30,7 @@ Phase status, what each remaining phase targets, and the open backlog mapped to 
 | Phase 3 | Component IR Models & Renderers | ✅ Complete | #37–#52 |
 | Phase 4 | AI Enrichment & Delivery Formats | ✅ Complete | #1, #67, #68, #69, #94 |
 | Phase 5 | Extended Components & Configuration | 🔲 Planned | #54–#59, #61, #63, #90 |
-| Backlog | Future Enhancements | 🔲 Planned | #53, #60, #62, #64, #65, #66, #70 |
+| Backlog | Future Enhancements | 🔲 Planned | #53, #60, #64, #65, #66, #70 (#62 Power Pages now **shipped**) |
 
 Source: `docs/architecture.jsx:227-312`. Phases 1–4 are complete and producing real output against live client solutions.
 
@@ -96,7 +96,7 @@ CLI flags are **already shipped** — flag parsing is hand-rolled off `process.a
 |-------|------|--------|
 | #53 | PCF Control Model & Parser & Renderer | C |
 | #60 | Dashboard Model & Parser & Renderer | C |
-| #62 | Power Pages Model & Parser & Renderer | C |
+| #62 | Power Pages Model & Parser & Renderer — ✅ **Shipped**: `ir/powerPages.ts`, `parsers/powerPagesParser.ts`, `renderers/powerPagesRenderer.ts`, wired into all three assemblers (config `components.powerPages`, defaults off — D2) | C |
 | #64 | Auto-trigger pipeline — push / scheduled | S |
 | #65 | Git-based changelog | C |
 | #66 | IR JSON artifact export | C |

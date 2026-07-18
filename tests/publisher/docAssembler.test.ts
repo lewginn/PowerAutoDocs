@@ -36,7 +36,7 @@ import type {
   SolutionModel, FlowModel, PluginAssemblyModel, WebResourceModel,
   SecurityRoleModel, ClassicWorkflowModel, BusinessRuleModel,
   EnvironmentVariableModel, GlobalChoiceModel, EmailTemplateModel,
-  ModelDrivenAppModel, ConnectionReferenceModel,
+  ModelDrivenAppModel, ConnectionReferenceModel, PowerPagesModel,
 } from '../../src/ir/index.js';
 import { aConfig } from '../fixtures/config.js';
 import {
@@ -95,6 +95,7 @@ interface Args {
   globalChoices?: GlobalChoiceModel[];
   emailTemplates?: EmailTemplateModel[];
   modelDrivenApps?: ModelDrivenAppModel[];
+  powerPages?: PowerPagesModel[];
   outputPath?: string;
 }
 
@@ -119,6 +120,7 @@ async function build(args: Args = {}): Promise<string> {
     args.globalChoices ?? [],
     args.emailTemplates ?? [],
     args.modelDrivenApps ?? [],
+    args.powerPages ?? [],
     outputPath,
   );
   return outputPath;

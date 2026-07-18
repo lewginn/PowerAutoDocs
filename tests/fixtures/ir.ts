@@ -39,6 +39,7 @@ import type {
   ModelDrivenAppModel,
   PluginAssemblyModel,
   PluginStepModel,
+  PowerPagesModel,
   RelationshipModel,
   SecurityRoleModel,
   SolutionModel,
@@ -329,6 +330,90 @@ export const aModelDrivenApp = (over: Partial<ModelDrivenAppModel> = {}): ModelD
   standardEntities: ['account'],
   roleCount: 2,
   appSettings: [],
+  ...over,
+});
+
+// -----------------------------------------------
+// Power Pages
+// -----------------------------------------------
+//
+// A fully-populated site: every optional ref resolves, every subsection has at
+// least one row, and no field contains a markdown metacharacter (the
+// formatBoundary sweep depends on that). Fictional "Contoso" data throughout.
+
+export const aPowerPagesSite = (over: Partial<PowerPagesModel> = {}): PowerPagesModel => ({
+  id: 'site-0001',
+  name: 'Contoso Customer Portal',
+  dataModelVersion: 2,
+  defaultLanguageId: 'lang-en',
+  websiteLanguageLcid: 1033,
+  headerWebTemplateId: 'wt-header',
+  footerWebTemplateId: 'wt-footer',
+  defaultBotConsumerId: 'bot-1',
+  languages: [
+    { id: 'lang-en', name: 'English', displayName: 'English (United States)', languageCode: 'en-US', lcid: 1033 },
+  ],
+  publishingStates: [
+    { id: 'ps-draft', name: 'Draft', displayOrder: 1, isDefault: false, isVisible: false },
+    { id: 'ps-pub', name: 'Published', displayOrder: 2, isDefault: true, isVisible: true },
+  ],
+  webPages: [
+    { id: 'wp-home', name: 'Home', partialUrl: '', isRoot: true, parentPageId: null, rootWebPageId: null, pageTemplateId: 'pt-home', publishingStateId: 'ps-pub', languageId: null, displayOrder: 1 },
+    { id: 'wp-about', name: 'About Us', partialUrl: 'about-us', isRoot: true, parentPageId: 'wp-home', rootWebPageId: null, pageTemplateId: 'pt-std', publishingStateId: 'ps-pub', languageId: null, displayOrder: 2 },
+    { id: 'wp-about-en', name: 'About Us (English)', partialUrl: 'about-us', isRoot: false, parentPageId: 'wp-home', rootWebPageId: 'wp-about', pageTemplateId: 'pt-std', publishingStateId: 'ps-pub', languageId: 'lang-en', displayOrder: 3 },
+  ],
+  pageTemplates: [
+    { id: 'pt-home', name: 'Home Template', isDefault: true, usesWebsiteHeaderAndFooter: true, webTemplateId: 'wt-home', rewriteUrl: null, entityName: null },
+    { id: 'pt-std', name: 'Standard Template', isDefault: false, usesWebsiteHeaderAndFooter: true, webTemplateId: null, rewriteUrl: 'Pages/Standard.aspx', entityName: 'contoso_case' },
+  ],
+  webTemplates: [
+    { id: 'wt-header', name: 'Header', sourceLength: 1280 },
+    { id: 'wt-footer', name: 'Footer', sourceLength: 640 },
+    { id: 'wt-home', name: 'Home Body', sourceLength: 4096 },
+  ],
+  contentSnippets: [
+    { id: 'cs-1', name: 'Home/Intro', displayName: 'Home Intro', snippetType: 1, valueLength: 512, languageId: 'lang-en' },
+    { id: 'cs-2', name: 'Footer/Copyright', displayName: 'Copyright Notice', snippetType: null, valueLength: 64, languageId: null },
+  ],
+  siteSettings: [
+    { id: 'ss-1', name: 'Authentication/Registration/Enabled', value: 'true', description: 'Allow self-registration' },
+    { id: 'ss-2', name: 'Header/TreeViewEnabled', value: null, description: null },
+  ],
+  webRoles: [
+    { id: 'wr-anon', name: 'Anonymous Users', anonymousUsersRole: true, authenticatedUsersRole: false },
+    { id: 'wr-auth', name: 'Authenticated Users', anonymousUsersRole: false, authenticatedUsersRole: true },
+  ],
+  pageAccessRules: [
+    { id: 'par-1', name: 'Restrict About', right: 2, webPageId: 'wp-about', webRoleIds: ['wr-auth'] },
+    { id: 'par-2', name: 'Grant Home', right: 1, webPageId: null, webRoleIds: [] },
+  ],
+  websiteAccess: [
+    { id: 'wa-1', name: 'Content Editors', manageContentSnippets: true, manageSiteMarkers: true, manageWebLinkSets: true, previewUnpublishedEntities: true, webRoleIds: ['wr-auth'] },
+  ],
+  siteMarkers: [
+    { id: 'sm-1', name: 'Home', pageId: 'wp-home' },
+  ],
+  webLinkSets: [
+    { id: 'wls-1', name: 'Primary Navigation', displayName: 'Main Menu', publishingStateId: 'ps-pub', languageId: 'lang-en' },
+  ],
+  webLinks: [
+    { id: 'wl-1', name: 'Home', webLinkSetId: 'wls-1', pageId: 'wp-home', displayOrder: 1, openInNewWindow: false },
+    { id: 'wl-2', name: 'About', webLinkSetId: 'wls-1', pageId: 'wp-about', displayOrder: 2, openInNewWindow: true },
+    { id: 'wl-orphan', name: 'External Docs', webLinkSetId: null, pageId: null, displayOrder: 0, openInNewWindow: true },
+  ],
+  basicForms: [
+    { id: 'bf-1', name: 'Contact Form', formName: 'Web Contact', entityName: 'contact', tabName: 'General', mode: 0 },
+  ],
+  lists: [
+    { id: 'ls-1', name: 'Case List', entityName: 'contoso_case', viewId: 'view-0001', pageSize: 20, settingsLength: 2048, viewsLength: 1024 },
+  ],
+  webFiles: [
+    { id: 'wf-1', name: 'Contoso Logo', partialUrl: 'logo.png', parentPageId: 'wp-home', publishingStateId: 'ps-pub', displayOrder: 1, mimeType: 'image/png', fileSizeBytes: 20480 },
+  ],
+  botConsumers: [
+    { id: 'bot-1', name: 'Support Agent', botSchemaName: 'contoso_supportbot', configLength: 256 },
+  ],
+  otherComponentCount: 1,
   ...over,
 });
 

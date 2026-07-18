@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<powerpagecomponent powerpagecomponentid="c0000000-0000-4000-8000-000000000009">
+  <content>{"right":2,"webpageid":"c0000000-0000-4000-8000-000000000003","adx_webpageaccesscontrolrule_webrole":["c0000000-0000-4000-8000-000000000008"]}</content>
+  <iscustomizable>1</iscustomizable>
+  <name>Restrict About Us</name>
+  <powerpagecomponenttype>10</powerpagecomponenttype>
+  <powerpagesiteid>
+    <powerpagesiteid>50000000-1000-4000-8000-000000000000</powerpagesiteid>
+  </powerpagesiteid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</powerpagecomponent>

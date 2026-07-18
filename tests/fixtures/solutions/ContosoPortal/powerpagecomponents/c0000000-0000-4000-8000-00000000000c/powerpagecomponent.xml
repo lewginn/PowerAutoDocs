@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<powerpagecomponent powerpagecomponentid="c0000000-0000-4000-8000-00000000000c">
+  <content>{"weblinksetid":"c0000000-0000-4000-8000-00000000000b","pageid":"c0000000-0000-4000-8000-000000000002","displayorder":1,"openinnewwindow":false,"disablepagevalidation":false,"displayimageonly":false,"displaypagechildlinks":false,"robotsfollowlink":true}</content>
+  <iscustomizable>1</iscustomizable>
+  <name>Home Link</name>
+  <powerpagecomponenttype>5</powerpagecomponenttype>
+  <powerpagesiteid>
+    <powerpagesiteid>50000000-1000-4000-8000-000000000000</powerpagesiteid>
+  </powerpagesiteid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</powerpagecomponent>

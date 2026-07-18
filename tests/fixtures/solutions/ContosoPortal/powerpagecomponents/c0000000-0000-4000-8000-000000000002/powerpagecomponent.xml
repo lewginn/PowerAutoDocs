@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<powerpagecomponent powerpagecomponentid="c0000000-0000-4000-8000-000000000002">
+  <content>{"isroot":true,"enablerating":false,"enabletracking":false,"excludefromsearch":false,"hiddenfromsitemap":false,"sharedpageconfiguration":false,"partialurl":"home","pagetemplateid":"c0000000-0000-4000-8000-0000000000d1","publishingstateid":"c0000000-0000-4000-8000-000000000001","displayorder":1}</content>
+  <iscustomizable>1</iscustomizable>
+  <name>Home</name>
+  <powerpagecomponenttype>2</powerpagecomponenttype>
+  <powerpagesiteid>
+    <powerpagesiteid>50000000-1000-4000-8000-000000000000</powerpagesiteid>
+  </powerpagesiteid>
+  <searchcontent>Home page</searchcontent>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</powerpagecomponent>
