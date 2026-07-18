@@ -3,6 +3,7 @@ import type {
   SolutionModel, FlowModel, PluginAssemblyModel, WebResourceModel,
   SecurityRoleModel, ClassicWorkflowModel, BusinessRuleModel, EnvironmentVariableModel,
   GlobalChoiceModel, EmailTemplateModel, ModelDrivenAppModel, ConnectionReferenceModel,
+  PowerPagesModel,
 } from '../ir/index.js';
 import type { WikiPage } from './wikiPublisher.js';
 import { generateERDiagram } from '../enrichment/erdGenerator.js';
@@ -25,6 +26,7 @@ import {
   renderGlobalChoicesIndex, renderGlobalChoicePage, encodeChoiceName,
   renderEmailTemplatesIndex, renderEmailTemplatePage,
   renderModelDrivenAppsIndex, renderModelDrivenAppPage,
+  renderPowerPagesIndex, renderPowerPagesSitePage,
 } from '../renderers/index.js';
 import { encodePageSegment as s } from '../renderers/rendererUtils.js';
 
@@ -103,6 +105,7 @@ export function buildWikiPages(
   globalChoices: GlobalChoiceModel[] = [],
   emailTemplates: EmailTemplateModel[] = [],
   modelDrivenApps: ModelDrivenAppModel[] = [],
+  powerPages: PowerPagesModel[] = [],
 ): WikiPage[] {
   if (!config.wiki) return [];
 
@@ -292,6 +295,15 @@ export function buildWikiPages(
     pages.push({ path: appsBasePath, content: serialize(renderModelDrivenAppsIndex(modelDrivenApps, appsBasePath)) });
     for (const app of modelDrivenApps) {
       pages.push({ path: `${appsBasePath}/${s(app.displayName)}`, content: serialize(renderModelDrivenAppPage(app)) });
+    }
+  }
+
+  // ---- Power Pages ----
+  if (powerPages.length > 0) {
+    const ppBasePath = `${base}/Power Pages`;
+    pages.push({ path: ppBasePath, content: serialize(renderPowerPagesIndex(powerPages, ppBasePath)) });
+    for (const site of powerPages) {
+      pages.push({ path: `${ppBasePath}/${s(site.name)}`, content: serialize(renderPowerPagesSitePage(site)) });
     }
   }
 

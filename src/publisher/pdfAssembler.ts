@@ -16,6 +16,7 @@ import type {
   SolutionModel, FlowModel, PluginAssemblyModel, WebResourceModel,
   SecurityRoleModel, ClassicWorkflowModel, BusinessRuleModel, EnvironmentVariableModel,
   GlobalChoiceModel, EmailTemplateModel, ModelDrivenAppModel, ConnectionReferenceModel,
+  PowerPagesModel,
 } from '../ir/index.js';
 import { generateERDiagram } from '../enrichment/erdGenerator.js';
 import { resolveFlowTableDependencies } from '../enrichment/dependencyResolver.js';
@@ -38,6 +39,7 @@ import {
   renderGlobalChoicesIndex, renderGlobalChoicePage,
   renderEmailTemplatesIndex, renderEmailTemplatePage,
   renderModelDrivenAppsIndex, renderModelDrivenAppPage,
+  renderPowerPagesIndex, renderPowerPagesSitePage,
 } from '../renderers/index.js';
 
 /**
@@ -71,6 +73,7 @@ export async function buildPdfDocument(
   globalChoices: GlobalChoiceModel[] = [],
   emailTemplates: EmailTemplateModel[] = [],
   modelDrivenApps: ModelDrivenAppModel[] = [],
+  powerPages: PowerPagesModel[] = [],
   outputPath: string,
 ): Promise<void> {
   const content: Content[] = [];
@@ -219,6 +222,14 @@ export async function buildPdfDocument(
     push(content, renderModelDrivenAppsIndex(modelDrivenApps, ''), 0);
     for (const app of modelDrivenApps) {
       push(content, renderModelDrivenAppPage(app), 1);
+    }
+  }
+
+  // ---- Power Pages ----
+  if (powerPages.length > 0) {
+    push(content, renderPowerPagesIndex(powerPages, ''), 0);
+    for (const site of powerPages) {
+      push(content, renderPowerPagesSitePage(site), 1);
     }
   }
 

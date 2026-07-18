@@ -16,6 +16,7 @@ import type {
   SolutionModel, FlowModel, PluginAssemblyModel, WebResourceModel,
   SecurityRoleModel, ClassicWorkflowModel, BusinessRuleModel, EnvironmentVariableModel,
   GlobalChoiceModel, EmailTemplateModel, ModelDrivenAppModel, ConnectionReferenceModel,
+  PowerPagesModel,
 } from '../ir/index.js';
 import { generateERDiagram } from '../enrichment/erdGenerator.js';
 import { resolveFlowTableDependencies } from '../enrichment/dependencyResolver.js';
@@ -42,6 +43,7 @@ import {
   renderGlobalChoicesIndex, renderGlobalChoicePage,
   renderEmailTemplatesIndex, renderEmailTemplatePage,
   renderModelDrivenAppsIndex, renderModelDrivenAppPage,
+  renderPowerPagesIndex, renderPowerPagesSitePage,
 } from '../renderers/index.js';
 
 type Block = Paragraph | Table | TableOfContents;
@@ -91,6 +93,7 @@ export async function buildWordDocument(
   globalChoices: GlobalChoiceModel[] = [],
   emailTemplates: EmailTemplateModel[] = [],
   modelDrivenApps: ModelDrivenAppModel[] = [],
+  powerPages: PowerPagesModel[] = [],
   outputPath: string,
 ): Promise<void> {
   const blocks: Block[] = [];
@@ -265,6 +268,14 @@ export async function buildWordDocument(
     await push(blocks, renderModelDrivenAppsIndex(modelDrivenApps, ''), 0, renderMermaid, theme, pageBreakState);
     for (const app of modelDrivenApps) {
       await push(blocks, renderModelDrivenAppPage(app), 1, renderMermaid, theme, pageBreakState);
+    }
+  }
+
+  // ---- Power Pages ----
+  if (powerPages.length > 0) {
+    await push(blocks, renderPowerPagesIndex(powerPages, ''), 0, renderMermaid, theme, pageBreakState);
+    for (const site of powerPages) {
+      await push(blocks, renderPowerPagesSitePage(site), 1, renderMermaid, theme, pageBreakState);
     }
   }
 

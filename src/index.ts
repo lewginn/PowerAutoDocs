@@ -7,7 +7,7 @@ import {
   parseAllFlows, parseClassicWorkflows, parseBusinessRules,
   parseAllPlugins, parseAllWebResources,
   parseSecurityRoles, parseEnvironmentVariables, parseConnectionReferences,
-  parseGlobalChoices, parseEmailTemplates, parseModelDrivenApps
+  parseGlobalChoices, parseEmailTemplates, parseModelDrivenApps, parsePowerPages
 } from './parsers/index.js';
 import {
   writeTableMarkdown, writeOverviewMarkdown,
@@ -17,7 +17,7 @@ import type {
   SolutionModel, FlowModel, ClassicWorkflowModel, BusinessRuleModel,
   PluginAssemblyModel, WebResourceModel,
   SecurityRoleModel, EnvironmentVariableModel, ConnectionReferenceModel,
-  GlobalChoiceModel, EmailTemplateModel, ModelDrivenAppModel,
+  GlobalChoiceModel, EmailTemplateModel, ModelDrivenAppModel, PowerPagesModel,
 } from './ir/index.js';
 import { enrichWithAiSummaries } from './enrichment/aiSummariser.js';
 import { publishToWiki } from './publisher/wikiPublisher.js';
@@ -134,6 +134,7 @@ export async function main(configDir?: string): Promise<void> {
   const allEmailTemplates: EmailTemplateModel[] = [];
   const allModelDrivenApps: ModelDrivenAppModel[] = [];
   const allConnectionReferences: ConnectionReferenceModel[] = [];
+  const allPowerPages: PowerPagesModel[] = [];
 
   // ---- Process each solution ----
   for (const solutionEntry of config.solutions) {
@@ -280,6 +281,15 @@ export async function main(configDir?: string): Promise<void> {
         if (apps.length > 0) log('success', `Model-Driven Apps: ${apps.length}`);
       }
 
+      // ---- Power Pages ----
+      if (config.components.powerPages) {
+        const sites = tryParse('Power Pages', solutionLabel, [], summary, () =>
+          parsePowerPages(unpackedPath)
+        );
+        allPowerPages.push(...sites);
+        if (sites.length > 0) log('success', `Power Pages sites: ${sites.length}`);
+      }
+
       summary.solutionsProcessed++;
 
     } catch (err: any) {
@@ -370,6 +380,7 @@ export async function main(configDir?: string): Promise<void> {
           allGlobalChoices,
           allEmailTemplates,
           allModelDrivenApps,
+          allPowerPages,
         );
 
         log('info', `Built ${pages.length} wiki pages — publishing...`);
@@ -425,6 +436,7 @@ export async function main(configDir?: string): Promise<void> {
         allGlobalChoices,
         allEmailTemplates,
         allModelDrivenApps,
+        allPowerPages,
         wordOutputPath,
       );
       log('success', `Word document written: ${wordOutputPath}`);
@@ -455,6 +467,7 @@ export async function main(configDir?: string): Promise<void> {
         allGlobalChoices,
         allEmailTemplates,
         allModelDrivenApps,
+        allPowerPages,
         pdfOutputPath,
       );
       log('success', `PDF document written: ${pdfOutputPath}`);

@@ -36,7 +36,7 @@ const layers = [
       { name: "Service Endpoints", icon: "🔌", detail: "ServiceEndpoint XML. Azure Service Bus, webhooks, event hub connections.", tags: ["XML"], done: false, moscow: "C" },
       { name: "Routing Rule Sets", icon: "📨", detail: "RoutingRule XML. Case routing conditions, queue assignments.", tags: ["XML"], done: false, moscow: "S" },
       { name: "Custom Connectors", icon: "🔗", detail: "Custom connector definitions for Power Platform. API base URL, authentication, actions/triggers.", tags: ["JSON", "XML"], done: false, moscow: "S" },
-      { name: "Power Pages", icon: "🌐", detail: "Portal/Power Pages site definitions. Pages, web templates, entity forms, entity lists, site settings.", tags: ["XML"], done: false, moscow: "C" },
+      { name: "Power Pages", icon: "🌐", detail: "Portal/Power Pages site definitions. Pages, web templates, entity forms, entity lists, site settings.", tags: ["XML"], done: true, moscow: "C" },
       { name: "Canvas App Source", icon: "🎨", detail: "Unpacked .msapp source. Reads screens, controls, formulas.", tags: ["JSON", "Optional"], done: false, moscow: "W" },
     ]
   },
@@ -72,7 +72,7 @@ const layers = [
       { name: "Service Endpoint Parser", icon: "🔌", detail: "Parses ServiceEndpoint XML. Endpoint name, type (Service Bus/webhook/event hub), connection details.", tags: ["XML"], done: false, moscow: "C" },
       { name: "Routing Rule Set Parser", icon: "📨", detail: "Parses RoutingRule XML. Rule name, conditions, queue assignments, applicable entity.", tags: ["XML"], done: false, moscow: "S" },
       { name: "Custom Connector Parser", icon: "🔗", detail: "Parses custom connector JSON/XML. Base URL, auth type, operations list.", tags: ["JSON", "XML"], done: false, moscow: "S" },
-      { name: "Power Pages Parser", icon: "🌐", detail: "Parses Power Pages/Portal XML. Pages, web templates, entity forms, entity lists, site settings.", tags: ["XML"], done: false, moscow: "C" },
+      { name: "Power Pages Parser", icon: "🌐", detail: "Parses Power Pages/Portal XML. Pages, web templates, entity forms, entity lists, site settings.", tags: ["XML"], done: true, moscow: "C" },
     ]
   },
   {
@@ -106,7 +106,7 @@ const layers = [
       { name: "ServiceEndpointModel", icon: "🔌", detail: "Endpoint name, type (ServiceBus/WebHook/EventHub), namespace, contract.", tags: ["ir/serviceEndpoint.ts"], done: false, moscow: "C" },
       { name: "RoutingRuleSetModel", icon: "📨", detail: "Rule set name, entity, rule items with conditions and target queue.", tags: ["ir/routingRule.ts"], done: false, moscow: "S" },
       { name: "CustomConnectorModel", icon: "🔗", detail: "Connector name, base URL, auth type, operations list.", tags: ["ir/customConnector.ts"], done: false, moscow: "S" },
-      { name: "PowerPagesModel", icon: "🌐", detail: "Site name, pages, web templates, entity forms, entity lists, site settings.", tags: ["ir/powerPages.ts"], done: false, moscow: "C" },
+      { name: "PowerPagesModel", icon: "🌐", detail: "Site name, pages, web templates, entity forms, entity lists, site settings.", tags: ["ir/powerPages.ts"], done: true, moscow: "C" },
     ]
   },
   {
@@ -187,7 +187,7 @@ const pages = [
   { emoji: "🔌", name: "Service Endpoints", desc: "Endpoint index with type and connection details under Integrations", done: false, moscow: "C" },
   { emoji: "📨", name: "Routing Rule Sets", desc: "Rule set index + per-rule conditions and queue assignments", done: false, moscow: "S" },
   { emoji: "🔗", name: "Custom Connectors", desc: "Connector index + per-connector operations list", done: false, moscow: "S" },
-  { emoji: "🌐", name: "Power Pages", desc: "Site overview, pages, web templates, entity forms and lists", done: false, moscow: "C" },
+  { emoji: "🌐", name: "Power Pages", desc: "Site overview, pages, web templates, entity forms and lists", done: true, moscow: "C" },
   { emoji: "🤖", name: "AI Enrichment", desc: "Optional AI-generated summaries for components. Per-component toggle in config. Cache-first approach with .powerautodocs-ai-cache.json. Pluggable provider interface.", done: true, moscow: "C" },
 ];
 
@@ -308,7 +308,7 @@ const progress = [
     items: [
       { label: "PCF Control Model & Parser & Renderer (#53)", done: false },
       { label: "Dashboard Model & Parser & Renderer (#60)", done: false },
-      { label: "Power Pages Model & Parser & Renderer (#62)", done: false },
+      { label: "Power Pages Model & Parser & Renderer (#62)", done: true },
       { label: "Auto-trigger pipeline — push/scheduled (#64)", done: false },
       { label: "Git-based changelog (#65)", done: false },
       { label: "IR JSON artifact export (#66)", done: false },
@@ -570,7 +570,7 @@ export default function App() {
                     { indent: 2, text: "🔌 Service Endpoints ← under Integrations", color: "#cbd5e1", done: false },
                     { indent: 1, text: "📨 Routing Rule Sets", color: "#cbd5e1", done: false },
                     { indent: 1, text: "🔗 Custom Connectors", color: "#cbd5e1", done: false },
-                    { indent: 1, text: "🌐 Power Pages", color: "#cbd5e1", done: false },
+                    { indent: 1, text: "🌐 Power Pages", color: "#cbd5e1", done: true },
                   ].map((item, i) => (
                     <div key={i} style={{
                       paddingLeft: item.indent * 18, paddingTop: 4, paddingBottom: 4,

@@ -199,6 +199,8 @@ export interface DocGenConfig {
     emailTemplates: boolean;
     modelDrivenApps: boolean;
     connectionReferences: boolean;
+    /** Document Power Pages (Portal) sites. Default: false (opt-in for the first release — see loader.ts). */
+    powerPages: boolean;
   };
 
   wiki?: WikiConfig;

@@ -133,6 +133,7 @@ components:
   emailTemplates: true
   modelDrivenApps: true
   connectionReferences: true
+  powerPages: false                   # Document Power Pages (Portal) sites. Opt-in: defaults off
 
   environmentVariables:
     enabled: true
