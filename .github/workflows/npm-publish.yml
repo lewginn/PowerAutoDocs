@@ -19,11 +19,11 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # Publish from the newest supported LTS. CI proves the suite on 22 and 24;
       # the tarball itself is version-agnostic (tsc emits ES2020), so this only
       # decides which Node runs the build, not what clients can run.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org/
