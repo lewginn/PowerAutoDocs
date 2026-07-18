@@ -124,7 +124,7 @@ CLI flags are **already shipped** — flag parsing is hand-rolled off `process.a
 
 #97 is the newest substantive issue (opened 2026-06-10) and is not slotted into a phase block in `architecture.jsx`. If you pick it up, add it to a phase block or accept that it lives outside the published roadmap.
 
-**#109 closed the remaining gaps: the suite is now 1090 tests, ~3s.** CI (`ci.yml`) typechecks, builds and tests every PR. Coverage is **every module with runtime behaviour** — all 17 parsers, all 14 renderers, `MarkdownSerializer`, `DocxSerializer` (asserted against a real unzipped `.docx`), `wordTheme`, `erdGenerator`, `config/loader`, all four `publisher/*` modules, `logger`, `main()`, and the enrichment layer including the AI providers.
+**#109 closed the remaining gaps: the suite is now 1113 tests, ~3s.** CI (`ci.yml`) typechecks, builds and tests every PR. Coverage is **every module with runtime behaviour** — all 17 parsers, all 14 renderers, `MarkdownSerializer`, `DocxSerializer` (asserted against a real unzipped `.docx`), `wordTheme`, `erdGenerator`, `config/loader`, all four `publisher/*` modules, `logger`, `main()`, and the enrichment layer including the AI providers.
 
 Getting there needed three seams opened in source, not mocks — `main()` was unimportable, `publishToWiki` called bare `fetch()`, `enrichWithAiSummaries` resolved its own provider. The suite is still **mock-free**. See [decisions.md](decisions.md#vitest-and-a-suite-that-deliberately-stops-short) for why that property is worth protecting.
 

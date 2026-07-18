@@ -10,7 +10,7 @@ The six-layer pipeline, the real `src/` tree, and the structural invariants that
 
 ## What the pipeline is
 
-`powerautodocs` is a batch documentation pipeline. It reads a **pac-unpacked** Power Platform solution folder, parses it into typed models, and emits documentation in three formats: ADO Wiki markdown, Word `.docx`, PDF. There is no interactivity, no server, no incremental mode — one process, start to finish, exit code 0 or 1.
+`powerautodocs` is a batch documentation pipeline. It reads a **pac-unpacked** Power Platform solution folder, parses it into typed models, and emits documentation in three formats: ADO Wiki markdown, Word `.docx`, and PDF (deprecated — planned removal, Lewis 2026-07-17, see [decisions.md](decisions.md#pdfmake-and-the-standard-14-fonts)). There is no interactivity, no server, no incremental mode — one process, start to finish, exit code 0 or 1.
 
 Entry point: `src/index.ts` — `main()` is exported and also auto-invoked, so `npx powerautodocs` works as a bin.
 
@@ -31,7 +31,7 @@ Entry point: `src/index.ts` — `main()` is exported and also auto-invoked, so `
 [05 OUTPUT]    src/renderers/ emit DocNode[] → src/docmodel/ serializers:
                   MarkdownSerializer → ADO Wiki
                   DocxSerializer     → Word .docx
-                  PdfSerializer      → PDF
+                  PdfSerializer      → PDF (deprecated — planned removal)
                   ↓
 [06 PIPELINE]  src/publisher/ assemblers + wikiPublisher, doc-gen.config.yml,
                   ADO YAML, npm package
@@ -43,7 +43,7 @@ Assembly is where it all converges. Three assemblers each take the full set of I
 |---|---|---|
 | `src/publisher/wikiAssembler.ts:41` | `buildWikiPages()` | `WikiPage[]` → `wikiPublisher.ts:158` `publishToWiki()` |
 | `src/publisher/docAssembler.ts:75` | `buildWordDocument()` | writes `.docx` to `outputPath` (returns `void`) |
-| `src/publisher/pdfAssembler.ts:59` | `buildPdfDocument()` | writes `.pdf` to `outputPath` (returns `void`) |
+| `src/publisher/pdfAssembler.ts:59` | `buildPdfDocument()` | writes `.pdf` to `outputPath` (returns `void`). **Deprecated — planned removal**, see [decisions.md](decisions.md#pdfmake-and-the-standard-14-fonts). |
 
 **All three mirror each other section-for-section.** A new component wired into only two of them is silently missing from the third — this is the single most common wiring failure. See [playbooks.md](playbooks.md).
 
@@ -238,7 +238,7 @@ export type MermaidRenderer = (code: string) => Promise<{ data: Buffer; width: n
 
 `resolveChromeExecutable()` (`mermaidRenderer.ts:57`) throws on both a nonexistent override and no candidate found — but its only live caller wraps it in a try/catch that warns and carries on (`docAssembler.ts:99-106`). So neither case is fail-fast: an explicitly wrong `POWERAUTODOCS_CHROME_PATH` degrades **identically** to having no browser at all — the `.docx` is written with every diagram silently absent, exit code 0. If you are debugging "my diagrams vanished", read the warning on stderr; the run status will not tell you.
 
-`pdfAssembler.ts` has no diagram wiring at all — it never imports `mermaidRenderer`. `output.wordDiagrams` is genuinely Word-scoped and there is no `pdfDiagrams` equivalent. Adding diagrams to PDF means mirroring the callback plumbing that already exists in `DocxSerializer`, not inventing it.
+`pdfAssembler.ts` has no diagram wiring at all — it never imports `mermaidRenderer`. `output.wordDiagrams` is genuinely Word-scoped and there is no `pdfDiagrams` equivalent. The callback plumbing pattern already exists in `DocxSerializer` if this were ever needed — but PDF output is planned for deprecation (Lewis, 2026-07-17, see [decisions.md](decisions.md#pdfmake-and-the-standard-14-fonts)), so do not build this without confirming the plan still holds.
 
 ---
 

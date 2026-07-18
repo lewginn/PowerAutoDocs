@@ -171,7 +171,7 @@ Merge it yourself (🟢). Two styles are both in use, and the observable rule is
 
 Vitest, added under #102, completed under #109. `npm test` runs it; `.github/workflows/ci.yml` runs typecheck + build + test on **every PR and every push to `main`**. `npm-publish.yml` re-runs the same checks before `npm publish`, because a release can be cut from any ref and a publish cannot be undone.
 
-**This changes what CI catches, not what verification means.** The suite (1090 tests, ~3s) covers all 17 parsers, all 14 renderers, `MarkdownSerializer`, `DocxSerializer`, `wordTheme`, `erdGenerator`, `config/loader`, all four `publisher/*` modules, `logger`, `main()`, and enrichment including the AI providers. It is still **mock-free** — keep it that way; see [decisions.md](decisions.md#vitest-and-a-suite-that-deliberately-stops-short).
+**This changes what CI catches, not what verification means.** The suite (1113 tests, ~3s) covers all 17 parsers, all 14 renderers, `MarkdownSerializer`, `DocxSerializer`, `wordTheme`, `erdGenerator`, `config/loader`, all four `publisher/*` modules, `logger`, `main()`, and enrichment including the AI providers. It is still **mock-free** — keep it that way; see [decisions.md](decisions.md#vitest-and-a-suite-that-deliberately-stops-short).
 
 **Green CI still does not mean the `.docx` is right**, and the reasons are now specific rather than general:
 

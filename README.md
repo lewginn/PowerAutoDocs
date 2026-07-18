@@ -2,7 +2,7 @@
 
 Automated as-built documentation generator for Power Platform solutions.
 
-Reads unpacked solution XML directly from Git and publishes structured, cross-linked documentation to an Azure DevOps Wiki, a Word document, and/or a PDF — run locally or via an Azure DevOps pipeline.
+Reads unpacked solution XML directly from Git and publishes structured, cross-linked documentation to an Azure DevOps Wiki and/or a Word document — run locally or via an Azure DevOps pipeline. (A PDF export is also available today but is being phased out — see [Output formats](#output-formats).)
 
 [![npm](https://img.shields.io/npm/v/powerautodocs)](https://www.npmjs.com/package/powerautodocs)
 [![license](https://img.shields.io/npm/l/powerautodocs)](LICENSE)
@@ -36,15 +36,15 @@ Covers the full stack of a Dataverse / Power Platform solution:
 
 ## Output formats
 
-Three formats, configurable independently:
+Configurable independently:
 
 | Format | Description |
 | --- | --- |
 | **ADO Wiki** | Structured, cross-linked pages published to Azure DevOps Wiki via REST API. Includes Mermaid ER diagrams and per-flow flowcharts. |
-| **Word (.docx)** | Single self-contained document mirroring the wiki structure. A4, proportional column tables, auto-populated TOC. |
-| **PDF** | Same structure as Word, generated via pdfmake with no bundled font files. Local output only — not published to ADO Wiki. |
+| **Word (.docx)** | Single self-contained document mirroring the wiki structure. A4, proportional column tables, auto-populated TOC, Mermaid diagrams embedded as images. |
+| **PDF** *(deprecated — planned removal)* | Same structure as Word but generated via pdfmake, which lags Word on theming and formatting fidelity and omits Mermaid diagrams. Local output only — not published to ADO Wiki. If you need a PDF, use Word's own **Export to PDF** on the `.docx` output instead. |
 
-Mermaid diagrams are ADO Wiki only — omitted from Word and PDF.
+Mermaid diagrams are embedded as images in both the ADO Wiki and Word output. PDF output (deprecated) omits them.
 
 ### Wiki structure
 
@@ -100,7 +100,7 @@ Unpacked Solution XML / JSON
         ↓
     MarkdownSerializer → ADO Wiki Publisher (REST API)
     DocxSerializer     → Word .docx file
-    PdfSerializer      → PDF file
+    PdfSerializer      → PDF file (deprecated — planned removal)
 ```
 
 Parsers only produce IR. Renderers only consume IR. Neither knows about the other — swap or add output formats without touching parsing logic.
@@ -131,7 +131,7 @@ PowerAutoDocs can be run locally or triggered automatically via an Azure DevOps 
 
 - Node.js 22+ (Node 24 LTS recommended — it is what CI and the sample pipeline use)
 - Power Platform CLI (`pac`) for unpacking solutions
-- Azure DevOps Wiki for wiki output (optional if using Word/PDF only)
+- Azure DevOps Wiki for wiki output (optional if using Word output only)
 
 ## License
 

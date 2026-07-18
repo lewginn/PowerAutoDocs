@@ -226,7 +226,7 @@ So `MarkdownSerializer` has 7 importers, not one: `wikiAssembler.ts` plus all si
 | `nodes.ts` | `DocNode` / `InlineNode` / `BulletItem` types + all builder helpers | ✅ Built |
 | `MarkdownSerializer.ts` | `DocNode[]` → ADO Wiki markdown string | ✅ Built |
 | `DocxSerializer.ts` | `DocNode[]` → docx `Paragraph`/`Table` elements | ✅ Built |
-| `PdfSerializer.ts` | `DocNode[]` → `pdfmake` content (standard 14 fonts) | ✅ Built |
+| `PdfSerializer.ts` | `DocNode[]` → `pdfmake` content (standard 14 fonts) | ✅ Built — **deprecated, planned removal** (Lewis, 2026-07-17) |
 | `index.ts` | Barrel — **omits `PdfSerializer`** (exports `nodes`, `MarkdownSerializer`, `DocxSerializer` only). Import `./PdfSerializer.js` directly | ✅ Built |
 
 **Mermaid nodes carry raw DSL, never a fence.** `mermaidGenerator.ts:149` and `erdGenerator.ts:107` both `return lines.join('\n')` unfenced; `MermaidNode.code` is typed as raw Mermaid DSL. Each serializer wraps it its own way — `MarkdownSerializer` emits the ADO `:::mermaid` fence, `DocxSerializer` renders to PNG, `PdfSerializer` returns `null` (`PdfSerializer.ts:343-345`). Baking the fence into a generator double-fences the wiki output; that exact bug shipped once and was fixed in commit `a7c803d`. The general rule: **DocNodes carry semantic content only; all format syntax belongs in a serializer.**
@@ -239,7 +239,7 @@ There are **three** assemblers with the same shape. A new component must be wire
 |-----------|-------------|--------|--------|
 | `wikiAssembler.ts` | `buildWikiPages()` (`:41`) | `WikiPage[]` → ADO Wiki | ✅ Built |
 | `docAssembler.ts` | `buildWordDocument()` (`:75`) | Word `.docx` | ✅ Built |
-| `pdfAssembler.ts` | `buildPdfDocument()` (`:59`) | `.pdf` | ✅ Built |
+| `pdfAssembler.ts` | `buildPdfDocument()` (`:59`) | `.pdf` | ✅ Built — **deprecated, planned removal** (Lewis, 2026-07-17) |
 | `wikiPublisher.ts` | `publishToWiki()` (`:158`) | ADO REST API PUT/GET | ✅ Built |
 
 ---
@@ -250,13 +250,13 @@ There are **three** assemblers with the same shape. A new component must be wire
 |--------|-----------|-----------|------------|-----------|--------|
 | ADO Wiki | `MarkdownSerializer` | `wikiAssembler` → `wikiPublisher` | `output.wiki` / `--wiki` | ✅ `:::mermaid` fence, rendered by ADO | ✅ Built |
 | Word `.docx` | `DocxSerializer` | `docAssembler` | `output.word` / `--word` | ✅ PNG embeds, toggled by `output.wordDiagrams` (default `true`) | ✅ Built |
-| PDF | `PdfSerializer` | `pdfAssembler` | `output.pdf` / `--pdf` | ❌ Skipped by design | ✅ Built |
+| PDF | `PdfSerializer` | `pdfAssembler` | `output.pdf` / `--pdf` | ❌ Skipped by design | ✅ Built — **deprecated, planned removal** (Lewis, 2026-07-17, see [decisions.md](decisions.md#pdfmake-and-the-standard-14-fonts)) |
 | Confluence | — | — | — | — | ⬜ **W — not built.** Low priority, most clients are on ADO |
 
 Notes that matter:
 
-- **PDF is local-file output only** — it is never published to the wiki.
-- **Diagram rendering is wired for Word only.** `docAssembler.ts:99-106` checks `config.output.wordDiagrams !== false`, calls `resolveChromeExecutable()` once up front, and injects a `renderMermaid` callback into `DocxSerializer`. `pdfAssembler.ts` has no equivalent and never imports `mermaidRenderer`. So `output.wordDiagrams` is genuinely Word-scoped and there is no `pdfDiagrams`. If asked to add diagrams to the PDF: the callback plumbing pattern already exists (`MermaidRenderer` type in `DocxSerializer.ts`) and needs mirroring, not inventing.
+- **PDF is local-file output only** — it is never published to the wiki. **It is also planned for deprecation** (Lewis, 2026-07-17) — `pdfmake` lags Word on theming/formatting fidelity and Mermaid support; Word's own Export to PDF covers the same need from the same document. Nothing removed yet, `output.pdf` still works, but do not invest further in it.
+- **Diagram rendering is wired for Word only.** `docAssembler.ts:99-106` checks `config.output.wordDiagrams !== false`, calls `resolveChromeExecutable()` once up front, and injects a `renderMermaid` callback into `DocxSerializer`. `pdfAssembler.ts` has no equivalent and never imports `mermaidRenderer`. So `output.wordDiagrams` is genuinely Word-scoped and there is no `pdfDiagrams` — and given the deprecation above, adding one is not recommended.
 - **Missing Chrome degrades silently.** Diagram rendering needs a local Chrome/Edge (`.puppeteerrc.cjs` sets `skipDownload: true` deliberately — ADO agents are fresh VMs and would pay a ~250MB download every run). If no browser resolves, `docAssembler` warns and produces a diagram-free `.docx` rather than failing. A clean run is therefore **not** evidence the diagrams worked.
 
 ---

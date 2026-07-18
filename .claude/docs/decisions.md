@@ -23,7 +23,7 @@ Decisions that need no elaboration. The "why" column is the whole argument.
 | Flow rendering | Nested bullet list | Mirrors the action tree's own shape; the Mermaid diagram owns the visual, the list owns the detail |
 | ERD filtering | Publisher prefix + explicit overrides | Eliminates OOB noise (ownerid/createdby/systemuser) automatically; `erd.excludeEntities`/`erd.excludeRelationships` handle the rest |
 | File casing | Capitalised path segments (`Other/Solution.xml`) | pac CLI on Windows emits capitals; Linux ADO agents are case-sensitive |
-| PDF library | `pdfmake`, standard 14 fonts | Self-contained output — no bundled TTFs, no native binaries |
+| PDF library | `pdfmake`, standard 14 fonts | Self-contained output — no bundled TTFs, no native binaries. **PDF output itself is planned for deprecation** (Lewis, 2026-07-17) — see [pdfmake and the standard 14 fonts](#pdfmake-and-the-standard-14-fonts) below. |
 | Package name | `powerautodocs` | Renamed from `powerautodoc` after an accidental client data exposure; the old package was unpublished from npm (2026-03-27) and no longer resolves at all |
 | Test runner | Vitest | Pure-ESM + NodeNext + `.js` specifiers run as-is; Jest needs ts-jest/ESM config to reach the same place. `devDependency`, so clients never install it |
 | Test fixtures | Hand-written, fictional | `unpacked/` is real client data — a fixture copied from it would be client data in a public repo |
@@ -49,7 +49,7 @@ Renderers emit `DocNode[]` — a format-agnostic block/inline tree — and each 
 ```
 MarkdownSerializer → ADO Wiki markdown
 DocxSerializer     → docx Paragraph/Table elements
-PdfSerializer      → pdfmake content
+PdfSerializer      → pdfmake content (deprecated — planned removal, see below)
 ```
 
 **Why not string builders?** Because `docx` and `pdfmake` are object-model libraries. You cannot hand either of them a markdown string. Before the DocNode layer, renderers concatenated markdown directly, which made Word output impossible without rewriting every renderer. One shared `DocNode[]` means a new format costs one serializer, not thirteen renderers.
@@ -151,6 +151,8 @@ Inline `code` nodes render as Courier New at size 18 **plus** `shading: { fill: 
 
 ## pdfmake and the standard 14 fonts
 
+**PDF output is planned for deprecation** (Lewis, 2026-07-17 — see [roadmap.md](roadmap.md#open-work-outside-the-phase-plan) for the full reasoning: `pdfmake` lags Word on theming and diagram support, and Word's own Export to PDF already covers the same need from the same document). Nothing below has been removed — `PdfSerializer` still works exactly as described — but treat this section as documenting current behaviour, not a design to extend.
+
 `PdfSerializer` uses only the standard 14 PDF fonts — Helvetica and Courier (`PdfSerializer.ts:21-35`). **No font files are bundled**, which is the entire point: the package stays self-contained with no TTFs and no native binaries.
 
 The cost is paid in two places, both of which are deliberate and both of which look like bugs if you don't know:
@@ -222,7 +224,7 @@ Added under issue #102, once the product was close enough to a solid release tha
 
 ### What the suite covers, and what it refuses to
 
-Covered: **every module with runtime behaviour.** All 17 parsers (against hand-authored `ContosoDemo` fixtures), all 14 renderers (against the `ir.ts` factories), `MarkdownSerializer`, `DocxSerializer`, `wordTheme`, `erdGenerator`, `config/loader`, all four `publisher/*` modules, `logger`, `main()`, and the enrichment layer including the AI providers. 1090 tests, ~3s.
+Covered: **every module with runtime behaviour.** All 17 parsers (against hand-authored `ContosoDemo` fixtures), all 14 renderers (against the `ir.ts` factories), `MarkdownSerializer`, `DocxSerializer`, `wordTheme`, `erdGenerator`, `config/loader`, all four `publisher/*` modules, `logger`, `main()`, and the enrichment layer including the AI providers. 1113 tests, ~3s.
 
 **Still no mocks anywhere in the suite** — that property survived closing the gaps, and it is still the one worth protecting. Where a dependency had to be replaced, it is a plain fake passed as an argument through a seam, not a framework mock. `vi.mock` of a `src/` module and `vi.stubGlobal` are both absent, and should stay absent. Console spies, `vi.stubEnv` and the `process.exit` spy are present and are not mocks of our code.
 
