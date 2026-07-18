@@ -369,7 +369,7 @@ All four `dev*` scripts redirect stdout **and** stderr into `dev.log` (gitignore
 | | |
 |---|---|
 | Name | `powerautodocs` (renamed from `powerautodoc` after a client-data exposure) |
-| Version | `1.4.0` (package.json:3) — goes stale; check the file |
+| Version | `1.5.0` (package.json:3) — goes stale; check the file |
 | `bin` | `powerautodocs` → `dist/index.js` (package.json:6-8) |
 | `files` | `dist` only |
 | `type` | `module` |
