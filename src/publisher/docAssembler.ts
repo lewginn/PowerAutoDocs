@@ -21,7 +21,7 @@ import { generateERDiagram } from '../enrichment/erdGenerator.js';
 import { resolveFlowTableDependencies } from '../enrichment/dependencyResolver.js';
 import { renderDiagramPng, closeMermaidBrowser, resolveChromeExecutable } from '../enrichment/mermaidRenderer.js';
 import { serializeBlocks, buildDocument, buildToc, toBuffer } from '../docmodel/DocxSerializer.js';
-import type { MermaidRenderer } from '../docmodel/DocxSerializer.js';
+import type { MermaidRenderer, PageBreakState } from '../docmodel/DocxSerializer.js';
 import { resolveWordTheme } from '../docmodel/wordTheme.js';
 import type { WordTheme } from '../docmodel/wordTheme.js';
 import { h, toc, mermaid, pt } from '../docmodel/nodes.js';
@@ -70,9 +70,10 @@ async function push(
   offset: number,
   renderMermaid: MermaidRenderer | undefined,
   theme: WordTheme,
+  pageBreakState: PageBreakState,
 ): Promise<void> {
   const prepared = renderMermaid ? nodes : dropOrphanedDiagramHeadings(nodes);
-  blocks.push(...(await serializeBlocks(prepared, offset, renderMermaid, theme)));
+  blocks.push(...(await serializeBlocks(prepared, offset, renderMermaid, theme, pageBreakState)));
 }
 
 export async function buildWordDocument(
@@ -93,6 +94,7 @@ export async function buildWordDocument(
   outputPath: string,
 ): Promise<void> {
   const blocks: Block[] = [];
+  const pageBreakState: PageBreakState = { seenFirstH1: false };
 
   // Resolved once, up front, and threaded down — same injection shape as
   // renderMermaid below. The docmodel layer never sees DocGenConfig; it takes
@@ -123,7 +125,7 @@ export async function buildWordDocument(
     webResources, classicWorkflows, businessRules,
     securityRoles, envVars, globalChoices,
     emailTemplates, modelDrivenApps, connectionRefs
-  ), 0, renderMermaid, theme);
+  ), 0, renderMermaid, theme, pageBreakState);
 
   // ---- Data Model ---- (section at depth 0, tables at depth 1, subpages at depth 2)
   // Every solution's own publisher prefix, not just solutions[0]'s — see the
@@ -141,8 +143,8 @@ export async function buildWordDocument(
   // pointing at a heading with nothing beneath it, the exact empty-section
   // defect every other guard in this file exists to prevent.
   if (mergedSolution.tables.length > 0 || erdDiagram) {
-    await push(blocks, [h(1, 'Data Model')], 0, renderMermaid, theme);
-    if (erdDiagram) await push(blocks, [mermaid(erdDiagram)], 0, renderMermaid, theme);
+    await push(blocks, [h(1, 'Data Model')], 0, renderMermaid, theme, pageBreakState);
+    if (erdDiagram) await push(blocks, [mermaid(erdDiagram)], 0, renderMermaid, theme, pageBreakState);
   }
 
   const flowDeps = resolveFlowTableDependencies(flows, mergedSolution.tables);
@@ -154,26 +156,26 @@ export async function buildWordDocument(
     const tableFlows = flowDeps.tableToFlows.get(table.logicalName.toLowerCase()) ?? [];
 
     // Table index (drop toc_placeholder — content follows inline)
-    await push(blocks, renderTableIndex(table).filter(n => n.type !== 'toc_placeholder'), 1, renderMermaid, theme);
-    await push(blocks, renderTableColumns(table), 2, renderMermaid, theme);
+    await push(blocks, renderTableIndex(table).filter(n => n.type !== 'toc_placeholder'), 1, renderMermaid, theme, pageBreakState);
+    await push(blocks, renderTableColumns(table), 2, renderMermaid, theme, pageBreakState);
 
     if (config.components.views) {
-      await push(blocks, renderTableViews(table), 2, renderMermaid, theme);
+      await push(blocks, renderTableViews(table), 2, renderMermaid, theme, pageBreakState);
     }
     if (config.components.forms) {
-      await push(blocks, renderTableForms(table, config), 2, renderMermaid, theme);
+      await push(blocks, renderTableForms(table, config), 2, renderMermaid, theme, pageBreakState);
     }
     if (config.components.relationships) {
-      await push(blocks, renderTableRelationships(table), 2, renderMermaid, theme);
+      await push(blocks, renderTableRelationships(table), 2, renderMermaid, theme, pageBreakState);
     }
     if (tableFlows.length > 0) {
-      await push(blocks, renderTableUsedByFlows(table, tableFlows), 2, renderMermaid, theme);
+      await push(blocks, renderTableUsedByFlows(table, tableFlows), 2, renderMermaid, theme, pageBreakState);
     }
 
     if (tableRules.length > 0) {
-      await push(blocks, renderTableBusinessRules(table, tableRules).filter(n => n.type !== 'toc_placeholder'), 2, renderMermaid, theme);
+      await push(blocks, renderTableBusinessRules(table, tableRules).filter(n => n.type !== 'toc_placeholder'), 2, renderMermaid, theme, pageBreakState);
       for (const rule of tableRules) {
-        await push(blocks, renderSingleBusinessRule(rule), 3, renderMermaid, theme);
+        await push(blocks, renderSingleBusinessRule(rule), 3, renderMermaid, theme, pageBreakState);
       }
     }
   }
@@ -185,33 +187,33 @@ export async function buildWordDocument(
   const hasClassicWorkflows = classicWorkflows.length > 0;
 
   if (hasFlows || hasPlugins || hasClassicWorkflows) {
-    await push(blocks, [h(1, 'Automation'), pt('Power Automate flows, classic workflows and plugins in this solution.')], 0, renderMermaid, theme);
+    await push(blocks, [h(1, 'Automation'), pt('Power Automate flows, classic workflows and plugins in this solution.')], 0, renderMermaid, theme, pageBreakState);
 
     if (hasFlows) {
-      await push(blocks, renderFlowSummary(flows), 1, renderMermaid, theme);
+      await push(blocks, renderFlowSummary(flows), 1, renderMermaid, theme, pageBreakState);
       for (const flow of flows) {
         const relatedTables = flowDeps.flowToTables.get(flow.id) ?? [];
-        await push(blocks, renderSingleFlow(flow, relatedTables), 2, renderMermaid, theme);
+        await push(blocks, renderSingleFlow(flow, relatedTables), 2, renderMermaid, theme, pageBreakState);
       }
     }
 
     if (hasClassicWorkflows) {
-      await push(blocks, [h(1, 'Classic Workflows'), ...renderClassicWorkflowsOverview(classicWorkflows)], 1, renderMermaid, theme);
+      await push(blocks, [h(1, 'Classic Workflows'), ...renderClassicWorkflowsOverview(classicWorkflows)], 1, renderMermaid, theme, pageBreakState);
       for (const wf of classicWorkflows) {
-        await push(blocks, renderClassicWorkflow(wf), 2, renderMermaid, theme);
+        await push(blocks, renderClassicWorkflow(wf), 2, renderMermaid, theme, pageBreakState);
       }
     }
 
     if (hasPlugins) {
-      await push(blocks, renderPluginSummary(validAssemblies), 1, renderMermaid, theme);
+      await push(blocks, renderPluginSummary(validAssemblies), 1, renderMermaid, theme, pageBreakState);
       for (const assembly of validAssemblies) {
-        await push(blocks, renderAssemblyIndex(assembly, ''), 2, renderMermaid, theme);
+        await push(blocks, renderAssemblyIndex(assembly, ''), 2, renderMermaid, theme, pageBreakState);
         for (const fullName of assembly.pluginTypeNames) {
           const shortName = fullName.startsWith(assembly.assemblyName + '.')
             ? fullName.slice(assembly.assemblyName.length + 1)
             : fullName;
           const steps = assembly.steps.filter(st => st.className === shortName);
-          await push(blocks, renderSinglePluginType(shortName, steps, assembly), 3, renderMermaid, theme);
+          await push(blocks, renderSinglePluginType(shortName, steps, assembly), 3, renderMermaid, theme, pageBreakState);
         }
       }
     }
@@ -220,49 +222,49 @@ export async function buildWordDocument(
   // ---- Custom Code / Web Resources ----
   const jsResources = webResources.filter(r => r.resourceType === 'JavaScript');
   if (jsResources.length > 0) {
-    await push(blocks, [h(1, 'Custom Code')], 0, renderMermaid, theme);
-    await push(blocks, renderWebResourceSummary(jsResources), 1, renderMermaid, theme);
+    await push(blocks, [h(1, 'Custom Code')], 0, renderMermaid, theme, pageBreakState);
+    await push(blocks, renderWebResourceSummary(jsResources), 1, renderMermaid, theme, pageBreakState);
     for (const resource of jsResources) {
-      await push(blocks, renderWebResourceDetail(resource), 2, renderMermaid, theme);
+      await push(blocks, renderWebResourceDetail(resource), 2, renderMermaid, theme, pageBreakState);
     }
   }
 
   // ---- Security Roles ----
   if (securityRoles.length > 0) {
-    await push(blocks, renderSecurityRolesIndex(securityRoles, ''), 0, renderMermaid, theme);
+    await push(blocks, renderSecurityRolesIndex(securityRoles, ''), 0, renderMermaid, theme, pageBreakState);
     for (const role of securityRoles) {
-      await push(blocks, renderSecurityRolePage(role), 1, renderMermaid, theme);
+      await push(blocks, renderSecurityRolePage(role), 1, renderMermaid, theme, pageBreakState);
     }
   }
 
   // ---- Integrations ----
   if (envVars.length > 0 || connectionRefs.length > 0) {
-    await push(blocks, [h(1, 'Integrations')], 0, renderMermaid, theme);
-    if (envVars.length > 0)    await push(blocks, renderEnvironmentVariablesPage(envVars), 1, renderMermaid, theme);
-    if (connectionRefs.length > 0) await push(blocks, renderConnectionReferencesPage(connectionRefs), 1, renderMermaid, theme);
+    await push(blocks, [h(1, 'Integrations')], 0, renderMermaid, theme, pageBreakState);
+    if (envVars.length > 0)    await push(blocks, renderEnvironmentVariablesPage(envVars), 1, renderMermaid, theme, pageBreakState);
+    if (connectionRefs.length > 0) await push(blocks, renderConnectionReferencesPage(connectionRefs), 1, renderMermaid, theme, pageBreakState);
   }
 
   // ---- Global Choices ----
   if (globalChoices.length > 0) {
-    await push(blocks, renderGlobalChoicesIndex(globalChoices, ''), 0, renderMermaid, theme);
+    await push(blocks, renderGlobalChoicesIndex(globalChoices, ''), 0, renderMermaid, theme, pageBreakState);
     for (const choice of globalChoices) {
-      await push(blocks, renderGlobalChoicePage(choice), 1, renderMermaid, theme);
+      await push(blocks, renderGlobalChoicePage(choice), 1, renderMermaid, theme, pageBreakState);
     }
   }
 
   // ---- Email Templates ----
   if (emailTemplates.length > 0) {
-    await push(blocks, renderEmailTemplatesIndex(emailTemplates, ''), 0, renderMermaid, theme);
+    await push(blocks, renderEmailTemplatesIndex(emailTemplates, ''), 0, renderMermaid, theme, pageBreakState);
     for (const template of emailTemplates) {
-      await push(blocks, renderEmailTemplatePage(template), 1, renderMermaid, theme);
+      await push(blocks, renderEmailTemplatePage(template), 1, renderMermaid, theme, pageBreakState);
     }
   }
 
   // ---- Model-Driven Apps ----
   if (modelDrivenApps.length > 0) {
-    await push(blocks, renderModelDrivenAppsIndex(modelDrivenApps, ''), 0, renderMermaid, theme);
+    await push(blocks, renderModelDrivenAppsIndex(modelDrivenApps, ''), 0, renderMermaid, theme, pageBreakState);
     for (const app of modelDrivenApps) {
-      await push(blocks, renderModelDrivenAppPage(app), 1, renderMermaid, theme);
+      await push(blocks, renderModelDrivenAppPage(app), 1, renderMermaid, theme, pageBreakState);
     }
   }
 

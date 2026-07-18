@@ -47,6 +47,11 @@ describe('renderFlowSummary', () => {
     expect(noBase.rows[0][0]).toEqual([{ type: 'text', value: 'Ship It' }]);
   });
 
+  it('spaces out a PascalCase trigger type so it wraps sensibly in a table cell', () => {
+    const nodes = renderFlowSummary([aFlow({ trigger: aTrigger({ type: 'DataverseCreateOrUpdate' }) })]);
+    expect(firstTable(nodes).rows[0][1]).toEqual([{ type: 'text', value: 'Dataverse Create Or Update' }]);
+  });
+
   it('shows an em dash for a trigger with no entity', () => {
     const nodes = renderFlowSummary([aFlow({ trigger: aTrigger({ type: 'Scheduled', entity: undefined }) })]);
     expect(firstTable(nodes).rows[0][2]).toEqual([{ type: 'text', value: '—' }]);

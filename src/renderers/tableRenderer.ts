@@ -8,7 +8,7 @@ import type { BusinessRuleModel } from '../ir/businessRule.js';
 import type { DocNode, InlineNode } from '../docmodel/nodes.js';
 import { h, pt, p, t, c, b, lnk, table, ct, cc, cell, bulletList, bullet, toc } from '../docmodel/nodes.js';
 import { serialize } from '../docmodel/MarkdownSerializer.js';
-import { encodePageSegment } from './rendererUtils.js';
+import { encodePageSegment, humanizeEnumValue } from './rendererUtils.js';
 
 // -----------------------------------------------
 // Shared helpers
@@ -305,7 +305,7 @@ export function renderTableUsedByFlows(
     ['Flow', 'Trigger Type', 'Status'],
     flows.map(f => [
       basePath ? cell(lnk(f.name, `${basePath}/${encodePageSegment(f.name)}`)) : ct(f.name),
-      ct(f.trigger.type),
+      ct(humanizeEnumValue(f.trigger.type)),
       ct(f.isActive ? 'Active' : 'Inactive'),
     ])
   ));

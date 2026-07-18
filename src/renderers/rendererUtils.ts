@@ -54,3 +54,19 @@ export function aiSummaryBlock(aiSummary?: string): DocNode[] {
     bqt(aiSummary),
   ];
 }
+
+/**
+ * Inserts a space before each interior capital in a PascalCase enum value,
+ * e.g. "DataverseCreateOrUpdate" → "Dataverse Create Or Update".
+ *
+ * Several IR enums (flow trigger types, and similar) come straight from
+ * connector/message metadata as unspaced PascalCase, which is fine as a
+ * type identifier but reads badly and wraps awkwardly in a table cell.
+ * This is a plain-text transform, not format syntax, so it belongs here in
+ * the renderer layer rather than in the IR (which shouldn't pre-mangle raw
+ * field values) or duplicated per-serializer (constraints.md: renderers own
+ * DocNode text, serializers own format syntax).
+ */
+export function humanizeEnumValue(value: string): string {
+  return value.replace(/([a-z0-9])([A-Z])/g, '$1 $2');
+}

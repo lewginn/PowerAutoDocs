@@ -629,7 +629,7 @@ describe('enrichWithAiSummaries — web resources', () => {
     const js = aWebResource();
     const css = aWebResource({ name: 'acme_/Styles/site.css', resourceType: 'CSS' });
     const png = aWebResource({ name: 'acme_/Images/logo.png', resourceType: 'PNG' });
-    const provider = aFakeProvider(() => 'A file summary.');
+    const provider = aFakeProvider(() => JSON.stringify({ fileSummary: 'A file summary.', functionSummaries: {} }));
 
     await enrichWithAiSummaries(
       anAiConfig({ webResources: true }), dir, someModels({ webResources: [js, css, png] }),
@@ -688,7 +688,14 @@ describe('enrichWithAiSummaries — web resources', () => {
     expect(wr.functions![0].aiSummary).toBe('Runs on load.');
   });
 
-  it('treats a plain-prose response as the whole file summary', async () => {
+  it('skips the summary — retrying once — when the response is plain prose, not JSON', async () => {
+    // A plain-prose (non-JSON) response used to be dumped verbatim into
+    // aiSummary as if it were the file summary — including truncated raw
+    // JSON fragments from a response cut off by the token limit, which is
+    // exactly what a client saw rendered on a wiki page. It's now treated as
+    // an invalid response: retried once with a larger token budget, and if
+    // still invalid, skipped via the normal failure path rather than shipping
+    // unusable text.
     const wr = aWebResource({ functions: [aFn({ name: 'onLoad' })] });
     const provider = aFakeProvider(() => 'This script wires up the Widget main form.');
 
@@ -697,16 +704,16 @@ describe('enrichWithAiSummaries — web resources', () => {
       summary, false, provider.factory,
     );
 
-    expect(wr.aiSummary).toBe('This script wires up the Widget main form.');
+    expect(wr.aiSummary).toBeUndefined();
     expect(wr.functions![0].aiSummary).toBeUndefined();
+    expect(provider.prompts).toHaveLength(2);
+    expect(summary.aiSummaryFailures).toHaveLength(1);
   });
 
-  it('falls back when the response is a JSON array rather than an object', async () => {
-    // Documented fallback (aiSummariser.ts:453) — a non-object parse is treated
-    // exactly like prose. Pinning it because it is the deliberate design, not a
-    // BUG: tryParseJsonObject rejects arrays so `parsed.fileSummary` can
-    // never be read off one. See the defect note in the report about what this
-    // then renders.
+  it('skips the summary when the response is a JSON array rather than an object', async () => {
+    // tryParseJsonObject rejects arrays, so `parsed.fileSummary` can never be
+    // read off one — treated the same as any other invalid response: retried
+    // once, then skipped, never dumped raw into aiSummary.
     const wr = aWebResource({ functions: [aFn({ name: 'onLoad' })] });
     const provider = aFakeProvider(() => '["onLoad does a thing"]');
 
@@ -715,8 +722,10 @@ describe('enrichWithAiSummaries — web resources', () => {
       summary, false, provider.factory,
     );
 
-    expect(wr.aiSummary).toBe('["onLoad does a thing"]');
+    expect(wr.aiSummary).toBeUndefined();
     expect(wr.functions![0].aiSummary).toBeUndefined();
+    expect(provider.prompts).toHaveLength(2);
+    expect(summary.aiSummaryFailures).toHaveLength(1);
   });
 
   it('ignores function names the parser never found', async () => {
@@ -755,16 +764,11 @@ describe('enrichWithAiSummaries — web resources', () => {
     expect(wr.functions!.map(f => f.aiSummary)).toEqual([undefined, 'Validates the serial.', undefined]);
   });
 
-  it('falls back to the raw text when JSON is well-formed but has no fileSummary', async () => {
-    // Was pinned: a well-formed JSON response whose fileSummary was missing
-    // (or a non-string) left m.aiSummary unset — the assignment only fired
-    // when typeof parsed.fileSummary === 'string', and the prose fallback was
-    // unreachable because the response DID parse as an object. The call was
-    // still made, paid for, and cached (as "1 generated", no failure
-    // recorded), so the page permanently shipped with no file-level summary
-    // and nothing in the log said so. Now falls back to the raw response
-    // text, same as the not-JSON-at-all path — function summaries still fan
-    // out normally either way, since functionSummaries parsed fine here.
+  it('skips the summary (retrying once) when JSON is well-formed but has no fileSummary', async () => {
+    // A well-formed JSON response missing `fileSummary` — most often a sign
+    // of a response that ran out of budget partway through — is treated as
+    // invalid: retried once, then skipped via the normal failure path rather
+    // than caching a response with no usable summary text.
     const wr = aWebResource({ functions: [aFn({ name: 'onLoad' })] });
     const raw = JSON.stringify({ functionSummaries: { onLoad: 'Runs on load.' } });
     const provider = aFakeProvider(() => raw);
@@ -774,12 +778,12 @@ describe('enrichWithAiSummaries — web resources', () => {
       summary, false, provider.factory,
     );
 
-    expect(wr.aiSummary).toBe(raw);
-    expect(wr.functions![0].aiSummary).toBe('Runs on load.');
-    expect(provider.prompts).toHaveLength(1);
-    expect(summary.aiSummariesGenerated).toBe(1);
-    expect(summary.aiSummaryFailures).toEqual([]);
-    expect(readCache()[JS_KEY]).toBeDefined();
+    expect(wr.aiSummary).toBeUndefined();
+    expect(wr.functions![0].aiSummary).toBeUndefined();
+    expect(provider.prompts).toHaveLength(2);
+    expect(summary.aiSummariesGenerated).toBe(0);
+    expect(summary.aiSummaryFailures).toHaveLength(1);
+    expect(readCache()[JS_KEY]).toBeUndefined();
   });
 
   it('re-fans the cached JSON out to functions on a cache hit', async () => {

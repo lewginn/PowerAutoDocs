@@ -6,7 +6,7 @@ import type { FlowModel, FlowActionModel, TableModel } from '../ir/index.js';
 import type { DocNode, InlineNode } from '../docmodel/nodes.js';
 import { h, pt, p, t, c, b, i, lnk, table, ct, cc, cell, bulletList, bullet, mermaid } from '../docmodel/nodes.js';
 import { serialize } from '../docmodel/MarkdownSerializer.js';
-import { aiSummaryBlock, encodePageSegment } from './rendererUtils.js';
+import { aiSummaryBlock, encodePageSegment, humanizeEnumValue } from './rendererUtils.js';
 
 // -----------------------------------------------
 // Summary page
@@ -27,7 +27,7 @@ export function renderFlowSummary(flows: FlowModel[], basePath?: string): DocNod
     ['Flow Name', 'Trigger Type', 'Entity', 'Actions', 'Status'],
     flows.map(f => [
       basePath ? cell(lnk(f.name, `${basePath}/${encodePageSegment(f.name)}`)) : ct(f.name),
-      ct(f.trigger.type),
+      ct(humanizeEnumValue(f.trigger.type)),
       f.trigger.entity ? cc(f.trigger.entity) : ct('—'),
       ct(f.actions.length.toString()),
       ct(f.isActive ? 'Active' : 'Inactive'),
@@ -71,6 +71,11 @@ export function renderSingleFlow(flow: FlowModel, relatedTables?: TableModel[], 
 
   nodes.push(h(1, flow.name));
   nodes.push(...aiSummaryBlock(flow.aiSummary));
+  // A blank paragraph — the AI summary callout is the only place a bare
+  // paragraph sits directly before a table with no heading in between,
+  // so the callout's own bottom spacing read as too tight against the
+  // metadata table beneath it.
+  if (flow.aiSummary) nodes.push(pt(''));
 
   const metaRows: InlineNode[][][] = [
     [ct('Status'), ct(flow.isActive ? 'Active' : 'Inactive')],
