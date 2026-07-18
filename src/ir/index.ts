@@ -14,4 +14,11 @@ export type { GlobalChoiceModel, ChoiceOptionModel, OptionSetType } from './glob
 export type { EmailTemplateModel } from './emailTemplate.js';
 export type { ModelDrivenAppModel } from './modelDrivenApp.js';
 export type { ConnectionReferenceModel } from './connectionReference.js';
+export type {
+  PowerPagesModel, PowerPagesLanguageModel, PublishingStateModel,
+  WebPageModel, PageTemplateModel, WebTemplateModel, ContentSnippetModel,
+  SiteSettingModel, WebRoleModel, PageAccessRuleModel, WebsiteAccessModel,
+  SiteMarkerModel, WebLinkSetModel, WebLinkModel, BasicFormModel, ListModel,
+  WebFileModel, BotConsumerModel,
+} from './powerPages.js';
 export { WEB_RESOURCE_TYPE_MAP } from './webResource.js';
