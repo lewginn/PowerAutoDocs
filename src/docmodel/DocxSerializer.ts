@@ -17,9 +17,11 @@ import type { WordTheme } from './wordTheme.js';
 // Page geometry
 // -----------------------------------------------
 
-// A4 page: 8.27" wide, 1" margins each side → 6.27" content = 9029 twips
+// A4 page: 8.27" wide x 11.69" tall, 1" margins each side →
+// 6.27" content width, 9.69" content height
 const PAGE_MARGIN_TWIPS = convertInchesToTwip(1);
 const PAGE_WIDTH_TWIPS  = convertInchesToTwip(8.27) - PAGE_MARGIN_TWIPS * 2;
+const PAGE_HEIGHT_TWIPS = convertInchesToTwip(11.69) - PAGE_MARGIN_TWIPS * 2;
 
 // Code is set a notch below body text (9pt against a 10.5pt body). Monospace
 // faces run optically larger than proportional ones at the same nominal size,
@@ -446,7 +448,7 @@ function bulletItems(items: BulletItem[], theme: WordTheme): Paragraph[] {
 // -----------------------------------------------
 
 const HEADING_SPACING: Record<number, { before: number; after: number }> = {
-  1: { before: 0,   after: 240 },  // page break handles the before gap
+  1: { before: 0,   after: 240 },  // pageBreakBefore handles the before gap
   2: { before: 280, after: 120 },
   3: { before: 200, after: 80  },
   4: { before: 160, after: 60  },
@@ -470,15 +472,31 @@ export type MermaidRenderer = (code: string) => Promise<{ data: Buffer; width: n
 
 const TWIPS_PER_PIXEL = 15; // 1440 twips/inch ÷ 96px/inch
 
+// Every diagram in this document is preceded by its own heading (e.g. "Diagram",
+// "Data Model") with `keepNext: true` — Word keeps a heading on the same page as
+// whatever immediately follows it. A diagram scaled to the *full* page height left
+// no room for that heading above it: keepNext then pushed heading + image to a
+// fresh page together, leaving a dead gap at the bottom of the previous page. This
+// reserves space for a level-2 heading (its own before/after spacing plus one line
+// of text) out of the usable page height, so a max-height diagram still leaves the
+// heading above it enough room to land on the same page.
+const HEADING_RESERVE_TWIPS = 900;
+
 async function serializeMermaid(code: string, renderMermaid?: MermaidRenderer): Promise<DocxBlock[]> {
   if (!renderMermaid) return [];
 
   const rendered = await renderMermaid(code);
   if (!rendered) return [];
 
-  const widthPx  = Math.min(rendered.width, PAGE_WIDTH_TWIPS / TWIPS_PER_PIXEL);
-  const scale     = widthPx / rendered.width;
-  const heightPx  = rendered.height * scale;
+  // Scale to fit both page dimensions — constraining width alone let a tall
+  // diagram (e.g. a long flow with many sequential steps) overflow the page
+  // height and spill across multiple pages instead of shrinking to fit one.
+  const usableHeightTwips = PAGE_HEIGHT_TWIPS - HEADING_RESERVE_TWIPS;
+  const widthScale  = Math.min(1, (PAGE_WIDTH_TWIPS / TWIPS_PER_PIXEL) / rendered.width);
+  const heightScale = Math.min(1, (usableHeightTwips / TWIPS_PER_PIXEL) / rendered.height);
+  const scale    = Math.min(widthScale, heightScale);
+  const widthPx  = rendered.width * scale;
+  const heightPx = rendered.height * scale;
 
   return [
     new Paragraph({
@@ -493,26 +511,45 @@ async function serializeMermaid(code: string, renderMermaid?: MermaidRenderer): 
   ];
 }
 
+/**
+ * Tracks whether the document's first top-level heading has already been
+ * emitted, so it can be exempted from the page-break-before-H1 rule below —
+ * threaded through as a shared, mutable object because the document is built
+ * from many separate `serializeBlocks` calls (one per section), not one.
+ */
+export interface PageBreakState {
+  seenFirstH1: boolean;
+}
+
 export async function serializeBlock(
   node: DocNode,
   headingOffset: number,
   renderMermaid?: MermaidRenderer,
   theme: WordTheme = DEFAULT_WORD_THEME,
+  pageBreakState: PageBreakState = { seenFirstH1: false },
 ): Promise<DocxBlock | DocxBlock[]> {
   switch (node.type) {
     case 'heading': {
       const absLevel  = Math.min(node.level + headingOffset, 4);
       const spacing   = HEADING_SPACING[absLevel] ?? HEADING_SPACING[4];
-      // Forcing a page break before every top-level section heading left large
-      // dead zones whenever the prior section ended partway down a page (e.g.
-      // the Overview's Solutions table finishing a third of the way down, then
-      // "Data Model" punting the rest of the page to whitespace). Letting
-      // sections flow naturally — same as everything else in the document —
-      // removes that wasted space; Word still keeps headings from being
-      // orphaned at the bottom of a page via `keepNext` below.
+      // A page break before every top-level (absLevel 1) heading was tried
+      // and reverted once before because it left dead zones under a short
+      // prior section — but no break at all meant a new top-level section
+      // could start mid-page, with a shorter one directly beneath it,
+      // reading as a single confused section rather than two documents'
+      // worth of structure. A per-H1 break is worth that occasional half-page
+      // gap; only absLevel — the level after headingOffset is applied — is
+      // checked, so a heading that was originally H1 in its own component
+      // but gets nested under a higher-level section (headingOffset > 0)
+      // does not force a break. The very first H1 in the whole document is
+      // exempted — it's already at the top of page 1, so forcing a break
+      // there just inserts a leading blank page.
+      const pageBreakBefore = absLevel === 1 && pageBreakState.seenFirstH1;
+      if (absLevel === 1) pageBreakState.seenFirstH1 = true;
       return new Paragraph({
         heading: resolveHeadingLevel(node.level, headingOffset),
         keepNext: true,
+        pageBreakBefore,
         children: [new TextRun({ text: node.text, italics: false })],
         spacing,
       });
@@ -583,10 +620,11 @@ export async function serializeBlocks(
   headingOffset = 0,
   renderMermaid?: MermaidRenderer,
   theme: WordTheme = DEFAULT_WORD_THEME,
+  pageBreakState: PageBreakState = { seenFirstH1: false },
 ): Promise<(Paragraph | Table)[]> {
   const blocks: (Paragraph | Table)[] = [];
   for (const node of nodes) {
-    const result = await serializeBlock(node, headingOffset, renderMermaid, theme);
+    const result = await serializeBlock(node, headingOffset, renderMermaid, theme, pageBreakState);
     blocks.push(...(Array.isArray(result) ? result : [result]));
   }
   return blocks;

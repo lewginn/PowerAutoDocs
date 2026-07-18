@@ -12,6 +12,11 @@ export interface AiProvider {
    * the raw text response. Implementations should throw on failure —
    * the orchestrator (aiSummariser.ts) is responsible for catching,
    * logging, and applying the skip-and-continue strategy.
+   *
+   * `maxTokens` lets a caller request a larger completion budget for a
+   * single call (e.g. a retry after a truncated structured-output
+   * response) without raising the cost of every other call. Implementations
+   * default to 1024 when omitted.
    */
-  summarise(prompt: string): Promise<string>;
+  summarise(prompt: string, maxTokens?: number): Promise<string>;
 }

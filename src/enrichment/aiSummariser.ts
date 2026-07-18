@@ -212,11 +212,13 @@ function buildPrompt(kind: ComponentKind, view: unknown): string {
       '{',
       '  "fileSummary": "2-4 sentence summary of the file as a whole",',
       '  "functionSummaries": {',
-      '    "<functionName>": "one short, plain-English sentence describing what this specific function does"',
+      '    "<functionName>": "a short phrase, 12 words or fewer, describing what this specific function does"',
       '  }',
       '}',
       'Include one entry in functionSummaries for every function listed in the data below, ' +
-        'keyed by its exact name. Keep each function summary to a single sentence.',
+        'keyed by its exact name. Keep each function summary to 12 words or fewer — brevity ' +
+        'matters more than completeness here, since files with many functions have a limited ' +
+        'response budget.',
       '',
       'Component data (JSON):',
       JSON.stringify(view, null, 2),
@@ -277,7 +279,19 @@ interface SummariseOptions<T> {
   discriminator?: (model: T) => string;
   buildView: (model: T) => unknown;
   setSummary: (model: T, summary: string) => void;
+  /**
+   * Optional validity check run on the raw response text. When it returns
+   * false, the call is retried exactly once with a doubled token budget
+   * before falling through to setSummary. Used by webResources, where a
+   * truncated response is invalid JSON rather than merely-cut-off prose —
+   * unlike other component kinds, a truncated result here isn't usable at
+   * all, so it's worth one extra call rather than shipping garbage.
+   */
+  isValidResponse?: (text: string) => boolean;
 }
+
+const DEFAULT_MAX_TOKENS = 1024;
+const RETRY_MAX_TOKENS = 2048;
 
 async function summariseComponents<T>(
   provider: AiProvider,
@@ -310,7 +324,15 @@ async function summariseComponents<T>(
 
     try {
       const prompt = buildPrompt(opts.kind, view);
-      const text = await provider.summarise(prompt);
+      let text = await provider.summarise(prompt, DEFAULT_MAX_TOKENS);
+      if (opts.isValidResponse && !opts.isValidResponse(text)) {
+        // Single retry with a larger budget — only paid for the rare large
+        // file that actually truncates, not every call of this kind.
+        text = await provider.summarise(prompt, RETRY_MAX_TOKENS);
+        if (!opts.isValidResponse(text)) {
+          throw new Error('AI response was still invalid after a retry with a larger token budget (likely truncated) — skipping.');
+        }
+      }
       opts.setSummary(model, text);
       cache[cacheKey] = {
         hash,
@@ -458,33 +480,27 @@ export async function enrichWithAiSummaries(
       // The provider returns (and the cache stores) a JSON string shaped like
       // { fileSummary, functionSummaries: { <name>: <summary> } } — parsed here
       // and fanned out to both the file-level aiSummary and each function's
-      // aiSummary. Falls back to treating the raw text as the file summary if
-      // it isn't valid JSON (e.g. a stale pre-v2 cache entry or a provider that
-      // ignored the format instruction) so nothing breaks ungracefully.
-      setSummary: (m, s) => {
+      // aiSummary. isValidResponse below triggers a retry (and, failing that,
+      // the normal skip-and-continue failure path) rather than ever falling
+      // back to dumping the raw, possibly-truncated JSON text as if it were
+      // prose — a bare '{' is not a usable summary in a wiki page or .docx.
+      isValidResponse: s => {
         const parsed = tryParseJsonObject(s);
-        if (parsed) {
-          // A well-formed object missing a usable fileSummary string used to
-          // leave m.aiSummary unset entirely — the call was still made, paid
-          // for, and cached (as "1 generated", no failure recorded), so the
-          // web resource page permanently shipped with no file-level summary
-          // and nothing in the run log said so. Falls back to the raw text,
-          // same as the not-JSON-at-all path just below, rather than
-          // silently discarding a response that just didn't match the
-          // requested shape — function summaries still fan out normally
-          // either way.
-          m.aiSummary = typeof parsed.fileSummary === 'string' ? parsed.fileSummary : s;
-          const fnSummaries = parsed.functionSummaries;
-          if (fnSummaries && typeof fnSummaries === 'object' && m.functions) {
-            for (const fn of m.functions) {
-              const fnSummary = (fnSummaries as Record<string, unknown>)[fn.name];
-              if (typeof fnSummary === 'string' && fnSummary.trim()) {
-                fn.aiSummary = fnSummary.trim();
-              }
+        return parsed !== null && typeof parsed.fileSummary === 'string';
+      },
+      setSummary: (m, s) => {
+        // isValidResponse has already confirmed this parses with a usable
+        // fileSummary by the time setSummary runs.
+        const parsed = tryParseJsonObject(s)!;
+        m.aiSummary = parsed.fileSummary as string;
+        const fnSummaries = parsed.functionSummaries;
+        if (fnSummaries && typeof fnSummaries === 'object' && m.functions) {
+          for (const fn of m.functions) {
+            const fnSummary = (fnSummaries as Record<string, unknown>)[fn.name];
+            if (typeof fnSummary === 'string' && fnSummary.trim()) {
+              fn.aiSummary = fnSummary.trim();
             }
           }
-        } else {
-          m.aiSummary = s;
         }
       },
     }, forceRegenerate, seenKeys);

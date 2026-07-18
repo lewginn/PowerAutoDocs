@@ -29,10 +29,10 @@ export class AnthropicProvider implements AiProvider {
     this.model = config.model?.trim() || DEFAULT_ANTHROPIC_MODEL;
   }
 
-  async summarise(prompt: string): Promise<string> {
+  async summarise(prompt: string, maxTokens: number = 1024): Promise<string> {
     const response = await this.client.messages.create({
       model: this.model,
-      max_tokens: 1024,
+      max_tokens: maxTokens,
       messages: [{ role: 'user', content: prompt }],
     });
 

@@ -75,11 +75,11 @@ export class AzureOpenAIProvider implements AiProvider {
     }
   }
 
-  async summarise(prompt: string): Promise<string> {
+  async summarise(prompt: string, maxTokens: number = 1024): Promise<string> {
     const response = await this.client.chat.completions.create({
       model: this.deployment,
       messages: [{ role: 'user', content: prompt }],
-      max_tokens: 1024,
+      max_tokens: maxTokens,
     });
 
     const text = response.choices[0]?.message?.content;
