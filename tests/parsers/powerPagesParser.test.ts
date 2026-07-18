@@ -41,10 +41,12 @@ describe('parsePowerPages', () => {
     const s = site();
     expect(s.webPages).toHaveLength(2);
     expect(s.publishingStates).toHaveLength(1);
+    expect(s.pageTemplates).toHaveLength(1);
     expect(s.webTemplates).toHaveLength(1);
     expect(s.contentSnippets).toHaveLength(1);
     expect(s.webRoles).toHaveLength(1);
     expect(s.pageAccessRules).toHaveLength(1);
+    expect(s.websiteAccess).toHaveLength(1);
     expect(s.siteMarkers).toHaveLength(1);
     expect(s.webLinkSets).toHaveLength(1);
     expect(s.webLinks).toHaveLength(1);
@@ -52,6 +54,36 @@ describe('parsePowerPages', () => {
     expect(s.lists).toHaveLength(1);
     expect(s.webFiles).toHaveLength(1);
     expect(s.botConsumers).toHaveLength(1);
+  });
+
+  it('maps a Page Template and closes the page -> template -> web template chain', () => {
+    // Type 6 has a dedicated mapping branch; without a fixture record its XML->IR
+    // key mapping is untested, so a key typo (webtemplateid/entityname) would ship
+    // silently. The Home page's pagetemplateid resolves to this record, and its
+    // webTemplateId in turn resolves to the Header web template (D5's chain).
+    const s = site();
+    const home = s.webPages.find(p => p.name === 'Home')!;
+    const tmpl = s.pageTemplates.find(t => t.id === home.pageTemplateId)!;
+    expect(tmpl).toBeDefined();
+    expect(tmpl.name).toBe('Standard Page');
+    expect(tmpl.isDefault).toBe(true);
+    expect(tmpl.usesWebsiteHeaderAndFooter).toBe(true);
+    expect(tmpl.webTemplateId).toBe(s.webTemplates[0].id);
+    expect(tmpl.entityName).toBe('contoso_case');
+    expect(tmpl.rewriteUrl).toBeNull();
+  });
+
+  it('maps Website Access with its permission flags and web-role join', () => {
+    // Type 12 also has a dedicated branch whose XML->IR mapping (four boolean
+    // permission flags + the adx_websiteaccess_webrole array) was otherwise
+    // unexercised by any fixture record.
+    const s = site();
+    const access = s.websiteAccess[0];
+    expect(access.manageContentSnippets).toBe(true);
+    expect(access.manageSiteMarkers).toBe(false);
+    expect(access.manageWebLinkSets).toBe(true);
+    expect(access.previewUnpublishedEntities).toBe(true);
+    expect(access.webRoleIds).toEqual([s.webRoles[0].id]);
   });
 
   it('builds the join data for the page parent/child tree via parentpageid', () => {
@@ -125,12 +157,13 @@ describe('parsePowerPages', () => {
     // must still skip it, keep every other component, and not miscount it as 'other'.
     const s = site();
     const total =
-      s.webPages.length + s.publishingStates.length + s.webTemplates.length +
-      s.contentSnippets.length + s.siteSettings.length + s.webRoles.length +
-      s.pageAccessRules.length + s.siteMarkers.length + s.webLinkSets.length +
-      s.webLinks.length + s.basicForms.length + s.lists.length +
-      s.webFiles.length + s.botConsumers.length;
-    expect(total).toBe(16);          // every valid component parsed
+      s.webPages.length + s.publishingStates.length + s.pageTemplates.length +
+      s.webTemplates.length + s.contentSnippets.length + s.siteSettings.length +
+      s.webRoles.length + s.pageAccessRules.length + s.websiteAccess.length +
+      s.siteMarkers.length + s.webLinkSets.length + s.webLinks.length +
+      s.basicForms.length + s.lists.length + s.webFiles.length +
+      s.botConsumers.length;
+    expect(total).toBe(18);          // every valid component parsed
     expect(s.otherComponentCount).toBe(1); // only the type=99, not the truncated file
   });
 
