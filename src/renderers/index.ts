@@ -17,3 +17,4 @@ export { renderGlobalChoicesIndex, renderGlobalChoicePage, encodeChoiceName } fr
 export { renderEmailTemplatesIndex, renderEmailTemplatePage } from './emailTemplateRenderer.js';
 export { renderConnectionReferencesPage } from './connectionReferenceRenderer.js';
 export { renderModelDrivenAppsIndex, renderModelDrivenAppPage } from './modelDrivenAppRenderer.js';
+export { renderPowerPagesIndex, renderPowerPagesSitePage } from './powerPagesRenderer.js';

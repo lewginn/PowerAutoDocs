@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<powerpagecomponent powerpagecomponentid="c0000000-0000-4000-8000-000000000003">
+  <content>{"isroot":true,"enablerating":false,"enabletracking":false,"excludefromsearch":false,"hiddenfromsitemap":false,"sharedpageconfiguration":false,"partialurl":"about-us","pagetemplateid":"c0000000-0000-4000-8000-0000000000d1","publishingstateid":"c0000000-0000-4000-8000-000000000001","parentpageid":"c0000000-0000-4000-8000-000000000002","displayorder":2}</content>
+  <iscustomizable>1</iscustomizable>
+  <name>About Us</name>
+  <powerpagecomponenttype>2</powerpagecomponenttype>
+  <powerpagesiteid>50000000-1000-4000-8000-000000000000</powerpagesiteid>
+  <searchcontent>About us page</searchcontent>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</powerpagecomponent>

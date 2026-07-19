@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<powerpagecomponent powerpagecomponentid="c0000000-0000-4000-8000-00000000000f">
+  <content>{"partialurl":"logo.png","enabletracking":false,"excludefromsearch":false,"hiddenfromsitemap":false,"parentpageid":"c0000000-0000-4000-8000-000000000002","publishingstateid":"c0000000-0000-4000-8000-000000000001","displayorder":1}</content>
+  <filecontent mimetype="image/png">aGVsbG8=</filecontent>
+  <iscustomizable>1</iscustomizable>
+  <name>Contoso Logo</name>
+  <powerpagecomponenttype>3</powerpagecomponenttype>
+  <powerpagesiteid>
+    <powerpagesiteid>50000000-1000-4000-8000-000000000000</powerpagesiteid>
+  </powerpagesiteid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</powerpagecomponent>

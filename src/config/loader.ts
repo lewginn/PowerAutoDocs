@@ -61,7 +61,11 @@ export const CONFIG_DEFAULTS: DocGenConfig = {
     globalChoices: true,
     emailTemplates: true,
     modelDrivenApps: true,
-    connectionReferences: true
+    connectionReferences: true,
+    // Defaults OFF for the first release (decision D2): a brand-new ~500-line
+    // parser should only run for clients who opt in, not fire against every
+    // solution on the next pipeline run. One-line flip to true once proven.
+    powerPages: false,
   },
   aiEnrichment: {
     enabled: false,

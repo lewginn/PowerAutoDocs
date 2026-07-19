@@ -42,13 +42,14 @@ import { renderEnvironmentVariablesPage } from '../../src/renderers/environmentV
 import { renderEmailTemplatesIndex, renderEmailTemplatePage } from '../../src/renderers/emailTemplateRenderer.js';
 import { renderConnectionReferencesPage } from '../../src/renderers/connectionReferenceRenderer.js';
 import { renderModelDrivenAppsIndex, renderModelDrivenAppPage } from '../../src/renderers/modelDrivenAppRenderer.js';
+import { renderPowerPagesIndex, renderPowerPagesSitePage } from '../../src/renderers/powerPagesRenderer.js';
 import { renderOverview } from '../../src/renderers/overviewRenderer.js';
 
 import {
   aBusinessRule, aClassicWorkflow, aColumn, aConnectionReference, aFlow, aForm,
   aGlobalChoice, aModelDrivenApp, anAction, anEmailTemplate, anEnvironmentVariable,
-  aPluginAssembly, aPluginStep, aPrivilege, aRelationship, aSecurityRole, aSolution,
-  aTable, aView, aWebResource,
+  aPluginAssembly, aPluginStep, aPowerPagesSite, aPrivilege, aRelationship,
+  aSecurityRole, aSolution, aTable, aView, aWebResource,
 } from '../fixtures/ir.js';
 import { aConfig } from '../fixtures/config.js';
 
@@ -131,6 +132,8 @@ const RENDERED: ReadonlyArray<readonly [string, DocNode[]]> = [
   ['renderConnectionReferencesPage', renderConnectionReferencesPage([aConnectionReference()])],
   ['renderModelDrivenAppsIndex',   renderModelDrivenAppsIndex([aModelDrivenApp()], '/Apps')],
   ['renderModelDrivenAppPage',     renderModelDrivenAppPage(aModelDrivenApp())],
+  ['renderPowerPagesIndex',        renderPowerPagesIndex([aPowerPagesSite()], '/PowerPages')],
+  ['renderPowerPagesSitePage',     renderPowerPagesSitePage(aPowerPagesSite())],
   ['renderOverview',               renderOverview(
     [aSolution({ tables: [table] })], [flow], [assembly], [webResource], [classicWorkflow],
     [businessRule], [securityRole], [envVar], [aGlobalChoice()], [anEmailTemplate()],
@@ -202,7 +205,7 @@ describe('renderers never emit format strings', () => {
   it('guards every renderer that returns DocNode[]', () => {
     // Fails when a renderer is added without a RENDERED entry — an unguarded
     // renderer is exactly how this bug got in twice.
-    expect(RENDERED).toHaveLength(30);
+    expect(RENDERED).toHaveLength(32);
   });
 
   it('actually detects a violation when one is present', () => {

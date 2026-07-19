@@ -15,3 +15,4 @@ export { parseGlobalChoices } from './globalChoiceParser.js';
 export { parseEmailTemplates } from './emailTemplateParser.js';
 export { parseConnectionReferences } from './connectionReferenceParser.js';
 export { parseModelDrivenApps } from './modelDrivenAppParser.js';
+export { parsePowerPages } from './powerPagesParser.js';

@@ -43,7 +43,11 @@ happened to get picked up next.
 | Phase 4 | AI Enrichment & Delivery Formats | ✅ Complete | #1, #67, #68, #69, #94, #95, #100, #102, #103, #109, #110 |
 | Phase 5 | Governance & Admin Configuration Components | 🔲 Planned | #54, #55, #56, #58, #59, #119, #120 |
 | Phase 6 | Automation, Copilot & Integration Surfaces | 🔲 Planned | #57, #61, #97, #115, #116, #118 |
-| Backlog | Presentation, Tooling & Long-tail | 🔲 Planned / deprioritised | #53, #60, #62, #63, #64, #65, #66, #70, #90, #117 |
+| Backlog | Presentation, Tooling & Long-tail | 🔲 Planned / deprioritised | #53, #60, #63, #64, #65, #66, #70, #90, #117 |
+
+**#62 Power Pages — ✅ Shipped** (2026-07-19): `ir/powerPages.ts`, `parsers/powerPagesParser.ts`,
+`renderers/powerPagesRenderer.ts`, wired into all three assemblers; config `components.powerPages`
+(defaults off — D2). See [components.md](components.md) for the built matrix.
 
 Every issue's body now states its own "what we're trying to achieve" / "why it matters" —
 regrouped and rewritten on 2026-07-18 as a full issue-tracker cleanse (68 board items re-read

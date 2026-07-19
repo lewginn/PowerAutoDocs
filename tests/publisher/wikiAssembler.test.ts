@@ -6,14 +6,14 @@ import type { DocGenConfig } from '../../src/config/index.js';
 import type {
   BusinessRuleModel, ClassicWorkflowModel, ConnectionReferenceModel,
   EmailTemplateModel, EnvironmentVariableModel, FlowModel, GlobalChoiceModel,
-  ModelDrivenAppModel, PluginAssemblyModel, SecurityRoleModel, SolutionModel,
-  WebResourceModel,
+  ModelDrivenAppModel, PluginAssemblyModel, PowerPagesModel, SecurityRoleModel,
+  SolutionModel, WebResourceModel,
 } from '../../src/ir/index.js';
 import {
   aBusinessRule, aClassicWorkflow, aConnectionReference, aFlow, aGlobalChoice,
-  aModelDrivenApp, aPluginAssembly, aPluginStep, aRelationship, aSecurityRole,
-  aSolution, aTable, aTrigger, aWebResource, anAction, anEmailTemplate,
-  anEnvironmentVariable,
+  aModelDrivenApp, aPluginAssembly, aPluginStep, aPowerPagesSite, aRelationship,
+  aSecurityRole, aSolution, aTable, aTrigger, aWebResource, anAction,
+  anEmailTemplate, anEnvironmentVariable,
 } from '../fixtures/ir.js';
 import { aConfig } from '../fixtures/config.js';
 
@@ -50,9 +50,10 @@ interface BuildArgs {
   globalChoices?: GlobalChoiceModel[];
   emailTemplates?: EmailTemplateModel[];
   modelDrivenApps?: ModelDrivenAppModel[];
+  powerPages?: PowerPagesModel[];
 }
 
-/** buildWikiPages takes 14 positional args; naming them keeps the tests readable. */
+/** buildWikiPages takes 15 positional args; naming them keeps the tests readable. */
 const build = (a: BuildArgs = {}): WikiPage[] => buildWikiPages(
   a.config ?? withWiki(),
   a.solutions ?? [aSolution()],
@@ -68,6 +69,7 @@ const build = (a: BuildArgs = {}): WikiPage[] => buildWikiPages(
   a.globalChoices ?? [],
   a.emailTemplates ?? [],
   a.modelDrivenApps ?? [],
+  a.powerPages ?? [],
 );
 
 const paths = (pages: WikiPage[]): string[] => pages.map(p => p.path);
@@ -649,6 +651,22 @@ describe('buildWikiPages — security roles, choices, templates and apps', () =>
   it('gives each model-driven app a page under its display name', () => {
     const p = paths(build({ modelDrivenApps: [aModelDrivenApp({ displayName: 'Widget Hub' })] }));
     expect(p).toContain('/Docs/Model-Driven Apps/Widget Hub');
+  });
+
+  it('builds a Power Pages index and one page per site', () => {
+    // buildWikiPages' Power Pages parameter is trailing and defaulted, so a
+    // missing pass compiles and silently publishes nothing. This proves the
+    // section is actually built when sites are supplied.
+    const pages = build({ powerPages: [aPowerPagesSite({ name: 'Customer Portal' })] });
+    expect(paths(pages)).toContain('/Docs/Power Pages');
+    const sitePagePath = '/Docs/Power Pages/Customer Portal';
+    expect(paths(pages)).toContain(sitePagePath);
+    expect(contentAt(pages, '/Docs/Power Pages'))
+      .toContain(`(${toADOWikiLink(sitePagePath)})`);
+  });
+
+  it('omits the Power Pages section entirely when there are no sites', () => {
+    expect(paths(build())).not.toContain('/Docs/Power Pages');
   });
 });
 

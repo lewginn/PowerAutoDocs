@@ -40,6 +40,7 @@ All input is an unpacked Power Platform solution folder, produced by `pac CLI` b
 | Connection References | `Other/Customizations.xml` (`connectionReferenceParser.ts:49`) | S |
 | Email Templates | `Templates/EmailTemplates.xml` + subject/body XSL files | C |
 | Model-Driven Apps | `AppModules/{uniqueName}/AppModule.xml` | C |
+| Power Pages | `Assets/powerpagesites.xml` + `powerpagesitelanguages.xml`, `powerpagecomponents/{guid}/powerpagecomponent.xml` | C |
 
 ### ⬜ Not built
 
@@ -57,7 +58,6 @@ All input is an unpacked Power Platform solution folder, produced by `pac CLI` b
 | SLAs | C |
 | Dashboards | C |
 | Service Endpoints | C |
-| Power Pages | C |
 | Settings (org/solution config) | C |
 | Custom Pages | C |
 | Canvas App Source | **W — out of scope** |
@@ -91,13 +91,14 @@ Scheduled (recurrence-triggered) flows are **already parsed** as a `FlowTriggerT
 | Connection Reference | `connectionReferenceParser.ts` | `parseConnectionReferences()` | `ConnectionReferenceModel` | Connector-name lookup map |
 | Email Template | `emailTemplateParser.ts` | `parseEmailTemplates()` | `EmailTemplateModel` | XSL subject + body reconstruction |
 | Model-Driven App | `modelDrivenAppParser.ts` | `parseModelDrivenApps()` | `ModelDrivenAppModel` | `AppModule.xml` per app |
+| Power Pages | `powerPagesParser.ts` | `parsePowerPages()` (`:470`) | `PowerPagesModel` | One model per site (D1); groups every `powerpagecomponent.xml` by `powerpagesiteid`. Structural only (D4) — stores payload lengths, never bodies. No publisher prefix (D3) |
 
 > **Known deviation — the flow parser enriches at parse time.**
 > `flowParser.ts:5` imports `generateMermaidDiagram` from `../enrichment/mermaidGenerator.js` and line 330 populates `mermaidDiagram` directly on the returned `FlowModel` (the field is declared at `ir/flow.ts`, consumed at `flowRenderer.ts:118-120`). This contradicts the layered model, where enrichment runs *after* parsing. The ERD generator does follow the documented pattern — it is called from the three assemblers, never from a parser. **Do not copy the flowParser precedent** when adding new enrichment; there is no flow-diagram call site in the assemblers, so don't hunt for one.
 
 ### ⬜ Not built
 
-PCF, Business Process Flow, Duplicate Detection Rule, SLA, Dashboard, Column Security Profile, Service Endpoint, Routing Rule Set, Custom Connector, Power Pages, Virtual Table, Agent (Copilot Studio), Settings, Masking Rule, Custom Page. Priorities mirror the Layer 01 table above.
+PCF, Business Process Flow, Duplicate Detection Rule, SLA, Dashboard, Column Security Profile, Service Endpoint, Routing Rule Set, Custom Connector, Virtual Table, Agent (Copilot Studio), Settings, Masking Rule, Custom Page. Priorities mirror the Layer 01 table above.
 
 ---
 
@@ -123,12 +124,13 @@ PCF, Business Process Flow, Duplicate Detection Rule, SLA, Dashboard, Column Sec
 | `ConnectionReferenceModel` | `ir/connectionReference.ts` | ✅ Built |
 | `EmailTemplateModel` | `ir/emailTemplate.ts` | ✅ Built |
 | `ModelDrivenAppModel` | `ir/modelDrivenApp.ts` | ✅ Built |
+| `PowerPagesModel` (+ per-component sub-types: `WebPageModel`, `WebTemplateModel`, `ContentSnippetModel`, `SiteSettingModel`, `WebRoleModel`, `PageAccessRuleModel`, `WebsiteAccessModel`, `SiteMarkerModel`, `WebLinkSetModel`, `WebLinkModel`, `BasicFormModel`, `ListModel`, `WebFileModel`, `PageTemplateModel`, `PublishingStateModel`, `PowerPagesLanguageModel`) | `ir/powerPages.ts` (`:217`) | ✅ Built |
 | `PCFModel` | `ir/pcf.ts` | ⬜ Not built |
 | `BusinessProcessFlowModel` | `ir/bpf.ts` | ⬜ Not built |
 | `ColumnSecurityProfileModel` | `ir/columnSecurityProfile.ts` | ⬜ Not built |
 | `RoutingRuleSetModel` | `ir/routingRule.ts` | ⬜ Not built |
 | `CustomConnectorModel` | `ir/customConnector.ts` | ⬜ Not built |
-| `DuplicateDetectionRuleModel`, `SLAModel`, `DashboardModel`, `ServiceEndpointModel`, `PowerPagesModel` | — | ⬜ Not built |
+| `DuplicateDetectionRuleModel`, `SLAModel`, `DashboardModel`, `ServiceEndpointModel` | — | ⬜ Not built |
 | `AgentModel`, `SettingsModel`, `MaskingRuleModel`, `CustomPageModel` | — | ⬜ Not built |
 | `VirtualTableModel` (or an additive extension of `TableModel`, open design question) | — | ⬜ Not built |
 
@@ -214,6 +216,7 @@ Renderers consume IR and emit `DocNode[]`. **The builder helpers (`h`, `p`, `pt`
 | `emailTemplateRenderer.ts` | `renderEmailTemplatesIndex`, `renderEmailTemplatePage` | ✅ Built |
 | `connectionReferenceRenderer.ts` | `renderConnectionReferencesPage` | ✅ Built |
 | `modelDrivenAppRenderer.ts` | `renderModelDrivenAppsIndex`, `renderModelDrivenAppPage` | ✅ Built |
+| `powerPagesRenderer.ts` | `renderPowerPagesIndex`, `renderPowerPagesSitePage` | ✅ Built — structural only (D4); all subsections are internal helpers composed into the site page |
 
 Two things the "one renderer per component type" framing hides:
 
