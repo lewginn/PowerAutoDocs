@@ -6,7 +6,7 @@ import type {
   WebPageModel, PageTemplateModel, WebTemplateModel, ContentSnippetModel,
   SiteSettingModel, WebRoleModel, PageAccessRuleModel, WebsiteAccessModel,
   SiteMarkerModel, WebLinkSetModel, WebLinkModel, BasicFormModel, ListModel,
-  WebFileModel, BotConsumerModel,
+  WebFileModel,
 } from '../ir/powerPages.js';
 
 const xmlParser = new XMLParser({
@@ -111,9 +111,6 @@ function idArray(v: unknown): string[] {
   const s = str(v);
   return s ? [s] : [];
 }
-
-/** Length of a double-encoded / large payload without retaining it (D4). */
-const lenOf = (v: unknown): number => (v === null || v === undefined ? 0 : String(v).length);
 
 const asArray = (v: unknown): any[] => (v === null || v === undefined ? [] : Array.isArray(v) ? v : [v]);
 
@@ -240,7 +237,6 @@ function newSiteModel(id: string, name: string): PowerPagesModel {
     basicForms: [],
     lists: [],
     webFiles: [],
-    botConsumers: [],
     otherComponentCount: 0,
   };
 }
@@ -491,15 +487,10 @@ function mapComponent(inner: any, seed: SiteSeed, savedQueryNames: Map<string, s
       m.lists.push(rec);
       break;
     }
-    case TYPE.BOT_CONSUMER: {
-      const rec: BotConsumerModel = {
-        id, name,
-        botSchemaName: str(c.botschemaname),
-        configLength: lenOf(c.configjson),
-      };
-      m.botConsumers.push(rec);
+    case TYPE.BOT_CONSUMER:
+      // Bot Consumers are intentionally not documented (omitted on review, 2026-07-19).
+      // Recognised and skipped here so they are not counted as an unsupported type.
       break;
-    }
     default:
       // Unknown/unmapped type code (enum gaps: 14, 16, 18–26, …) — count, never throw.
       m.otherComponentCount++;

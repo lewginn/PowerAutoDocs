@@ -31,9 +31,6 @@ const FORM_MODE_LABELS: Record<number, string> = {
   100000000: 'Insert', 100000001: 'Edit', 100000002: 'Read Only',
 };
 
-/** Length of an opaque payload expressed as characters (structural — D4). */
-const chars = (n: number): string => `${n.toLocaleString()} chars`;
-
 // ── Index page ──
 
 export function renderPowerPagesIndex(
@@ -113,7 +110,6 @@ export function renderPowerPagesSitePage(site: PowerPagesModel): DocNode[] {
       ['Basic Forms', site.basicForms.length],
       ['Lists', site.lists.length],
       ['Web Files', site.webFiles.length],
-      ['Bot Consumers', site.botConsumers.length],
       ['Publishing States', site.publishingStates.length],
       ['Other / unsupported', site.otherComponentCount],
     ] as [string, number][])
@@ -132,7 +128,6 @@ export function renderPowerPagesSitePage(site: PowerPagesModel): DocNode[] {
   nodes.push(...renderSecurity(site, pageName, roleName));
   nodes.push(...renderFormsAndLists(site));
   nodes.push(...renderWebFiles(site, stateName));
-  nodes.push(...renderBotConsumers(site));
   nodes.push(...renderPublishingStates(site.publishingStates));
 
   return nodes;
@@ -442,23 +437,6 @@ function renderWebFiles(site: PowerPagesModel, stateName: Map<string, string>): 
         f.partialUrl ? cc(f.partialUrl) : ct('—'),
         ct(f.mimeType || '—'),
         cell(...refToInline(f.publishingStateId, stateName)),
-      ]),
-    ),
-  ];
-}
-
-// ── Bot Consumers (identified by schema name; config by size — D4) ──
-
-function renderBotConsumers(site: PowerPagesModel): DocNode[] {
-  if (site.botConsumers.length === 0) return [];
-  return [
-    h(2, 'Bot Consumers'),
-    table(
-      ['Name', 'Bot Schema Name', 'Config Size'],
-      site.botConsumers.map(b => [
-        ct(b.name),
-        b.botSchemaName ? cc(b.botSchemaName) : ct('—'),
-        ct(chars(b.configLength)),
       ]),
     ),
   ];

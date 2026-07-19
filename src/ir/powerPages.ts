@@ -204,15 +204,9 @@ export interface WebFileModel {
   mimeType: string | null;
 }
 
-/** Type 27 — Bot Consumer. The bot is identified by a schema-name string. */
-export interface BotConsumerModel {
-  id: string;
-  name: string;
-  /** Publisher-prefixed schema-name identifier of the bot/Copilot. */
-  botSchemaName: string;
-  /** Character length of the opaque serialized config blob (never the blob — D4). */
-  configLength: number;
-}
+// Type 27 (Bot Consumer) is deliberately not documented — omitted on Lewis's
+// review (2026-07-19). The parser recognises and skips it so it is not counted
+// as an unsupported component.
 
 /** One Power Pages site with all of its components. */
 export interface PowerPagesModel {
@@ -249,7 +243,6 @@ export interface PowerPagesModel {
   basicForms: BasicFormModel[];
   lists: ListModel[];
   webFiles: WebFileModel[];
-  botConsumers: BotConsumerModel[];
 
   /** Count of components carrying an unmapped/unknown type code — tolerated, not dropped silently. */
   otherComponentCount: number;

@@ -53,7 +53,15 @@ describe('parsePowerPages', () => {
     expect(s.basicForms).toHaveLength(1);
     expect(s.lists).toHaveLength(1);
     expect(s.webFiles).toHaveLength(1);
-    expect(s.botConsumers).toHaveLength(1);
+  });
+
+  it('recognises but does not document a Bot Consumer (type 27) — omitted, not counted as other', () => {
+    // The fixture has a type-27 component. It must not surface as a documented
+    // component, and must not inflate otherComponentCount (which counts only
+    // genuinely unknown type codes — the type-99 record).
+    const s = site();
+    expect(s).not.toHaveProperty('botConsumers');
+    expect(s.otherComponentCount).toBe(1);
   });
 
   it('maps a Page Template and closes the page -> template -> web template chain', () => {
@@ -171,10 +179,9 @@ describe('parsePowerPages', () => {
       s.webTemplates.length + s.contentSnippets.length + s.siteSettings.length +
       s.webRoles.length + s.pageAccessRules.length + s.websiteAccess.length +
       s.siteMarkers.length + s.webLinkSets.length + s.webLinks.length +
-      s.basicForms.length + s.lists.length + s.webFiles.length +
-      s.botConsumers.length;
-    expect(total).toBe(18);          // every valid component parsed
-    expect(s.otherComponentCount).toBe(1); // only the type=99, not the truncated file
+      s.basicForms.length + s.lists.length + s.webFiles.length;
+    expect(total).toBe(17);          // every documented component parsed
+    expect(s.otherComponentCount).toBe(1); // only the type=99 (not the truncated file, not the type-27 bot)
   });
 
   it('returns [] for a folder with no Power Pages site asset file', () => {

@@ -410,9 +410,6 @@ export const aPowerPagesSite = (over: Partial<PowerPagesModel> = {}): PowerPages
   webFiles: [
     { id: 'wf-1', name: 'Contoso Logo', partialUrl: 'logo.png', parentPageId: 'wp-home', publishingStateId: 'ps-pub', displayOrder: 1, mimeType: 'image/png' },
   ],
-  botConsumers: [
-    { id: 'bot-1', name: 'Support Agent', botSchemaName: 'contoso_supportbot', configLength: 256 },
-  ],
   otherComponentCount: 1,
   ...over,
 });

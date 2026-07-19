@@ -19,6 +19,6 @@ export type {
   WebPageModel, PageTemplateModel, WebTemplateModel, ContentSnippetModel,
   SiteSettingModel, WebRoleModel, PageAccessRuleModel, WebsiteAccessModel,
   SiteMarkerModel, WebLinkSetModel, WebLinkModel, BasicFormModel, ListModel,
-  WebFileModel, BotConsumerModel,
+  WebFileModel,
 } from './powerPages.js';
 export { WEB_RESOURCE_TYPE_MAP } from './webResource.js';
