@@ -12,7 +12,7 @@ You may branch, commit, push, open PRs, merge to `main`, and change config/schem
 
 | Rule | Why |
 |------|-----|
-| **Never bump `package.json` `version`, and never run `npm publish` locally.** | Releases are Lewis's call and are automated — `.github/workflows/npm-publish.yml` runs `npm ci` → `npm run typecheck` → `npm test` → `npm run build` → `npm publish` on a GitHub Release (`types: [created, published]`). A manual publish or a stray bump desynchronises the tag, the Release, and the registry. Current version is `1.4.0`. |
+| **Never bump `package.json` `version`, and never run `npm publish` locally.** | Releases are Lewis's call and are automated — `.github/workflows/npm-publish.yml` runs `npm ci` → `npm run typecheck` → `npm test` → `npm run build` → `npm publish` on a GitHub Release (`types: [published]` — `created` was removed after it caused the workflow to double-fire and 403 on direct-publish releases). A manual publish or a stray bump desynchronises the tag, the Release, and the registry. Trust `package.json` for the current version rather than a number pinned here. |
 | **Never add an npm dependency without asking.** | Every dep ships to clients via `npx powerautodocs@latest` and is a supply-chain and install-time cost on ephemeral ADO agents. `devDependencies` are cheaper (`npm ci --omit=dev`, `files: ["dist"]`) but are **still a 🔴** — ask, and say which bucket. Watch for the trap: `commander` and `zod` sit in `node_modules` as transitive deps of `@mermaid-js/mermaid-cli`/`chromium-bidi`, so importing one compiles locally while being undeclared. An import must be a declared dep. |
 
 ---

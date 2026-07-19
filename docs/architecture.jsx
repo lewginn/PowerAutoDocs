@@ -18,7 +18,7 @@ const layers = [
       { name: "Solution ZIPs", icon: "📦", detail: "Unpacked via pac CLI before the tool runs. Contains all component folders, solution.xml, relationships.", tags: ["XML", "pac CLI"], done: true, moscow: "M" },
       { name: "Flat XML Exports", icon: "🗂️", detail: "Pre-extracted XML files per component. Entities, forms, views, saved queries, relationships all parsed.", tags: ["XML", "Structured"], done: true, moscow: "M" },
       { name: "Power Automate Flows", icon: "🔄", detail: "Flow JSON exported with solution. Trigger, actions, nested conditions, Scope/Foreach/Switch all extracted into FlowModel IR with depth and parentName tracking.", tags: ["JSON"], done: true, moscow: "S" },
-      { name: "Classic Workflows & Business Rules", icon: "⚡", detail: "XAML-based workflows and business rules from Workflows/ folder. Supports both _xaml_data.xml and .xaml.data.xml naming conventions. Category=0 → classic workflow, Category=2 → business rule.", tags: ["XAML", "XML"], done: true, moscow: "S" },
+      { name: "Classic Workflows & Business Rules", icon: "⚡", detail: "XAML-based workflows and business rules from Workflows/ folder. Supports both _xaml_data.xml and .xaml.data.xml naming conventions. Category=2 → business rule (businessRuleParser); Category=3 → 'action', everything else → 'workflow' (classicWorkflowParser); Category=2 is excluded from the classic-workflow sweep to avoid double-counting.", tags: ["XAML", "XML"], done: true, moscow: "S" },
       { name: "Plugins & Assemblies", icon: "⚙️", detail: "Plugin step registrations from solution XML. Assembly metadata, entity/message/stage bindings.", tags: ["C#", "XML"], done: true, moscow: "S" },
       { name: "Web Resources (JS)", icon: "📜", detail: "JavaScript files from WebResources folder. JSDoc comments, function signatures, namespace detection extracted per file.", tags: ["JS", "XML"], done: true, moscow: "S" },
       { name: "Security Role XML", icon: "🔐", detail: "Role XML from Roles/ folder. RolePrivilege entries with level (Global/Deep/Local/Basic) per entity. Absent = None. Filtered to publisher prefix custom entities only.", tags: ["XML"], done: true, moscow: "S" },
@@ -37,6 +37,11 @@ const layers = [
       { name: "Routing Rule Sets", icon: "📨", detail: "RoutingRule XML. Case routing conditions, queue assignments.", tags: ["XML"], done: false, moscow: "S" },
       { name: "Custom Connectors", icon: "🔗", detail: "Custom connector definitions for Power Platform. API base URL, authentication, actions/triggers.", tags: ["JSON", "XML"], done: false, moscow: "S" },
       { name: "Power Pages", icon: "🌐", detail: "Portal/Power Pages site definitions. Pages, web templates, entity forms, entity lists, site settings.", tags: ["XML"], done: true, moscow: "C" },
+      { name: "Virtual Tables", icon: "🔌", detail: "Dataverse tables backed by an external data source rather than native storage. Provider name, external data source connection, source entity mapping.", tags: ["XML"], done: false, moscow: "S" },
+      { name: "Copilot Studio Agents", icon: "🤖", detail: "Agents packaged into the solution export. Topics, knowledge sources, orchestration/trigger config at whatever fidelity solution XML carries — canvas-level authoring detail is out of reach.", tags: ["XML"], done: false, moscow: "S" },
+      { name: "Settings (org/solution config)", icon: "🛠️", detail: "Solution/environment configuration records controlling platform behaviour — default currency, business closures, auto-numbering, duplicate-detection toggles — distinct from Environment Variable Definitions.", tags: ["XML"], done: false, moscow: "C" },
+      { name: "Masking Rules (Secured/Attribute)", icon: "🎭", detail: "Column-level masking rule definitions. Masked column, mask type/pattern, exempt security roles/profiles.", tags: ["XML"], done: false, moscow: "S" },
+      { name: "Custom Pages", icon: "🖼️", detail: "Canvas-style pages embedded within a Model-Driven App. Page type, owning app module reference(s), embedded canvas app reference.", tags: ["XML"], done: false, moscow: "C" },
       { name: "Canvas App Source", icon: "🎨", detail: "Unpacked .msapp source. Reads screens, controls, formulas.", tags: ["JSON", "Optional"], done: false, moscow: "W" },
     ]
   },
@@ -53,7 +58,7 @@ const layers = [
       { name: "Form Parser", icon: "📋", detail: "Parses FormXml for Main, Quick Create and Card forms. Extracts tabs, sections, fields and header fields. Inactive forms skipped.", tags: ["Core"], done: true, moscow: "M" },
       { name: "Relationship Parser", icon: "↔️", detail: "Reads Other/Relationships XML files. OneToMany resolved from both perspectives. Custom vs standard detection. Direction-aware rendering.", tags: ["Core"], done: true, moscow: "M" },
       { name: "Flow / Workflow Parser", icon: "🔄", detail: "Modern flows from JSON. RecordSelected, Webhook, Manual, Scheduled triggers. Recursive action tree walker with depth + parentName + branch tracking (Yes/No). Expression serialiser for If conditions. Enriched descriptions for Foreach/Switch.", tags: ["Core"], done: true, moscow: "S" },
-      { name: "Classic Workflow Parser", icon: "⚡", detail: "XAML walker for Category=0 workflows. Extracts trigger config, ConditionSequence steps with branch actions (update, terminate, nested conditions). Supports both pac CLI naming conventions.", tags: ["Core"], done: true, moscow: "S" },
+      { name: "Classic Workflow Parser", icon: "⚡", detail: "XAML walker excluding Category=2 (owned by the Business Rule Parser). Category=3 maps to 'action', everything else to 'workflow'. Extracts trigger config, ConditionSequence steps with branch actions (update, terminate, nested conditions). Supports both pac CLI naming conventions.", tags: ["Core"], done: true, moscow: "S" },
       { name: "Business Rule Parser", icon: "📐", detail: "XAML walker for Category=2 rules. Extracts condition field, if/else branches as two sibling ConditionBranch nodes. Captures SetVisibility, SetFieldRequiredLevel, SetAttributeValue actions per branch. Description from x:String x:Key=Description.", tags: ["Core"], done: true, moscow: "S" },
       { name: "Plugin Parser", icon: "🔌", detail: "Plugin assemblies and SDK message processing steps. Entity, message, stage, order, filter expressions.", tags: ["Core"], done: true, moscow: "S" },
       { name: "Web Resource Analyser", icon: "📜", detail: "Walks WebResources/ folder, finds *.data.xml files. Strips .data.xml to find sibling JS source. Extracts namespace, functions (object literal, declarations, arrow), async flag, params, JSDoc.", tags: ["JS"], done: true, moscow: "S" },
@@ -73,6 +78,11 @@ const layers = [
       { name: "Routing Rule Set Parser", icon: "📨", detail: "Parses RoutingRule XML. Rule name, conditions, queue assignments, applicable entity.", tags: ["XML"], done: false, moscow: "S" },
       { name: "Custom Connector Parser", icon: "🔗", detail: "Parses custom connector JSON/XML. Base URL, auth type, operations list.", tags: ["JSON", "XML"], done: false, moscow: "S" },
       { name: "Power Pages Parser", icon: "🌐", detail: "Parses Power Pages/Portal XML. Pages, web templates, entity forms, entity lists, site settings.", tags: ["XML"], done: true, moscow: "C" },
+      { name: "Virtual Table Parser", icon: "🔌", detail: "Reads virtual table definitions from solution XML — provider config and source entity mapping. Whether this extends TableModel or gets a standalone model is an open design question.", tags: ["XML"], done: false, moscow: "S" },
+      { name: "Agent Parser", icon: "🤖", detail: "Reads a Copilot Studio agent's solution XML export — topics, knowledge sources, orchestration/trigger config. Metadata extraction, not a topic-flow rebuild.", tags: ["XML"], done: false, moscow: "S" },
+      { name: "Settings Parser", icon: "🛠️", detail: "Reads org/solution-level configuration records not exposed via Environment Variables.", tags: ["XML"], done: false, moscow: "C" },
+      { name: "Masking Rule Parser", icon: "🎭", detail: "Reads masking rule definitions for masked columns from the solution export.", tags: ["XML"], done: false, moscow: "S" },
+      { name: "Custom Page Parser", icon: "🖼️", detail: "Reads Custom Page definitions referenced from AppModule.xml. Page type, app module reference, embedded canvas app reference.", tags: ["XML"], done: false, moscow: "C" },
     ]
   },
   {
@@ -90,7 +100,7 @@ const layers = [
       { name: "ClassicWorkflowModel", icon: "⚡", detail: "Trigger config (onCreate/onUpdate/onDelete/onDemand, updateFields), mode (realtime/background), scope, runAs. Steps with type/entity/conditionFields/setFields/thenSteps.", tags: ["ir/classicWorkflow.ts"], done: true, moscow: "S" },
       { name: "BusinessRuleModel", icon: "📐", detail: "Entity, scope (specificForm/allForms/entity), status. Conditions with conditionField, description, thenActions and elseActions. Actions typed as show/hide/setRequired/setOptional/clearValue.", tags: ["ir/businessRule.ts"], done: true, moscow: "S" },
       { name: "PluginAssemblyModel", icon: "🔌", detail: "Assembly, plugin type names, step registrations with entity + message + stage + order.", tags: ["ir/plugin.ts"], done: true, moscow: "S" },
-      { name: "WebResourceModel", icon: "📜", detail: "Per-file model. resourceType, namespace, functions with JSDoc, async flag, params.", tags: ["ir/webresource.ts"], done: true, moscow: "S" },
+      { name: "WebResourceModel", icon: "📜", detail: "Per-file model. resourceType, namespace, functions with JSDoc, async flag, params.", tags: ["ir/webResource.ts"], done: true, moscow: "S" },
       { name: "SecurityRoleModel", icon: "🔐", detail: "Role name, id, isAutoAssigned, isCustomizable. EntityPrivileges array with all 8 operations (create/read/write/delete/append/appendTo/assign/share) as PrivilegeLevel union.", tags: ["ir/securityRole.ts"], done: true, moscow: "S" },
       { name: "EnvironmentVariableModel", icon: "🌍", detail: "schemaName, displayName, description, type (String/Number/Boolean/JSON/DataSource), defaultValue, currentValue (optional), isRequired, secretStore.", tags: ["ir/environmentVariable.ts"], done: true, moscow: "S" },
       { name: "GlobalChoiceModel", icon: "🎛️", detail: "schemaName, displayName, description, optionSetType, isGlobal. Options array with value, label, description, isHidden, externalValue.", tags: ["ir/globalChoice.ts"], done: true, moscow: "S" },
@@ -107,6 +117,11 @@ const layers = [
       { name: "RoutingRuleSetModel", icon: "📨", detail: "Rule set name, entity, rule items with conditions and target queue.", tags: ["ir/routingRule.ts"], done: false, moscow: "S" },
       { name: "CustomConnectorModel", icon: "🔗", detail: "Connector name, base URL, auth type, operations list.", tags: ["ir/customConnector.ts"], done: false, moscow: "S" },
       { name: "PowerPagesModel", icon: "🌐", detail: "Site name, pages, web templates, entity forms, entity lists, site settings.", tags: ["ir/powerPages.ts"], done: true, moscow: "C" },
+      { name: "VirtualTableModel (or TableModel extension)", icon: "🔌", detail: "Provider config, source entity name, custom column list. Open design question: standalone model vs. an additive extension of TableModel.", tags: ["ir/table.ts or ir/virtualTable.ts"], done: false, moscow: "S" },
+      { name: "AgentModel", icon: "🤖", detail: "Topics, knowledge sources, orchestration/trigger config for a Copilot Studio agent.", tags: ["ir/agent.ts"], done: false, moscow: "S" },
+      { name: "SettingsModel", icon: "🛠️", detail: "Configured setting name and value, distinct from EnvironmentVariableModel.", tags: ["ir/settings.ts"], done: false, moscow: "C" },
+      { name: "MaskingRuleModel", icon: "🎭", detail: "Masked column, mask type/pattern, exempt roles/profiles.", tags: ["ir/maskingRule.ts"], done: false, moscow: "S" },
+      { name: "CustomPageModel", icon: "🖼️", detail: "Page type, owning Model-Driven App reference(s), embedded canvas app reference — surfaced alongside ModelDrivenAppModel rather than as a new top-level page.", tags: ["ir/customPage.ts"], done: false, moscow: "C" },
     ]
   },
   {
@@ -116,13 +131,13 @@ const layers = [
     bg: "#ecfdf5",
     description: "Cross-cutting analysis — diagrams, metrics, change detection",
     components: [
-      { name: "Mermaid ER Diagram Generator", icon: "🗺️", detail: "Generates erDiagram from TableModels and RelationshipModels. Filters to custom entities via publisher prefix. Two-tier exclusion: excludeStandardRelationships flag kills all OOB noise; erd.excludeEntities/excludeRelationships config for per-solution fine-tuning. Self-referential edges skipped. Entity names SafeMermaidName-encoded. ADO :::mermaid fence.", tags: ["Diagram"], done: true, moscow: "S" },
-      { name: "Mermaid Flow Generator", icon: "📈", detail: "Recursive action tree walker. flowchart TD with ADO :::mermaid syntax. Node shapes per type (If=diamond, Scope=subroutine, Foreach=loop, Terminate=circle). Yes/No edge labels, ⚠ Error path for Catch. Compatible with ADO Mermaid v8.14.", tags: ["Diagram"], done: true, moscow: "S" },
+      { name: "Mermaid ER Diagram Generator", icon: "🗺️", detail: "Generates erDiagram from TableModels and RelationshipModels. Filters to custom entities via publisher prefix. Two-tier exclusion: excludeStandardRelationships flag kills all OOB noise; erd.excludeEntities/excludeRelationships config for per-solution fine-tuning. Self-referential edges skipped. Entity names SafeMermaidName-encoded. Returns raw Mermaid DSL only — the ADO :::mermaid fence is added by MarkdownSerializer, never by the generator, to avoid double-fencing.", tags: ["Diagram"], done: true, moscow: "S" },
+      { name: "Mermaid Flow Generator", icon: "📈", detail: "Recursive action tree walker. Emits raw flowchart TD DSL (no fence — that's the serializer's job). Node shapes per type (If=diamond, Scope=subroutine, Foreach=loop, Terminate=circle). Yes/No edge labels, ⚠ Error path for Catch. Compatible with ADO Mermaid v8.14.", tags: ["Diagram"], done: true, moscow: "S" },
       { name: "Expression Serialiser", icon: "🔣", detail: "Converts Power Automate condition expression objects into human-readable strings. Handles and/or/not, equals/greater/less, contains, startsWith. Cleans @outputs()/@triggerBody() references to field names.", tags: ["Analysis"], done: true, moscow: "S" },
-      { name: "AI Summary Cache Manager", icon: "💾", detail: "Committed .powerautodocs-ai-cache.json file stores AI-generated summaries. SHA-256 hash of component IR for cache invalidation. --regenerate-ai flag for manual full refresh. Cache entries reviewed in PRs before publication.", tags: ["AI", "Cache"], done: true, moscow: "C" },
+      { name: "AI Summary Cache Manager", icon: "💾", detail: ".powerautodocs-ai-cache.json stores AI-generated summaries, keyed by a SHA-256 hash of a derived 'summarisable view' of the component IR for cache invalidation. --regenerate-ai flag for manual full refresh. Committed in the client project repo that consumes powerautodocs, so summaries are reviewed in PRs before publication — gitignored in this repo since it would otherwise hold real client component names.", tags: ["AI", "Cache"], done: true, moscow: "C" },
       { name: "AI Provider Interface", icon: "🤖", detail: "Thin abstraction layer (AiProvider interface) for pluggable AI providers. Initially Claude/Anthropic. Config specifies provider + model. Future: add OpenAI, other providers without touching enrichment logic.", tags: ["AI", "Pluggable"], done: true, moscow: "C" },
       { name: "Component Summarizer", icon: "✍️", detail: "Generates human-readable summaries for flows, plugins, business rules, tables, security roles. Optional per-component in config. Audience-aware (technical/functional/executive). Injects summaries into DocNode output alongside raw extracted content.", tags: ["AI", "Enrichment"], done: true, moscow: "C" },
-      { name: "Dependency Resolver", icon: "🔗", detail: "Resolves plugin → entity, flow → table links. Surfaces in docs as 'Used By' / 'Related' sections.", tags: ["Analysis"], done: false, moscow: "C" },
+      { name: "Dependency Resolver", icon: "🔗", detail: "Resolves flow ↔ table links (dependencyResolver.ts), handling Dataverse entity-set pluralisation. Wired into all three assemblers. Surfaces as 'Used By Flows' on table pages and 'Tables Used' on flow pages.", tags: ["Analysis"], done: true, moscow: "C" },
       { name: "Complexity Scorer", icon: "📏", detail: "Flags high-complexity flows/plugins. Highlights what needs most attention in handover docs.", tags: ["Analysis"], done: false, moscow: "C" },
       { name: "Change Detector", icon: "📝", detail: "Git diff between commits → 'What changed since last release'. Generates change log wiki pages.", tags: ["Optional"], done: false, moscow: "C" },
     ]
@@ -134,7 +149,7 @@ const layers = [
     bg: "#fff1f2",
     description: "Pluggable renderers — swap or combine without touching parsers or IR",
     components: [
-      { name: "Markdown Renderer", icon: "✍️", detail: "Primary output. All renderers emit markdown strings directly — string builder pattern with markdownTable() helper. toADOWikiLink() encodes all internal links (spaces→hyphens, parens escaped, hyphens→%2D). [[_TOSP_]] on container pages only.", tags: ["Primary"], done: true, moscow: "M" },
+      { name: "Markdown Renderer", icon: "✍️", detail: "Primary output. Renderers emit format-agnostic DocNode[]; MarkdownSerializer converts that to ADO Wiki markdown (the legacy write*Markdown() string-builder helpers still exist alongside it for local file output, but the DocNode[] path is primary). toADOWikiLink() encodes all internal links (spaces→hyphens, parens escaped, hyphens→%2D). [[_TOSP_]] on container pages only.", tags: ["Primary"], done: true, moscow: "M" },
       { name: "ADO Wiki Publisher", icon: "🌐", detail: "Azure DevOps REST API. Creates/updates wiki pages in correct hierarchy. Top-down parent creation. Page name sanitisation via s() helper. Auth pre-validation. Z→A publish order for A→Z sidebar display.", tags: ["ADO"], done: true, moscow: "S" },
       { name: "Word Renderer", icon: "📄", detail: "DocNode format-agnostic document model layer (src/docmodel/nodes.ts). Renderers emit DocNode[] via MarkdownSerializer (ADO Wiki) or DocxSerializer (Word). DocxSerializer → docx library: A4 page, proportional fixed-width column tables, TOC, page-number footer. Output controlled by output.word in config or --word CLI flag. Mermaid diagrams (ERD, flow charts) are rendered to PNG via mermaidRenderer.ts (@mermaid-js/mermaid-cli against a local Chrome/Edge — never Puppeteer's bundled Chromium, see .puppeteerrc.cjs) and embedded as images, content-hash cached to .powerautodocs-diagram-cache/. Toggle via output.wordDiagrams (default true); falls back to omitting diagrams with a console warning if no browser is found — never fails the run. Styling is themeable via output.wordTheme — see Word Theming.", tags: ["Optional"], done: true, moscow: "C" },
       { name: "Word Theming", icon: "🎨", detail: "Themeable Word output (src/docmodel/wordTheme.ts). Previously buildDocument() created a bare docx Document with no styles block and no default font, so the whole document inherited Word's built-ins (Calibri 11, stock blue Office headings) — it was unstyled rather than plainly styled. Now a resolved WordTheme is threaded into the serializer (same injection shape as MermaidRenderer, keeping docmodel free of config), and applied as real document styles so it also reaches content the serializer never touches directly — including generated TOC entries. The default theme needs no configuration: banded tables with a repeating header row, an accent-filled header, cell padding, a rule under each section heading, and a muted footer. output.wordTheme overrides it — in most cases a single accentColor line, from which heading colours, table header fill, banding tint, borders and code colour are all derived (levels 3-4 auto-darkened; header text picked white or near-black by WCAG luminance so a pale brand colour stays legible). Every derived value is individually overridable. Invalid colours warn and fall back rather than failing an unattended pipeline run. Word-scoped — PDF (pdfmake) stays unthemed by design and won't be revisited: PDF output is planned for deprecation (Lewis, 2026-07-17; see 'PDF output — deprecation planned?' below).", tags: ["Optional"], done: true, moscow: "C" },
@@ -153,7 +168,7 @@ const layers = [
       { name: "doc-gen.config.yml", icon: "⚙️", detail: "Per-project config. Multi-solution support. output.wiki / output.word booleans control output modes. components toggles control what gets rendered. Wiki org/project/identifier/parentPath. PAT field REDACTED for safe commit, injected at runtime via sed. Comprehensive inline comments for end-user setup.", tags: ["Config"], done: true, moscow: "M" },
       { name: "npm Package (powerautodocs)", icon: "📦", detail: "Published as powerautodocs on npmjs.com. GitHub repo: lewginn/PowerAutoDocs. Granular Access Token with bypass-2FA. Shebang entry point via scripts/addShebang.mjs (cross-platform). prepublishOnly build step. Node >=22 requirement (18 and 20 are end-of-life; CI tests 22 and 24). Renamed from powerautodoc to avoid accidental client data exposure in earlier versions.", tags: ["npm"], done: true, moscow: "M" },
       { name: "Run Logger + Summary", icon: "📋", detail: "src/logger.ts — structured console output with symbols (✓/✗/⚠/→). Per-solution section headers, per-component counts. End-of-run summary with solutions processed/skipped, parse warnings, pages published, publish failures. Exit code 1 on any hard failure — ADO pipeline marks step as failed.", tags: ["DX"], done: true, moscow: "S" },
-      { name: "GitHub Actions npm Publish", icon: "🚀", detail: "npm-publish.yml workflow. Triggers on GitHub Release published, plus workflow_dispatch as a manual escape hatch. (Previously also listened on the created event — publishing a release directly, not as a draft, fires both created and published simultaneously, so the workflow ran twice per release and the second run always failed with a 403 since npm forbids republishing a version; fixed in v1.5.1.) Runs npm ci → typecheck → test → build → npm publish. NODE_AUTH_TOKEN from NPM_TOKEN repo secret. Replaces manual npm publish from local machine.", tags: ["CI/CD"], done: true, moscow: "S" },
+      { name: "GitHub Actions npm Publish", icon: "🚀", detail: "npm-publish.yml workflow. Triggers on GitHub Release published, plus workflow_dispatch as a manual escape hatch. (Previously also listened on the created event — publishing a release directly, not as a draft, fires both created and published simultaneously, so the workflow ran twice per release and the second run always failed with a 403 since npm forbids republishing a version; fixed on main after v1.5.0, `created` removed from the trigger list.) Runs npm ci → typecheck → test → build → npm publish. NODE_AUTH_TOKEN from NPM_TOKEN repo secret. Replaces manual npm publish from local machine.", tags: ["CI/CD"], done: true, moscow: "S" },
       { name: "CI Pipeline", icon: "✅", detail: "ci.yml — runs on every pull request and every push to main, on a Node 22 + 24 matrix so the engines floor is tested rather than asserted. npm ci → npm run typecheck → npm run build → npm test. Typecheck covers src/ and tests/ via tsconfig.test.json; the build only sees src/. Concurrency cancels superseded runs on branches but never on main. Before this, npm run build ran only after a release was cut.", tags: ["CI/CD"], done: true, moscow: "M" },
       { name: "Vitest Test Suite", icon: "🧪", detail: "Vitest, chosen for zero-config pure-ESM/NodeNext support. Tests live in tests/ outside the build's src/ scope, so they never ship to npm. 1113 tests in ~3s, covering every module with runtime behaviour: all 17 parsers, all 14 renderers, MarkdownSerializer and DocxSerializer (both asserted against real generated output), wordTheme, erdGenerator, config/loader, the wiki and Word assemblers, the wiki publisher, the pipeline entry point and the AI enrichment layer. Fixtures are hand-written for fictional Contoso/Acme solutions: never derived from real client data. Still no mocks anywhere — the wiki publisher, AI provider and entry point were refactored to accept injected seams rather than be mocked around, on the principle that a test needing a mock is asking for a refactor first. Real browser Mermaid rendering remains out of scope by decision, not omission; the PDF path (PdfSerializer, pdfAssembler) is likewise untested by decision — see 'PDF output — deprecation planned?' below.", tags: ["Testing"], done: true, moscow: "M" },
       { name: "Trigger Strategy", icon: "⚡", detail: "Currently manual trigger only. Push to main, scheduled nightly options planned.", tags: ["Trigger"], done: false, moscow: "S" },
@@ -188,6 +203,11 @@ const pages = [
   { emoji: "📨", name: "Routing Rule Sets", desc: "Rule set index + per-rule conditions and queue assignments", done: false, moscow: "S" },
   { emoji: "🔗", name: "Custom Connectors", desc: "Connector index + per-connector operations list", done: false, moscow: "S" },
   { emoji: "🌐", name: "Power Pages", desc: "Site overview, pages, web templates, entity forms and lists", done: true, moscow: "C" },
+  { emoji: "🔌", name: "Virtual Tables", desc: "External provider/data source, source entity mapping, custom columns layered on top", done: false, moscow: "S" },
+  { emoji: "🤖", name: "Copilot Studio Agents", desc: "Agent index + per-agent pages: topics, knowledge sources, orchestration/trigger config", done: false, moscow: "S" },
+  { emoji: "🛠️", name: "Settings", desc: "Org/solution configuration records beyond Environment Variables — default currency, auto-numbering, duplicate-detection toggles", done: false, moscow: "C" },
+  { emoji: "🎭", name: "Masking Rules", desc: "Masked columns, mask type/pattern, and which roles/profiles are exempt", done: false, moscow: "S" },
+  { emoji: "🖼️", name: "Custom Pages", desc: "Canvas-style pages surfaced alongside the Model-Driven App they belong to", done: false, moscow: "C" },
   { emoji: "🤖", name: "AI Enrichment", desc: "Optional AI-generated summaries for components. Per-component toggle in config. Cache-first approach with .powerautodocs-ai-cache.json. Pluggable provider interface.", done: true, moscow: "C" },
 ];
 
@@ -284,32 +304,49 @@ const progress = [
       { label: "Dependency resolver — flow ↔ table cross-links (#69)", done: true },
       { label: "AI Enrichment Layer — summaries, caching, providers (#1)", done: true },
       { label: "Word renderer — DocNode + DocxSerializer + docAssembler (#94)", done: true },
-      { label: "PDF renderer — DocNode + PdfSerializer + pdfAssembler, pdfmake (#67)", done: true },
+      { label: "ADO Wiki publisher — wikiAssembler + wikiPublisher (#95)", done: true },
+      { label: "PDF renderer — retired 2026-07-17, DocNode + PdfSerializer + pdfAssembler (#67)", done: true },
       { label: "Mermaid → PNG conversion — embedded diagrams in Word output (#68)", done: true },
       { label: "Word theming — styled default + configurable brand colour/fonts (#100)", done: true },
+      { label: "CI pipeline + Vitest test suite (#102)", done: true },
+      { label: "Ragged-table row padding fix (#103)", done: true },
+      { label: "Test coverage: publisher, pipeline entry point, enrichment (#109)", done: true },
+      { label: "42 defects found by #109's coverage pass — all fixed (#110)", done: true },
     ]
   },
   {
-    phase: "Phase 5 — Extended Components & Configuration", color: "#0891b2", status: "PLANNED",
+    phase: "Phase 5 — Governance & Admin Configuration Components", color: "#0891b2", status: "PLANNED",
     items: [
       { label: "Business Process Flow Model & Parser & Renderer (#54)", done: false },
       { label: "Column Security Profile Model & Parser & Renderer (#55)", done: false },
       { label: "Routing Rule Set Model & Parser & Renderer (#56)", done: false },
-      { label: "Custom Connector Model & Parser & Renderer (#57)", done: false },
       { label: "Duplicate Detection Rule Model & Parser & Renderer (#58)", done: false },
       { label: "SLA Model & Parser & Renderer (#59)", done: false },
-      { label: "Service Endpoint Model & Parser & Renderer (#61)", done: false },
-      { label: "CLI flags with commander (#63)", done: false },
-      { label: "AI Enrichment — configurable summary tone/length per client (#90)", done: false },
+      { label: "Masking Rule Model & Parser & Renderer — Secured/Attribute (#120)", done: false },
+      { label: "Settings Model & Parser & Renderer (#119)", done: false },
     ]
   },
   {
-    phase: "Backlog — Future Enhancements", color: "#64748b", status: "BACKLOG",
+    phase: "Phase 6 — Automation, Copilot & Integration Surfaces", color: "#9333ea", status: "PLANNED",
     items: [
-      { label: "PCF Control Model & Parser & Renderer (#53)", done: false },
-      { label: "Dashboard Model & Parser & Renderer (#60)", done: false },
+      { label: "Scheduled Flow — recurrence metadata on the existing Flow model (#116)", done: false },
+      { label: "Agent Model & Parser & Renderer — Copilot Studio (#118)", done: false },
+      { label: "Virtual Table Model & Parser & Renderer (#115)", done: false },
+      { label: "Custom Connector Model & Parser & Renderer (#57)", done: false },
+      { label: "Plugin source code linking — real .cs source, not just metadata (#97)", done: false },
+      { label: "Service Endpoint Model & Parser & Renderer (#61)", done: false },
+    ]
+  },
+  {
+    phase: "Backlog — Presentation, Tooling & Long-tail", color: "#64748b", status: "BACKLOG",
+    items: [
       { label: "Power Pages Model & Parser & Renderer (#62)", done: true },
       { label: "Auto-trigger pipeline — push/scheduled (#64)", done: false },
+      { label: "AI Enrichment — configurable summary tone/length per client (#90)", done: false },
+      { label: "PCF Control Model & Parser & Renderer (#53)", done: false },
+      { label: "Dashboard Model & Parser & Renderer (#60)", done: false },
+      { label: "Custom Page Model & Parser & Renderer (#117)", done: false },
+      { label: "CLI flags with commander (#63)", done: false },
       { label: "Git-based changelog (#65)", done: false },
       { label: "IR JSON artifact export (#66)", done: false },
       { label: "Complexity scorer (#70)", done: false },
@@ -362,7 +399,7 @@ export default function App() {
         <div style={{ padding: "28px 40px 0", borderBottom: "1px solid #e2e8f0", background: "#ffffff", boxShadow: "0 1px 8px rgba(0,0,0,0.06)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
             <div style={{ background: "#0f172a", color: "white", fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, fontSize: 11, padding: "3px 10px", borderRadius: 2, letterSpacing: "0.12em" }}>POWERAUTODOCS</div>
-            <span style={{ fontSize: 9, color: "#64748b", letterSpacing: "0.1em", fontFamily: "'IBM Plex Mono', monospace" }}>v1.4.0</span>
+            <a href="https://www.npmjs.com/package/powerautodocs" style={{ fontSize: 9, color: "#64748b", letterSpacing: "0.1em", fontFamily: "'IBM Plex Mono', monospace", textDecoration: "none" }}>npm →</a>
             <a href="https://github.com/users/lewginn/projects/3" style={{ fontSize: 9, color: "#2563eb", marginLeft: "auto", textDecoration: "none" }}>→ Track in GitHub Project</a>
           </div>
           <h1 style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 22, fontWeight: 300, color: "#0f172a", letterSpacing: "-0.01em", marginBottom: 6 }}>
@@ -382,7 +419,7 @@ export default function App() {
               <span style={{ color: "#0f172a", fontWeight: 600 }}>{doneComponents}</span>
               <span style={{ color: "#94a3b8" }}>/{totalComponents}</span>
               <span> components built &nbsp;·&nbsp; </span>
-              <span style={{ color: "#059669", fontWeight: 600 }}>Phases 1–4 complete · Phase 5 & Backlog planned</span>
+              <span style={{ color: "#059669", fontWeight: 600 }}>Phases 1–4 complete · Phase 5, Phase 6 & Backlog planned</span>
             </span>
           </div>
           <div style={{ display: "flex", gap: 0 }}>
@@ -522,7 +559,9 @@ export default function App() {
                 environment variables, global choices, email templates, model-driven apps and ER diagrams — publishes end-to-end via ADO pipeline.
                 AI enrichment and Word (.docx) output are both shipped and current. PDF output also shipped, but is planned for deprecation
                 (Lewis, 2026-07-17) — see the "PDF output — deprecation planned?" decision on the Decisions tab.
-                Phase 5 adds extended D365 components and advanced analysis.
+                Phase 5 adds Dataverse governance/admin-configuration components (BPF, column security, routing rules, SLAs,
+                masking rules, settings); Phase 6 adds automation, Copilot and integration surfaces (scheduled flow metadata,
+                Copilot Studio agents, virtual tables, custom connectors, plugin source linking, service endpoints).
               </div>
             </div>
           )}
@@ -540,6 +579,7 @@ export default function App() {
                     { indent: 1, text: "🏠 Overview", color: "#0f172a", done: true },
                     { indent: 1, text: "📁 Data Model", color: "#0f172a", done: true },
                     { indent: 2, text: "📊 Entity Relationship Diagram ← on Data Model page", color: "#059669", done: true },
+                    { indent: 2, text: "🔌 Virtual Tables", color: "#cbd5e1", done: false },
                     { indent: 2, text: "📋 [Table Name] × N  ← index page", color: "#0f172a", done: true },
                     { indent: 3, text: "📝 Columns", color: "#0f172a", done: true },
                     { indent: 3, text: "👁️ Views", color: "#0f172a", done: true },
@@ -562,6 +602,8 @@ export default function App() {
                     { indent: 1, text: "🎛️ Global Choices ← index + per-choice pages", color: "#0f172a", done: true },
                     { indent: 1, text: "📧 Email Templates ← index + per-template pages", color: "#0f172a", done: true },
                     { indent: 1, text: "📱 Model-Driven Apps ← index + per-app pages", color: "#0f172a", done: true },
+                    { indent: 2, text: "🖼️ Custom Pages ← surfaced alongside owning app", color: "#cbd5e1", done: false },
+                    { indent: 1, text: "🤖 Copilot Studio Agents", color: "#cbd5e1", done: false },
                     { indent: 1, text: "📝 Change Log", color: "#cbd5e1", done: false },
                     { indent: 1, text: "🔁 Business Process Flows ← index + per-BPF pages", color: "#cbd5e1", done: false },
                     { indent: 1, text: "🔍 Duplicate Detection Rules", color: "#cbd5e1", done: false },
@@ -571,6 +613,8 @@ export default function App() {
                     { indent: 1, text: "📨 Routing Rule Sets", color: "#cbd5e1", done: false },
                     { indent: 1, text: "🔗 Custom Connectors", color: "#cbd5e1", done: false },
                     { indent: 1, text: "🌐 Power Pages", color: "#cbd5e1", done: true },
+                    { indent: 1, text: "🛠️ Settings", color: "#cbd5e1", done: false },
+                    { indent: 2, text: "🎭 Masking Rules ← under Security", color: "#cbd5e1", done: false },
                   ].map((item, i) => (
                     <div key={i} style={{
                       paddingLeft: item.indent * 18, paddingTop: 4, paddingBottom: 4,
