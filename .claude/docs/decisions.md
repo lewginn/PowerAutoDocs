@@ -27,6 +27,8 @@ Decisions that need no elaboration. The "why" column is the whole argument.
 | Package name | `powerautodocs` | Renamed from `powerautodoc` after an accidental client data exposure; the old package was unpublished from npm (2026-03-27) and no longer resolves at all |
 | Test runner | Vitest | Pure-ESM + NodeNext + `.js` specifiers run as-is; Jest needs ts-jest/ESM config to reach the same place. `devDependency`, so clients never install it |
 | Test fixtures | Hand-written, fictional | `unpacked/` is real client data — a fixture copied from it would be client data in a public repo |
+| Power Pages toggle default | `components.powerPages` defaults **off** | The only render toggle defaulting off (every other built component is on). A large first-release parser opted into per client, not auto-run against every existing client's next pipeline run. One-line flip in `loader.ts` once proven (Lewis, 2026-07-19) |
+| Power Pages content depth | Template source, snippet values and view labels rendered in full; web-file bytes summarised | Structural docs that stay useful — the human-meaningful payloads are shown, the opaque machine ones (base64 file bytes) are not reproduced. List view labels resolve from the solution's saved queries because the list's own cached label is usually empty in an export |
 
 Four of these have a sharper edge than the table conveys — see [IR-based pipeline](#the-ir-is-the-contract), [Vitest](#vitest-and-a-suite-that-deliberately-stops-short), [File casing](#file-casing-is-load-bearing-and-only-breaks-in-production) and [pdfmake](#pdfmake-and-the-standard-14-fonts) below.
 

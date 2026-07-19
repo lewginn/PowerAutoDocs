@@ -141,6 +141,7 @@ Controls what the parsers keep. Applied inside `solutionParser.ts:52-70`.
 | `emailTemplates` | `true` | index.ts:269 |
 | `modelDrivenApps` | `true` | index.ts:278 |
 | `connectionReferences` | `true` | index.ts:260 |
+| `powerPages` | `false` | index.ts:285 — parse gated. **The only render toggle that defaults off** (D2): a large first-release parser, opt-in per client until proven. Flip in `loader.ts` to enable by default. |
 | `environmentVariables` | object — see below | index.ts:251 (`.enabled`) |
 
 **Business Rules have no toggle.** `parseBusinessRules` is called unconditionally at `index.ts:187` and no `components.businessRules` field exists in the schema. They are the only component with an *AI* toggle (`aiEnrichment.components.businessRules`) but no render toggle. Adding one means adding the schema field, the default, *and* the `if` at index.ts:187 — the field alone is a no-op.
