@@ -124,24 +124,34 @@ describe('parsePowerPages', () => {
     expect(withValue.value).toBe('true');
   });
 
-  it('stores large payloads as a length only — never the body (structural, D4)', () => {
+  it('carries the full web template source (decoded) and content snippet value', () => {
     const s = site();
-    // Web template source is entity-escaped HTML; it must be decoded then measured,
-    // and the model must not carry the source itself.
-    expect(s.webTemplates[0].sourceLength).toBe('<div>Header</div>'.length);
-    expect(s.webTemplates[0]).not.toHaveProperty('source');
-    expect(s.contentSnippets[0].valueLength).toBe('Welcome'.length);
-    expect(s.contentSnippets[0]).not.toHaveProperty('value');
-    // List settings/views blobs are stored as lengths, not the double-encoded JSON.
-    expect(s.lists[0].settingsLength).toBe(2);
-    expect(s.lists[0].viewsLength).toBe(2);
-    expect(s.lists[0]).not.toHaveProperty('settings');
+    // Source arrives entity-escaped inside <content>; it must be decoded, not measured.
+    expect(s.webTemplates[0].source).toBe('<div>Header</div>');
+    expect(s.contentSnippets[0].value).toBe('Welcome');
   });
 
-  it('summarises a web file by mime type and size, not its bytes', () => {
+  it('names every view a list includes, via cached label or saved-query, never a GUID', () => {
+    // The list's `views` field is double-encoded JSON holding two views. The first
+    // carries a cached label ('Active Cases'); the second's cached label is empty (the
+    // common real-export case), so its name must be resolved from the saved-query file
+    // Entities/contoso_case/SavedQueries/{…000002}.xml ('Resolved Cases'). A list can
+    // carry more than one view, and no GUID may leak through.
+    const list = site().lists[0];
+    expect(list.viewNames).toEqual(['Active Cases', 'Resolved Cases']);
+    expect(list.viewNames.join(' ')).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}/);
+  });
+
+  it('reads the basic form mode as its raw option-set value (renderer maps the label)', () => {
+    // 100000001 = Edit in the mspp_entityform.mspp_mode option set.
+    expect(site().basicForms[0].mode).toBe(100000001);
+  });
+
+  it('summarises a web file by mime type and publishing state, never its bytes', () => {
     const f = site().webFiles[0];
     expect(f.mimeType).toBe('image/png');
-    expect(f.fileSizeBytes).toBeGreaterThan(0);
+    expect(f.publishingStateId).toBe('c0000000-0000-4000-8000-000000000001');
+    expect(f).not.toHaveProperty('fileSizeBytes');
     expect(f).not.toHaveProperty('filecontent');
   });
 

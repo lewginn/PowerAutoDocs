@@ -11,10 +11,10 @@
 // index-page + detail-page shape of modelDrivenAppRenderer.ts.
 
 import type {
-  PowerPagesModel, WebPageModel, WebTemplateModel, PublishingStateModel,
+  PowerPagesModel, WebPageModel, PublishingStateModel,
 } from '../ir/powerPages.js';
 import type { DocNode, InlineNode } from '../docmodel/nodes.js';
-import { h, pt, t, c, lnk, table, ct, cc, cell, bulletList, bullet } from '../docmodel/nodes.js';
+import { h, p, pt, t, c, lnk, table, ct, cc, cell, bulletList, bullet, codeBlock } from '../docmodel/nodes.js';
 import type { BulletItem } from '../docmodel/nodes.js';
 import { encodePageSegment } from './rendererUtils.js';
 
@@ -26,17 +26,12 @@ const labelOr = (map: Record<number, string>, code: number | null): string =>
   code === null ? '—' : (map[code] ?? String(code));
 
 const RIGHT_LABELS: Record<number, string> = { 1: 'Grant Change', 2: 'Restrict Read' };
-const FORM_MODE_LABELS: Record<number, string> = { 0: 'Insert', 1: 'Edit', 2: 'Read Only' };
+// mspp_entityform.mspp_mode option set (verified against Microsoft docs).
+const FORM_MODE_LABELS: Record<number, string> = {
+  100000000: 'Insert', 100000001: 'Edit', 100000002: 'Read Only',
+};
 
-/** Human-readable byte size without a dependency. */
-function formatBytes(bytes: number): string {
-  if (bytes <= 0) return '0 B';
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-/** Length of the source/value payload expressed as characters (structural — D4). */
+/** Length of an opaque payload expressed as characters (structural — D4). */
 const chars = (n: number): string => `${n.toLocaleString()} chars`;
 
 // ── Index page ──
@@ -48,7 +43,7 @@ export function renderPowerPagesIndex(
   const nodes: DocNode[] = [];
 
   nodes.push(h(1, 'Power Pages'));
-  nodes.push(pt('Power Pages (Portal) sites defined in this solution. Structural documentation only — page markup, template source and file contents are summarised, not reproduced.'));
+  nodes.push(pt('Power Pages (Portal) sites defined in this solution. Web template source and content snippet values are documented in full; uploaded file contents are not reproduced.'));
 
   if (sites.length === 0) {
     nodes.push(pt('No Power Pages sites found in this solution.'));
@@ -81,6 +76,7 @@ export function renderPowerPagesSitePage(site: PowerPagesModel): DocNode[] {
   const templateName = new Map<string, string>(site.webTemplates.map(w => [w.id, w.name]));
   const pageName = new Map<string, string>(site.webPages.map(w => [w.id, w.name]));
   const roleName = new Map<string, string>(site.webRoles.map(r => [r.id, r.name]));
+  const stateName = new Map<string, string>(site.publishingStates.map(s => [s.id, s.name]));
 
   const langName = (id: string | null): string => {
     if (!id) return '—';
@@ -126,7 +122,7 @@ export function renderPowerPagesSitePage(site: PowerPagesModel): DocNode[] {
   ));
 
   // ---- Sections ----
-  nodes.push(...renderPages(site, pageName));
+  nodes.push(...renderPages(site));
   nodes.push(...renderPageTemplates(site, templateName));
   nodes.push(...renderWebTemplates(site));
   nodes.push(...renderContentSnippets(site, langName));
@@ -135,7 +131,7 @@ export function renderPowerPagesSitePage(site: PowerPagesModel): DocNode[] {
   nodes.push(...renderSiteSettings(site));
   nodes.push(...renderSecurity(site, pageName, roleName));
   nodes.push(...renderFormsAndLists(site));
-  nodes.push(...renderWebFiles(site));
+  nodes.push(...renderWebFiles(site, stateName));
   nodes.push(...renderBotConsumers(site));
   nodes.push(...renderPublishingStates(site.publishingStates));
 
@@ -150,17 +146,44 @@ function refToInline(id: string | null, names: Map<string, string>): InlineNode[
 }
 
 // ── Pages (derived tree via parentpageid — D5) ──
+//
+// Each logical page exists as TWO records: a root/master page (isRoot=true,
+// carrying the structural definition — URL, template, parent) and one or more
+// language-specific content pages (isRoot=false, linked back via rootWebPageId).
+// Rendering both duplicates every page, so the tree is built over the master
+// pages only; content pages fold into their master as localised versions.
 
-function renderPages(site: PowerPagesModel, pageName: Map<string, string>): DocNode[] {
+function renderPages(site: PowerPagesModel): DocNode[] {
   if (site.webPages.length === 0) return [];
   const nodes: DocNode[] = [h(2, 'Pages')];
 
-  const byId = new Map(site.webPages.map(pg => [pg.id, pg]));
-  const childrenOf = new Map<string | null, WebPageModel[]>();
+  const roots = site.webPages.filter(pg => pg.isRoot);
+  const rootIds = new Set(roots.map(pg => pg.id));
+
+  // Content pages fold into their master; any whose master is missing (orphan)
+  // is surfaced standalone rather than dropped.
+  const variantsByRoot = new Map<string, WebPageModel[]>();
+  const orphanContent: WebPageModel[] = [];
   for (const pg of site.webPages) {
-    // A page is a root of the rendered tree when it has no parent, or its parent
-    // isn't in this site (orphan) — either way it anchors at the top level.
-    const key = pg.parentPageId && byId.has(pg.parentPageId) ? pg.parentPageId : null;
+    if (pg.isRoot) continue;
+    if (pg.rootWebPageId && rootIds.has(pg.rootWebPageId)) {
+      const arr = variantsByRoot.get(pg.rootWebPageId) ?? [];
+      arr.push(pg);
+      variantsByRoot.set(pg.rootWebPageId, arr);
+    } else {
+      orphanContent.push(pg);
+    }
+  }
+
+  // Primary = master pages (+ orphans). Fallback: a site with no master pages at
+  // all still renders every page rather than an empty section.
+  const primary = roots.length > 0 ? [...roots, ...orphanContent] : site.webPages;
+  const primaryIds = new Set(primary.map(pg => pg.id));
+
+  const childrenOf = new Map<string | null, WebPageModel[]>();
+  for (const pg of primary) {
+    // Anchors at the top level when it has no parent, or its parent isn't primary.
+    const key = pg.parentPageId && primaryIds.has(pg.parentPageId) ? pg.parentPageId : null;
     const arr = childrenOf.get(key) ?? [];
     arr.push(pg);
     childrenOf.set(key, arr);
@@ -173,7 +196,11 @@ function renderPages(site: PowerPagesModel, pageName: Map<string, string>): DocN
     visited.add(pg.id);
     const inlines: InlineNode[] = [t(pg.name)];
     if (pg.partialUrl) inlines.push(t('  '), c(`/${pg.partialUrl}`));
-    if (!pg.isRoot && pg.languageId) inlines.push(t(`  (language variant)`));
+    // Only note localisation when there is more than one language variant — a
+    // single-language site has exactly one content page per master (the norm),
+    // which would otherwise annotate every row with noise.
+    const variants = variantsByRoot.get(pg.id) ?? [];
+    if (variants.length > 1) inlines.push(t(`  (${variants.length} localised versions)`));
     items.push(bullet(depth, ...inlines));
     for (const child of (childrenOf.get(pg.id) ?? []).sort((a, b) => a.name.localeCompare(b.name))) {
       walk(child, depth + 1);
@@ -182,8 +209,8 @@ function renderPages(site: PowerPagesModel, pageName: Map<string, string>): DocN
   for (const root of (childrenOf.get(null) ?? []).sort((a, b) => a.name.localeCompare(b.name))) {
     walk(root, 0);
   }
-  // Any page not reached (shouldn't happen, but never drop a page silently).
-  for (const pg of site.webPages) {
+  // Any primary page not reached (shouldn't happen, but never drop one silently).
+  for (const pg of primary) {
     if (!visited.has(pg.id)) walk(pg, 0);
   }
 
@@ -210,36 +237,31 @@ function renderPageTemplates(site: PowerPagesModel, templateName: Map<string, st
   ];
 }
 
-// ── Web Templates (size only — D4) ──
+// ── Web Templates (full Liquid/HTML source — D4 revised) ──
 
 function renderWebTemplates(site: PowerPagesModel): DocNode[] {
   if (site.webTemplates.length === 0) return [];
-  return [
-    h(2, 'Web Templates'),
-    pt('Liquid/HTML template source is summarised by size only.'),
-    table(
-      ['Name', 'Source Size'],
-      site.webTemplates.map((w: WebTemplateModel) => [cc(w.name), ct(chars(w.sourceLength))]),
-    ),
-  ];
+  const nodes: DocNode[] = [h(2, 'Web Templates')];
+  for (const w of site.webTemplates) {
+    nodes.push(h(3, w.name));
+    nodes.push(w.source.trim() ? codeBlock(w.source) : pt('(empty template)'));
+  }
+  return nodes;
 }
 
-// ── Content Snippets (size only — D4) ──
+// ── Content Snippets (full value — D4 revised) ──
 
 function renderContentSnippets(site: PowerPagesModel, langName: (id: string | null) => string): DocNode[] {
   if (site.contentSnippets.length === 0) return [];
-  return [
-    h(2, 'Content Snippets'),
-    table(
-      ['Name', 'Display Name', 'Language', 'Value Size'],
-      site.contentSnippets.map(sn => [
-        cc(sn.name),
-        ct(sn.displayName || '—'),
-        ct(langName(sn.languageId)),
-        ct(chars(sn.valueLength)),
-      ]),
-    ),
-  ];
+  const nodes: DocNode[] = [h(2, 'Content Snippets')];
+  for (const sn of site.contentSnippets) {
+    nodes.push(h(3, sn.displayName || sn.name));
+    const meta: InlineNode[] = [c(sn.name)];
+    if (sn.languageId) meta.push(t('  ·  '), t(langName(sn.languageId)));
+    nodes.push(p(...meta));
+    nodes.push(sn.value.trim() ? codeBlock(sn.value) : pt('(empty snippet)'));
+  }
+  return nodes;
 }
 
 // ── Navigation: Web Link Sets and their Web Links (join via weblinksetid — D5) ──
@@ -394,12 +416,12 @@ function renderFormsAndLists(site: PowerPagesModel): DocNode[] {
   if (site.lists.length > 0) {
     nodes.push(h(3, 'Lists'));
     nodes.push(table(
-      ['Name', 'Table', 'Page Size', 'View'],
+      ['Name', 'Table', 'Page Size', 'Views'],
       site.lists.map(l => [
         ct(l.name),
         l.entityName ? cc(l.entityName) : ct('—'),
         ct(l.pageSize === null ? '—' : String(l.pageSize)),
-        l.viewId ? cc(l.viewId) : ct('—'),
+        ct(l.viewNames.length > 0 ? l.viewNames.join(', ') : '—'),
       ]),
     ));
   }
@@ -407,19 +429,19 @@ function renderFormsAndLists(site: PowerPagesModel): DocNode[] {
   return nodes;
 }
 
-// ── Web Files (bytes summarised by size — D4) ──
+// ── Web Files (bytes never kept — D4) ──
 
-function renderWebFiles(site: PowerPagesModel): DocNode[] {
+function renderWebFiles(site: PowerPagesModel, stateName: Map<string, string>): DocNode[] {
   if (site.webFiles.length === 0) return [];
   return [
     h(2, 'Web Files'),
     table(
-      ['Name', 'URL', 'Type', 'Size'],
+      ['Name', 'URL', 'Type', 'Publishing State'],
       site.webFiles.map(f => [
         ct(f.name),
         f.partialUrl ? cc(f.partialUrl) : ct('—'),
         ct(f.mimeType || '—'),
-        ct(formatBytes(f.fileSizeBytes)),
+        cell(...refToInline(f.publishingStateId, stateName)),
       ]),
     ),
   ];

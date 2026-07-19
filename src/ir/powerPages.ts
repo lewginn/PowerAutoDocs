@@ -6,10 +6,11 @@
  * and the template chain from these arrays (decision D5) — the parser never
  * builds them.
  *
- * Structural only (decision D4): this IR deliberately stores the *length* and
- * *metadata* of large/opaque payloads — web-template Liquid source, content-
- * snippet values, web-file bytes, and the double-encoded List settings/views and
- * Bot Consumer config blobs — never the payload itself.
+ * Structural (decision D4, revised 2026-07-19 on Lewis's review): the small,
+ * human-meaningful payloads are now carried in full — web-template Liquid/HTML
+ * source, content-snippet values, and the labels of every view a List includes.
+ * The opaque machine payloads are still summarised, never reproduced — web-file
+ * bytes (base64) and the double-encoded Bot Consumer config blob.
  *
  * These field names are a public contract: additive only, never renamed or
  * removed (see .claude/docs/constraints.md).
@@ -73,15 +74,15 @@ export interface PageTemplateModel {
   entityName: string | null;
 }
 
-/** Type 8 — Web Template. Structural only: the Liquid/HTML source length, not the body. */
+/** Type 8 — Web Template. Carries the full Liquid/HTML source (D4 revised). */
 export interface WebTemplateModel {
   id: string;
   name: string;
-  /** Character length of the Liquid + HTML source (never the source itself — D4). */
-  sourceLength: number;
+  /** The Liquid + HTML template source, decoded. Empty string when absent. */
+  source: string;
 }
 
-/** Type 7 — Content Snippet. Structural only: the value length, not the body. */
+/** Type 7 — Content Snippet. Carries the full value (D4 revised). */
 export interface ContentSnippetModel {
   id: string;
   /** Outer <name> — the snippet key. */
@@ -89,8 +90,8 @@ export interface ContentSnippetModel {
   displayName: string;
   /** Rendering-type option-set integer, or null when absent (platform default). */
   snippetType: number | null;
-  /** Character length of the snippet value (never the value itself — D4). */
-  valueLength: number;
+  /** The snippet value (text, HTML or Liquid), decoded. Empty string when absent. */
+  value: string;
   languageId: string | null;
 }
 
@@ -178,23 +179,20 @@ export interface BasicFormModel {
 }
 
 /**
- * Type 17 — List. entityName is a name reference; view is a Dataverse saved-query
- * GUID. The double-encoded settings/views blobs are stored as lengths only (D4).
+ * Type 17 — List. entityName is a Dataverse table logical name. A list renders one
+ * or more Dataverse views; the display labels of every included view are extracted
+ * from the serialized `views` blob (D4 revised) — GUIDs are deliberately not kept.
  */
 export interface ListModel {
   id: string;
   name: string;
   entityName: string;
-  /** Top-level Dataverse saved-query (view) GUID. */
-  viewId: string;
   pageSize: number | null;
-  /** Character length of the opaque serialized settings blob (never the blob — D4). */
-  settingsLength: number;
-  /** Character length of the opaque serialized views blob (never the blob — D4). */
-  viewsLength: number;
+  /** Display labels of every view the list includes (LCID 1033 preferred). */
+  viewNames: string[];
 }
 
-/** Type 3 — Web File. The base64 bytes live outside <content>; stored as a size only (D4). */
+/** Type 3 — Web File. The base64 bytes live outside <content> and are never kept (D4). */
 export interface WebFileModel {
   id: string;
   name: string;
@@ -204,8 +202,6 @@ export interface WebFileModel {
   displayOrder: number | null;
   /** MIME type from the sibling <filecontent mimetype="…"> attribute, or null. */
   mimeType: string | null;
-  /** Approximate decoded byte size of the file payload (never the bytes — D4). */
-  fileSizeBytes: number;
 }
 
 /** Type 27 — Bot Consumer. The bot is identified by a schema-name string. */

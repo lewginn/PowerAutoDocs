@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<savedqueries>
+  <savedquery>
+    <savedqueryid>{70000000-1000-4000-8000-000000000002}</savedqueryid>
+    <isdefault>false</isdefault>
+    <LocalizedNames>
+      <LocalizedName description="Resolved Cases" languagecode="1033" />
+    </LocalizedNames>
+  </savedquery>
+</savedqueries>

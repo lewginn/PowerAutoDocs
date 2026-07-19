@@ -115,6 +115,100 @@ function idArray(v: unknown): string[] {
 /** Length of a double-encoded / large payload without retaining it (D4). */
 const lenOf = (v: unknown): number => (v === null || v === undefined ? 0 : String(v).length);
 
+const asArray = (v: unknown): any[] => (v === null || v === undefined ? [] : Array.isArray(v) ? v : [v]);
+
+const stripBraces = (g: string): string => g.replace(/[{}]/g, '').toLowerCase();
+
+/** LocalizedNames → the 1033 description, else the first available. */
+function localizedName(node: any): string {
+  const names = asArray(node?.LocalizedNames?.LocalizedName);
+  const english = names.find(n => String(n?.['@_languagecode']) === '1033');
+  return str((english ?? names[0])?.['@_description']);
+}
+
+/**
+ * Builds a viewId → display-name map from the solution's saved queries
+ * (Entities/<table>/SavedQueries/<guid>.xml). A Power Pages List references its
+ * views by saved-query GUID, and the List's own cached labels are frequently
+ * empty in an export — so the authoritative label is the saved query's name.
+ * Fully defensive: a missing folder or bad file is skipped, never thrown.
+ */
+function buildSavedQueryNames(solutionRoot: string): Map<string, string> {
+  const map = new Map<string, string>();
+  const entitiesDir = path.join(solutionRoot, 'Entities');
+  let entities: fs.Dirent[];
+  try {
+    entities = fs.readdirSync(entitiesDir, { withFileTypes: true });
+  } catch {
+    return map;
+  }
+  for (const ent of entities) {
+    if (!ent.isDirectory()) continue;
+    const sqDir = path.join(entitiesDir, ent.name, 'SavedQueries');
+    let files: string[];
+    try {
+      files = fs.readdirSync(sqDir);
+    } catch {
+      continue;
+    }
+    for (const f of files) {
+      if (!f.toLowerCase().endsWith('.xml')) continue;
+      let doc: any;
+      try {
+        doc = xmlParser.parse(fs.readFileSync(path.join(sqDir, f), 'utf-8'));
+      } catch {
+        continue;
+      }
+      for (const sq of asArray(doc?.savedqueries?.savedquery)) {
+        const id = stripBraces(str(sq?.savedqueryid));
+        if (!id) continue;
+        const name = localizedName(sq);
+        if (name) map.set(id, name);
+      }
+    }
+  }
+  return map;
+}
+
+/**
+ * A List's `view` field is the primary saved-query GUID and its `views` field is a
+ * JSON-in-string blob { "Views": [ { "ViewId": GUID, "DisplayName": [ { LCID, Value } ] } ] }.
+ * A list can include several views. Resolve each to a display label — preferring the
+ * blob's cached label, falling back to the saved-query name — and never emit a GUID.
+ * Fully defensive: any shape surprise contributes nothing rather than throwing.
+ */
+function resolveListViewNames(
+  topView: unknown,
+  viewsRaw: unknown,
+  savedQueryNames: Map<string, string>,
+): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const add = (guid: unknown, cachedLabel: string): void => {
+    const g = stripBraces(str(guid));
+    const label = cachedLabel.trim() || (g ? savedQueryNames.get(g) ?? '' : '');
+    if (label && !seen.has(label)) {
+      seen.add(label);
+      out.push(label);
+    }
+  };
+
+  let blob: any;
+  try {
+    blob = typeof viewsRaw === 'string' ? JSON.parse(viewsRaw) : viewsRaw;
+  } catch {
+    blob = null;
+  }
+  for (const v of asArray(blob?.Views)) {
+    const names = asArray(v?.DisplayName);
+    const english = names.find(n => Number(n?.LCID) === 1033);
+    add(v?.ViewId, str((english ?? names[0])?.Value));
+  }
+  // The primary `view` GUID, in case it isn't among the blob's Views.
+  add(topView, '');
+  return out;
+}
+
 // ── Site-level asset files ──
 
 interface SiteSeed {
@@ -225,7 +319,7 @@ function resolveSite(sites: Map<string, SiteSeed>, siteId: string | null): SiteS
 
 // ── Per-component mapping ──
 
-function mapComponent(inner: any, seed: SiteSeed): void {
+function mapComponent(inner: any, seed: SiteSeed, savedQueryNames: Map<string, string>): void {
   const type = num(inner?.powerpagecomponenttype);
   // No usable type code — a truncated/partial record fast-xml-parser returned as a
   // truthy-but-empty object. Skip it (an unmapped-but-numeric type is handled by the
@@ -264,7 +358,6 @@ function mapComponent(inner: any, seed: SiteSeed): void {
       break;
     }
     case TYPE.WEB_FILE: {
-      const base64Len = lenOf(inner?.filecontent?.['#text']);
       const rec: WebFileModel = {
         id, name,
         partialUrl: str(c.partialurl),
@@ -272,8 +365,6 @@ function mapComponent(inner: any, seed: SiteSeed): void {
         publishingStateId: str(c.publishingstateid) || null,
         displayOrder: num(c.displayorder),
         mimeType: str(inner?.filecontent?.['@_mimetype']) || null,
-        // Base64 → bytes is a 4:3 ratio; a rough size is enough for "metadata not payload".
-        fileSizeBytes: Math.floor((base64Len * 3) / 4),
       };
       m.webFiles.push(rec);
       break;
@@ -316,7 +407,7 @@ function mapComponent(inner: any, seed: SiteSeed): void {
         id, name,
         displayName: str(c.display_name),
         snippetType: num(c.type),
-        valueLength: lenOf(c.value),
+        value: str(c.value),
         languageId: readNestedId(inner, 'powerpagesitelanguageid'),
       };
       m.contentSnippets.push(rec);
@@ -325,7 +416,7 @@ function mapComponent(inner: any, seed: SiteSeed): void {
     case TYPE.WEB_TEMPLATE: {
       const rec: WebTemplateModel = {
         id, name,
-        sourceLength: lenOf(c.source),
+        source: str(c.source),
       };
       m.webTemplates.push(rec);
       break;
@@ -394,10 +485,8 @@ function mapComponent(inner: any, seed: SiteSeed): void {
       const rec: ListModel = {
         id, name,
         entityName: str(c.entityname),
-        viewId: str(c.view),
         pageSize: num(c.pagesize),
-        settingsLength: lenOf(c.settings),
-        viewsLength: lenOf(c.views),
+        viewNames: resolveListViewNames(c.view, c.views, savedQueryNames),
       };
       m.lists.push(rec);
       break;
@@ -417,7 +506,11 @@ function mapComponent(inner: any, seed: SiteSeed): void {
   }
 }
 
-function attachComponents(componentsDir: string, sites: Map<string, SiteSeed>): void {
+function attachComponents(
+  componentsDir: string,
+  sites: Map<string, SiteSeed>,
+  savedQueryNames: Map<string, string>,
+): void {
   if (!fs.existsSync(componentsDir)) return;
 
   let entries: fs.Dirent[];
@@ -448,7 +541,7 @@ function attachComponents(componentsDir: string, sites: Map<string, SiteSeed>): 
     if (!seed) continue;
 
     try {
-      mapComponent(inner, seed);
+      mapComponent(inner, seed, savedQueryNames);
     } catch {
       // Guard per record too — a surprising content shape skips just this component.
       continue;
@@ -476,7 +569,9 @@ export function parsePowerPages(solutionRoot: string): PowerPagesModel[] {
   for (const model of models) sites.set(model.id, { model });
 
   attachLanguages(assetsDir, sites);
-  attachComponents(path.join(solutionRoot, 'powerpagecomponents'), sites);
+  // A List names its views by saved-query GUID; resolve those to display names.
+  const savedQueryNames = buildSavedQueryNames(solutionRoot);
+  attachComponents(path.join(solutionRoot, 'powerpagecomponents'), sites, savedQueryNames);
 
   // Stable, presentation-friendly ordering inside each site.
   for (const model of models) {

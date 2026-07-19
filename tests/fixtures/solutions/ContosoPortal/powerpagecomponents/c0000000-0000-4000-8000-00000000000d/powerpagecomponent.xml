@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <powerpagecomponent powerpagecomponentid="c0000000-0000-4000-8000-00000000000d">
-  <content>{"formname":"Web Contact","entityname":"contact","tabname":"General","mode":0,"referenceentityshowreadonlyform":false,"setentityreference":false}</content>
+  <content>{"formname":"Web Contact","entityname":"contact","tabname":"General","mode":100000001,"referenceentityshowreadonlyform":false,"setentityreference":false}</content>
   <iscustomizable>1</iscustomizable>
   <name>Contact Form</name>
   <powerpagecomponenttype>15</powerpagecomponenttype>

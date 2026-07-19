@@ -367,13 +367,13 @@ export const aPowerPagesSite = (over: Partial<PowerPagesModel> = {}): PowerPages
     { id: 'pt-std', name: 'Standard Template', isDefault: false, usesWebsiteHeaderAndFooter: true, webTemplateId: null, rewriteUrl: 'Pages/Standard.aspx', entityName: 'contoso_case' },
   ],
   webTemplates: [
-    { id: 'wt-header', name: 'Header', sourceLength: 1280 },
-    { id: 'wt-footer', name: 'Footer', sourceLength: 640 },
-    { id: 'wt-home', name: 'Home Body', sourceLength: 4096 },
+    { id: 'wt-header', name: 'Header', source: '<div>Site header</div>' },
+    { id: 'wt-footer', name: 'Footer', source: '<div>Site footer</div>' },
+    { id: 'wt-home', name: 'Home Body', source: '' },
   ],
   contentSnippets: [
-    { id: 'cs-1', name: 'Home/Intro', displayName: 'Home Intro', snippetType: 1, valueLength: 512, languageId: 'lang-en' },
-    { id: 'cs-2', name: 'Footer/Copyright', displayName: 'Copyright Notice', snippetType: null, valueLength: 64, languageId: null },
+    { id: 'cs-1', name: 'Home/Intro', displayName: 'Home Intro', snippetType: 1, value: 'Welcome to our portal', languageId: 'lang-en' },
+    { id: 'cs-2', name: 'Footer/Copyright', displayName: 'Copyright Notice', snippetType: null, value: '', languageId: null },
   ],
   siteSettings: [
     { id: 'ss-1', name: 'Authentication/Registration/Enabled', value: 'true', description: 'Allow self-registration' },
@@ -402,13 +402,13 @@ export const aPowerPagesSite = (over: Partial<PowerPagesModel> = {}): PowerPages
     { id: 'wl-orphan', name: 'External Docs', webLinkSetId: null, pageId: null, displayOrder: 0, openInNewWindow: true },
   ],
   basicForms: [
-    { id: 'bf-1', name: 'Contact Form', formName: 'Web Contact', entityName: 'contact', tabName: 'General', mode: 0 },
+    { id: 'bf-1', name: 'Contact Form', formName: 'Web Contact', entityName: 'contact', tabName: 'General', mode: 100000001 },
   ],
   lists: [
-    { id: 'ls-1', name: 'Case List', entityName: 'contoso_case', viewId: 'view-0001', pageSize: 20, settingsLength: 2048, viewsLength: 1024 },
+    { id: 'ls-1', name: 'Case List', entityName: 'contoso_case', pageSize: 20, viewNames: ['Active Cases', 'Resolved Cases'] },
   ],
   webFiles: [
-    { id: 'wf-1', name: 'Contoso Logo', partialUrl: 'logo.png', parentPageId: 'wp-home', publishingStateId: 'ps-pub', displayOrder: 1, mimeType: 'image/png', fileSizeBytes: 20480 },
+    { id: 'wf-1', name: 'Contoso Logo', partialUrl: 'logo.png', parentPageId: 'wp-home', publishingStateId: 'ps-pub', displayOrder: 1, mimeType: 'image/png' },
   ],
   botConsumers: [
     { id: 'bot-1', name: 'Support Agent', botSchemaName: 'contoso_supportbot', configLength: 256 },
