@@ -33,6 +33,7 @@ Covers the full stack of a Dataverse / Power Platform solution:
 | Global Choices | Option sets with values and labels |
 | Email Templates | Subject, plain text body with field placeholders |
 | Model-Driven Apps | Entity list, app settings, role mappings |
+| Power Pages | Site map, page tree, web templates, content snippets, forms, lists, web roles and access rules (opt-in — off by default) |
 
 ## Output formats
 
@@ -72,7 +73,8 @@ Mermaid diagrams are embedded as images in both the ADO Wiki and Word output. PD
 │   └── 🔗 Connection References
 ├── 🎛️ Global Choices
 ├── 📧 Email Templates
-└── 📱 Model-Driven Apps
+├── 📱 Model-Driven Apps
+└── 🌐 Power Pages
 ```
 
 ## AI Enrichment (optional)
