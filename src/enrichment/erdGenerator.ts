@@ -110,7 +110,13 @@ export function generateERDiagram(
   for (const edge of edges) {
     const fromLabel = displayMap.get(edge.from) ?? safeMermaidName(edge.from);
     const toLabel = displayMap.get(edge.to) ?? safeMermaidName(edge.to);
-    lines.push(`    ${fromLabel} ||--o{ ${toLabel} : " "`);
+    // The label is EMPTY ("") and not a space (" "). A space is a non-empty text
+    // node with no glyphs: Mermaid 11 lays out a label element for it, measures a
+    // zero-width box, and emits transform="translate(undefined, NaN)" — two console
+    // errors per relationship during the Word render. "" skips the label entirely.
+    // Both parse identically under Mermaid 8.14, which is what the ADO Wiki renders
+    // this same source with, so the wiki output is unchanged.
+    lines.push(`    ${fromLabel} ||--o{ ${toLabel} : ""`);
   }
 
   return lines.join('\n');

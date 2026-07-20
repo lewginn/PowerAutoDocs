@@ -1,10 +1,10 @@
 import { useState } from "react";
 
 const moscow = {
-  M: { label: "MUST", color: "#dc2626", bg: "#fef2f2" },
-  S: { label: "SHOULD", color: "#d97706", bg: "#fffbeb" },
-  C: { label: "COULD", color: "#2563eb", bg: "#eff6ff" },
-  W: { label: "WON'T", color: "#9ca3af", bg: "#f9fafb" },
+  M: { label: "MUST", cls: "fill" },
+  S: { label: "SHOULD", cls: "" },
+  C: { label: "COULD", cls: "mid" },
+  W: { label: "WON'T", cls: "dash" },
 };
 
 const layers = [
@@ -354,8 +354,314 @@ const progress = [
   },
 ];
 
+// ---------------------------------------------------------------------------
+// Presentation layer — everything below renders the content above.
+// Aesthetic: technical specification sheet. Paper ground, ink type, one
+// vermilion accent. Serif for display, mono for data, sans for reading.
+// ---------------------------------------------------------------------------
+
+const wikiTree = [
+  { indent: 0, kind: "folder", name: "[Solution Name]", done: true },
+  { indent: 1, kind: "page", name: "Overview", done: true },
+  { indent: 1, kind: "folder", name: "Data Model", done: true },
+  { indent: 2, kind: "page", name: "Entity Relationship Diagram", done: true, note: "on Data Model page" },
+  { indent: 2, kind: "page", name: "Virtual Tables", done: false },
+  { indent: 2, kind: "page", name: "[Table Name] × N", done: true, note: "index page" },
+  { indent: 3, kind: "page", name: "Columns", done: true },
+  { indent: 3, kind: "page", name: "Views", done: true },
+  { indent: 3, kind: "page", name: "Forms", done: true },
+  { indent: 3, kind: "page", name: "Relationships", done: true },
+  { indent: 3, kind: "page", name: "Business Rules", done: true, note: "index + per-rule pages" },
+  { indent: 1, kind: "folder", name: "Automation", done: true },
+  { indent: 2, kind: "page", name: "Flows", done: true, note: "summary + per-flow pages with diagrams" },
+  { indent: 2, kind: "page", name: "Classic Workflows", done: true, note: "summary + per-workflow pages" },
+  { indent: 2, kind: "page", name: "Plugin Assemblies", done: true },
+  { indent: 1, kind: "folder", name: "Custom Code", done: true },
+  { indent: 2, kind: "page", name: "Web Resources (JS)", done: true, note: "linked summary + per-file pages" },
+  { indent: 2, kind: "page", name: "PCF Controls", done: false },
+  { indent: 1, kind: "folder", name: "Security", done: true, note: "container page" },
+  { indent: 2, kind: "page", name: "Security Roles", done: true, note: "index + per-role matrix pages" },
+  { indent: 2, kind: "page", name: "Column Security Profiles", done: false },
+  { indent: 1, kind: "folder", name: "Integrations", done: true },
+  { indent: 2, kind: "page", name: "Environment Variables", done: true },
+  { indent: 2, kind: "page", name: "Connection References", done: true },
+  { indent: 1, kind: "page", name: "Global Choices", done: true, note: "index + per-choice pages" },
+  { indent: 1, kind: "page", name: "Email Templates", done: true, note: "index + per-template pages" },
+  { indent: 1, kind: "page", name: "Model-Driven Apps", done: true, note: "index + per-app pages" },
+  { indent: 2, kind: "page", name: "Custom Pages", done: false, note: "surfaced alongside owning app" },
+  { indent: 1, kind: "page", name: "Copilot Studio Agents", done: false },
+  { indent: 1, kind: "page", name: "Change Log", done: false },
+  { indent: 1, kind: "page", name: "Business Process Flows", done: false, note: "index + per-BPF pages" },
+  { indent: 1, kind: "page", name: "Duplicate Detection Rules", done: false },
+  { indent: 1, kind: "page", name: "SLAs", done: false },
+  { indent: 1, kind: "page", name: "Dashboards", done: false },
+  { indent: 2, kind: "page", name: "Service Endpoints", done: false, note: "under Integrations" },
+  { indent: 1, kind: "page", name: "Routing Rule Sets", done: false },
+  { indent: 1, kind: "page", name: "Custom Connectors", done: false },
+  { indent: 1, kind: "page", name: "Power Pages", done: true },
+  { indent: 1, kind: "page", name: "Settings", done: false },
+  { indent: 2, kind: "page", name: "Masking Rules", done: false, note: "under Security" },
+];
+
+// Box-drawing prefix for row i: "│  " where an ancestor level continues,
+// "├─ " / "└─ " at the row's own depth.
+function treePrefix(items, i) {
+  const item = items[i];
+  let prefix = "";
+  for (let d = 1; d <= item.indent; d++) {
+    let continues = false;
+    for (let j = i + 1; j < items.length; j++) {
+      if (items[j].indent < d) break;
+      if (items[j].indent === d) { continues = true; break; }
+    }
+    if (d === item.indent) prefix += continues ? "├─ " : "└─ ";
+    else prefix += continues ? "│  " : "   ";
+  }
+  return prefix;
+}
+
+const phaseChip = {
+  "COMPLETE": "fill",
+  "IN PROGRESS": "accent",
+  "PLANNED": "dim",
+  "BACKLOG": "dash",
+};
+
+function Ticks({ total, done, size = 3, gap = 2, height = 9 }) {
+  return (
+    <span className="ticks" style={{ gap }}>
+      {Array.from({ length: total }, (_, i) => (
+        <span key={i} style={{ width: size, height, background: i < done ? "var(--accent)" : "var(--hair)" }} />
+      ))}
+    </span>
+  );
+}
+
+function Chip({ kind, children }) {
+  return <span className={`chip ${kind || ""}`}>{children}</span>;
+}
+
+function StatusMark({ done }) {
+  return done
+    ? <span className="stat built">● BUILT</span>
+    : <span className="stat">○ PLANNED</span>;
+}
+
+const css = `
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+:root {
+  --paper: #f2efe8;
+  --surface: #faf8f3;
+  --ink: #1c1913;
+  --soft: #57524a;
+  --faint: #9b958a;
+  --hair: #d8d3c6;
+  --hair2: #e4e0d5;
+  --accent: #cf4500;
+  --accent-ink: #a83a05;
+  --serif: 'Instrument Serif', Georgia, serif;
+  --sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { color-scheme: light; }
+body { background: var(--paper); }
+
+.pad-root {
+  min-height: 100vh;
+  background: var(--paper);
+  background-image: radial-gradient(var(--hair2) 1px, transparent 1px);
+  background-size: 28px 28px;
+  color: var(--ink);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+.pad-shell { max-width: 1260px; margin: 0 auto; padding: 0 48px 72px; }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--hair); border-radius: 0; }
+
+.pad-root a { color: inherit; text-decoration: none; }
+.pad-root button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; border-radius: 0; padding: 0; }
+.pad-root button:focus-visible, .pad-root a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ---- shared atoms ---- */
+.label { font: 500 9px/1 var(--mono); letter-spacing: 0.18em; color: var(--soft); text-transform: uppercase; }
+.chip { display: inline-block; font: 500 8.5px/1 var(--mono); letter-spacing: 0.1em; padding: 3px 6px 2px; border: 1px solid var(--ink); color: var(--ink); white-space: nowrap; }
+.chip.fill { background: var(--ink); color: var(--paper); }
+.chip.mid { border-color: var(--soft); color: var(--soft); }
+.chip.dim { border-color: var(--faint); color: var(--faint); }
+.chip.dash { border-style: dashed; border-color: var(--faint); color: var(--faint); }
+.chip.accent { border-color: var(--accent); color: var(--accent-ink); }
+.stat { font: 500 9px/1 var(--mono); letter-spacing: 0.12em; color: var(--faint); white-space: nowrap; }
+.stat.built { color: var(--ink); }
+.ticks { display: inline-flex; align-items: center; flex-wrap: wrap; row-gap: 2px; max-width: 100%; }
+.tag-line { font: 400 10px/1.8 var(--mono); color: var(--faint); letter-spacing: 0.02em; }
+.serif-note { font-family: var(--serif); font-style: italic; }
+
+/* ---- header / title block ---- */
+.masthead { position: relative; padding: 34px 0 0; }
+.reg { position: absolute; font: 300 13px/1 var(--mono); color: var(--faint); user-select: none; }
+.eyebrow-row { display: flex; align-items: baseline; gap: 14px; margin-bottom: 26px; }
+.brand { font: 600 11px/1 var(--mono); letter-spacing: 0.22em; color: var(--ink); }
+.brand::before { content: '■ '; color: var(--accent); }
+.eyebrow-sub { font: 400 10px/1 var(--mono); letter-spacing: 0.18em; color: var(--faint); }
+.mast-links { margin-left: auto; display: flex; gap: 22px; }
+.mast-links a { font: 500 10px/1 var(--mono); letter-spacing: 0.1em; color: var(--soft); border-bottom: 1px solid transparent; padding-bottom: 2px; }
+.mast-links a:hover { color: var(--accent-ink); border-bottom-color: var(--accent); }
+
+.mast-grid { display: grid; grid-template-columns: 1fr 292px; gap: 48px; align-items: start; }
+.mast-title { font-family: var(--serif); font-weight: 400; font-size: 52px; line-height: 1.02; letter-spacing: -0.015em; margin: 0 0 18px; max-width: 640px; }
+.mast-title em { font-style: italic; color: var(--accent-ink); }
+.mast-desc { font-size: 13px; line-height: 1.75; color: var(--soft); max-width: 620px; }
+
+.tblock { border: 1px solid var(--ink); background: var(--surface); }
+.tblock-row { display: grid; grid-template-columns: 96px 1fr; border-top: 1px solid var(--hair); }
+.tblock-row:first-child { border-top: none; }
+.tblock-k { font: 500 8.5px/1 var(--mono); letter-spacing: 0.16em; color: var(--faint); padding: 10px 12px 9px; border-right: 1px solid var(--hair); }
+.tblock-v { font: 500 10px/1.4 var(--mono); letter-spacing: 0.04em; color: var(--ink); padding: 8px 12px 7px; }
+.tblock-v a { border-bottom: 1px solid var(--hair); }
+.tblock-v a:hover { color: var(--accent-ink); border-bottom-color: var(--accent); }
+
+.progress-row { display: flex; align-items: center; gap: 18px; margin: 30px 0 0; flex-wrap: wrap; }
+.progress-count { font: 500 11px/1 var(--mono); letter-spacing: 0.06em; color: var(--soft); }
+.progress-count strong { color: var(--ink); font-weight: 700; }
+.progress-phase { font: 400 10px/1 var(--mono); letter-spacing: 0.08em; color: var(--faint); }
+
+.tab-row { display: flex; gap: 34px; margin-top: 26px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--hair); }
+.tab { font: 500 10.5px/1 var(--mono); letter-spacing: 0.14em; color: var(--faint); padding: 15px 0 13px; border-bottom: 2px solid transparent; margin-bottom: -1px; text-transform: uppercase; transition: color 0.15s; white-space: nowrap; }
+.tab:hover { color: var(--ink); }
+.tab.active { color: var(--ink); border-bottom-color: var(--accent); }
+.tab .tnum { color: var(--accent-ink); margin-right: 7px; }
+
+.deck { padding-top: 36px; }
+.sec-label { font: 500 9px/1 var(--mono); letter-spacing: 0.2em; color: var(--soft); text-transform: uppercase; margin-bottom: 18px; }
+.sec-label::before { content: '// '; color: var(--faint); }
+
+/* ---- architecture tab ---- */
+.filter-row { display: flex; align-items: center; gap: 8px; margin-bottom: 28px; flex-wrap: wrap; }
+.filter-label { font: 500 9px/1 var(--mono); letter-spacing: 0.18em; color: var(--soft); margin-right: 6px; }
+.fbtn { font: 500 9.5px/1 var(--mono); letter-spacing: 0.12em; padding: 7px 12px 6px; border: 1px solid var(--hair); color: var(--soft); background: var(--surface); transition: all 0.12s; white-space: nowrap; }
+.fbtn:hover { border-color: var(--ink); color: var(--ink); }
+.fbtn.active { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.filter-key { font: 400 10px/1 var(--mono); color: var(--faint); margin-left: 10px; letter-spacing: 0.02em; }
+
+.arch-grid { display: grid; grid-template-columns: 330px 1fr; gap: 36px; align-items: start; }
+
+.rail { position: sticky; top: 28px; }
+.rail::before { content: ''; position: absolute; left: 15px; top: 12px; bottom: 12px; width: 1px; background: var(--hair); }
+.lbtn { display: grid; grid-template-columns: 32px 1fr; gap: 16px; width: 100%; text-align: left; padding: 0; margin-bottom: 22px; position: relative; }
+.lbtn:last-child { margin-bottom: 0; }
+.lnum { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font: 600 11px/1 var(--mono); border: 1px solid var(--hair); background: var(--surface); color: var(--soft); transition: all 0.15s; }
+.lbtn:hover .lnum { border-color: var(--ink); color: var(--ink); }
+.lbtn.active .lnum { background: var(--accent); border-color: var(--accent); color: #fff; }
+.lbody { padding-top: 2px; }
+.lname-row { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+.lname { font: 600 11px/1 var(--mono); letter-spacing: 0.12em; color: var(--ink); transition: color 0.15s; }
+.lbtn:hover .lname { color: var(--accent-ink); }
+.lbtn.active .lname { color: var(--accent-ink); }
+.lcount { font: 400 9.5px/1 var(--mono); color: var(--faint); margin-left: auto; letter-spacing: 0.04em; }
+.ldesc { font-size: 11.5px; line-height: 1.55; color: var(--soft); margin-bottom: 8px; }
+
+.panel { background: var(--surface); border: 1px solid var(--hair); padding: 28px 32px 20px; min-height: 320px; }
+.panel-head { border-bottom: 1px solid var(--ink); padding-bottom: 18px; }
+.panel-label { font: 500 9.5px/1 var(--mono); letter-spacing: 0.18em; color: var(--accent-ink); margin-bottom: 10px; }
+.panel-desc { font-family: var(--serif); font-style: italic; font-size: 21px; line-height: 1.3; color: var(--ink); }
+.panel-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 320px; gap: 14px; }
+.panel-empty .arrow { font: 300 26px/1 var(--mono); color: var(--faint); }
+.panel-empty .hint { font-family: var(--serif); font-style: italic; font-size: 20px; color: var(--faint); }
+
+.rows { animation: rise 0.3s cubic-bezier(0.2, 0.7, 0.3, 1); }
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.crow { display: grid; grid-template-columns: 44px 1fr; gap: 0 14px; padding: 15px 0 14px; border-top: 1px solid var(--hair2); }
+.crow:first-child { border-top: none; }
+.cidx { font: 500 10px/1 var(--mono); color: var(--faint); padding-top: 3px; letter-spacing: 0.04em; }
+.cname-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cname { font-size: 13px; font-weight: 600; color: var(--ink); }
+.crow.planned .cname { color: var(--soft); }
+.cname-row .stat { margin-left: auto; }
+.cdetail { font-size: 12px; line-height: 1.65; color: var(--soft); margin-top: 5px; max-width: 780px; }
+.crow.planned .cdetail { color: var(--faint); }
+
+/* ---- progress tab ---- */
+.phase-block { border: 1px solid var(--hair); background: var(--surface); margin-bottom: 16px; }
+.phase-head { display: flex; align-items: center; gap: 14px; padding: 16px 22px 14px; border-bottom: 1px solid var(--hair2); flex-wrap: wrap; }
+.phase-num { font: 600 10px/1 var(--mono); letter-spacing: 0.14em; color: var(--accent-ink); }
+.phase-name { font-family: var(--serif); font-size: 18px; color: var(--ink); }
+.phase-meta { margin-left: auto; display: flex; align-items: center; gap: 14px; }
+.phase-count { font: 500 10px/1 var(--mono); color: var(--soft); letter-spacing: 0.04em; }
+.phase-items { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 32px; padding: 16px 22px 18px; }
+.pitem { display: flex; align-items: baseline; gap: 9px; font-size: 12px; line-height: 1.9; }
+.pitem .pmark { font: 400 9px/1 var(--mono); color: var(--ink); flex-shrink: 0; position: relative; top: -1px; }
+.pitem.todo .pmark { color: var(--faint); }
+.pitem .ptext { color: var(--ink); }
+.pitem.todo .ptext { color: var(--faint); }
+
+.note-block { border-top: 1px solid var(--ink); border-bottom: 1px solid var(--hair); padding: 18px 0; margin-top: 28px; }
+.note-label { font: 600 9px/1 var(--mono); letter-spacing: 0.2em; color: var(--accent-ink); margin-bottom: 10px; }
+.note-body { font-size: 12.5px; line-height: 1.75; color: var(--soft); max-width: 860px; }
+.note-body strong { color: var(--ink); font-weight: 600; }
+
+/* ---- wiki tab ---- */
+.tree-card { background: var(--surface); border: 1px solid var(--hair); padding: 24px 28px; margin-bottom: 36px; overflow-x: auto; }
+.tree-intro { font-size: 12.5px; line-height: 1.7; color: var(--soft); max-width: 640px; margin-bottom: 6px; }
+.tree-legend { font: 400 9.5px/1 var(--mono); letter-spacing: 0.1em; color: var(--faint); text-align: right; margin-bottom: 14px; }
+.tree { font: 400 12px/2 var(--mono); white-space: pre; }
+.tree .guide { color: var(--hair); }
+.tree .tname { color: var(--ink); }
+.tree .tname.folder { font-weight: 600; }
+.tree .planned-row .tname { color: var(--faint); font-weight: 400; }
+.tree .tmark { color: var(--accent-ink); }
+.tree .planned-row .tmark { color: var(--hair); }
+.tree .tnote { font-family: var(--serif); font-style: italic; font-size: 13px; color: var(--faint); }
+
+.pages-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 40px; }
+.pg-row { padding: 13px 0 12px; border-top: 1px solid var(--hair2); }
+.pg-name-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.pg-name { font-size: 12.5px; font-weight: 600; color: var(--ink); }
+.pg-row.planned .pg-name { color: var(--soft); }
+.pg-name-row .stat { margin-left: auto; }
+.pg-desc { font-size: 11.5px; line-height: 1.6; color: var(--soft); }
+.pg-row.planned .pg-desc { color: var(--faint); }
+
+/* ---- decisions tab ---- */
+.dec-card { background: var(--surface); border: 1px solid var(--hair); }
+.dec-head { display: grid; grid-template-columns: 44px 196px 186px 1fr; gap: 18px; padding: 12px 22px; border-bottom: 1px solid var(--ink); }
+.dec-head .label { color: var(--faint); }
+.dec-row { display: grid; grid-template-columns: 44px 196px 186px 1fr; gap: 18px; padding: 14px 22px 13px; border-bottom: 1px solid var(--hair2); }
+.dec-row:last-child { border-bottom: none; }
+.dec-idx { font: 500 10px/1.5 var(--mono); color: var(--accent-ink); letter-spacing: 0.04em; }
+.dec-q { font-size: 12px; font-weight: 600; color: var(--ink); line-height: 1.5; }
+.dec-a { font: 500 11px/1.6 var(--mono); color: var(--ink); letter-spacing: 0.01em; }
+.dec-r { font-size: 12px; line-height: 1.7; color: var(--soft); }
+
+/* ---- footer ---- */
+.colophon { display: flex; align-items: baseline; gap: 14px; margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--hair); }
+.colophon .label { color: var(--faint); }
+.colophon .right { margin-left: auto; font: 400 9.5px/1 var(--mono); letter-spacing: 0.1em; color: var(--faint); }
+
+@media (max-width: 980px) {
+  .pad-shell { padding: 0 22px 56px; }
+  .reg { display: none; }
+  .mast-grid { grid-template-columns: 1fr; gap: 26px; }
+  .mast-title { font-size: 38px; }
+  .arch-grid { grid-template-columns: 1fr; }
+  .rail::before { display: none; }
+  .phase-items { grid-template-columns: 1fr; }
+  .pages-grid { grid-template-columns: 1fr; }
+  .dec-head { display: none; }
+  .dec-row { grid-template-columns: 44px 1fr; grid-template-rows: auto auto auto; }
+  .dec-a { grid-column: 2; }
+  .dec-r { grid-column: 2; }
+  .tab-row { gap: 20px; overflow-x: auto; }
+}
+`;
+
 export default function App() {
-  const [activeLayer, setActiveLayer] = useState(null);
+  const [activeLayer, setActiveLayer] = useState("input");
   const [activeTab, setActiveTab] = useState("architecture");
   const [moscowFilter, setMoscowFilter] = useState(null);
 
@@ -368,146 +674,145 @@ export default function App() {
     ? (moscowFilter ? active.components.filter(c => c.moscow === moscowFilter) : active.components)
     : [];
 
-  return (
-    <div style={{ background: "#e8edf2", minHeight: "100vh" }}>
-      <div style={{ fontFamily: "'IBM Plex Mono', 'Courier New', monospace", color: "#0f172a", maxWidth: 1400, margin: "0 auto" }}>
-        <style>{`
-          @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;600&display=swap');
-          * { box-sizing: border-box; margin: 0; padding: 0; }
-          ::-webkit-scrollbar { width: 4px; }
-          ::-webkit-scrollbar-track { background: #f1f5f9; }
-          ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
-          .layer-card { border: 1px solid #d1d9e0; background: #ffffff; border-radius: 6px; padding: 14px 18px; cursor: pointer; transition: all 0.2s; position: relative; overflow: hidden; margin-bottom: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
-          .layer-card:hover { border-color: var(--color); transform: translateX(3px); box-shadow: 0 3px 10px rgba(0,0,0,0.12); }
-          .layer-card.active { border-color: var(--color); background: var(--bg); }
-          .layer-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--color); }
-          .tag { display: inline-block; font-size: 9px; padding: 2px 6px; border-radius: 2px; border: 1px solid currentColor; opacity: 0.8; margin: 2px; letter-spacing: 0.04em; }
-          .comp-card { background: #ffffff; border: 1px solid #d1d9e0; border-radius: 6px; padding: 12px 14px; margin-bottom: 8px; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
-          .comp-card.done { background: #f0fdf4; border-color: #86efac; }
-          .comp-card:hover { border-color: #94a3b8; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-          .tab-btn { background: none; border: none; color: #475569; cursor: pointer; padding: 10px 18px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.08em; border-bottom: 2px solid transparent; transition: all 0.2s; }
-          .tab-btn:hover { color: #0f172a; }
-          .tab-btn.active { color: #0f172a; border-bottom-color: #2563eb; }
-          .decision-row { display: grid; grid-template-columns: 190px 170px 1fr; gap: 16px; padding: 11px 16px; border-bottom: 1px solid #e8ecf0; align-items: start; }
-          .decision-row:last-child { border-bottom: none; }
-          .pill { display: inline-block; font-size: 9px; padding: 1px 7px; border-radius: 2px; letter-spacing: 0.08em; font-weight: 500; }
-          .moscow-btn { background: #fff; border: 1px solid #b0bec5; border-radius: 3px; cursor: pointer; padding: 3px 10px; font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.08em; transition: all 0.15s; color: #374151; }
-          .moscow-btn:hover { border-color: #1e293b; color: #0f172a; }
-          .moscow-btn.active { color: white; }
-        `}</style>
+  const layerNum = label => label.split(" — ")[0];
+  const layerName = label => label.split(" — ")[1];
 
-        <div style={{ padding: "28px 40px 0", borderBottom: "1px solid #e2e8f0", background: "#ffffff", boxShadow: "0 1px 8px rgba(0,0,0,0.06)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-            <div style={{ background: "#0f172a", color: "white", fontFamily: "'IBM Plex Sans', sans-serif", fontWeight: 600, fontSize: 11, padding: "3px 10px", borderRadius: 2, letterSpacing: "0.12em" }}>POWERAUTODOCS</div>
-            <a href="https://www.npmjs.com/package/powerautodocs" style={{ fontSize: 9, color: "#64748b", letterSpacing: "0.1em", fontFamily: "'IBM Plex Mono', monospace", textDecoration: "none" }}>npm →</a>
-            <a href="https://github.com/users/lewginn/projects/3" style={{ fontSize: 9, color: "#2563eb", marginLeft: "auto", textDecoration: "none" }}>→ Track in GitHub Project</a>
+  return (
+    <div className="pad-root">
+      <style>{css}</style>
+      <div className="pad-shell">
+
+        <header className="masthead">
+          <span className="reg" style={{ top: 12, left: -26 }}>+</span>
+          <span className="reg" style={{ top: 12, right: -26 }}>+</span>
+
+          <div className="eyebrow-row">
+            <span className="brand">POWERAUTODOCS</span>
+            <span className="eyebrow-sub">SYSTEM ARCHITECTURE</span>
+            <nav className="mast-links">
+              <a href="https://www.npmjs.com/package/powerautodocs">npm ↗</a>
+              <a href="https://github.com/lewginn/PowerAutoDocs">GitHub ↗</a>
+              <a href="https://github.com/users/lewginn/projects/3">Project board ↗</a>
+            </nav>
           </div>
-          <h1 style={{ fontFamily: "'IBM Plex Sans', sans-serif", fontSize: 22, fontWeight: 300, color: "#0f172a", letterSpacing: "-0.01em", marginBottom: 6 }}>
-            Automated As-Built Documentation Generator
-          </h1>
-          <p style={{ fontSize: 11, color: "#374151", maxWidth: 700, lineHeight: 1.7, marginBottom: 16 }}>
-            A reusable pipeline that reads Power Platform solution artifacts directly from Git and produces
-            structured, cross-linked wiki documentation in Azure DevOps — including Mermaid flow diagrams,
-            nested action trees, business rules, plugin registrations, web resource indexes, security role
-            matrices, environment variables, global choices, email templates, model-driven apps and auto-generated ER diagrams. Published as powerautodocs on npm.
-          </p>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
-            <div style={{ width: 260, height: 3, background: "#e2e8f0", borderRadius: 2, overflow: "hidden" }}>
-              <div style={{ width: `${pct}%`, height: "100%", background: "linear-gradient(90deg, #2563eb, #9333ea)", borderRadius: 2 }} />
+
+          <div className="mast-grid">
+            <div>
+              <h1 className="mast-title">Automated <em>as-built</em> documentation for Power Platform</h1>
+              <p className="mast-desc">
+                A reusable pipeline that reads Power Platform solution artifacts directly from Git and produces
+                structured, cross-linked wiki documentation in Azure DevOps — including Mermaid flow diagrams,
+                nested action trees, business rules, plugin registrations, web resource indexes, security role
+                matrices, environment variables, global choices, email templates, model-driven apps and
+                auto-generated ER diagrams. Published as <strong>powerautodocs</strong> on npm.
+              </p>
             </div>
-            <span style={{ fontSize: 10, color: "#64748b", letterSpacing: "0.08em" }}>
-              <span style={{ color: "#0f172a", fontWeight: 600 }}>{doneComponents}</span>
-              <span style={{ color: "#94a3b8" }}>/{totalComponents}</span>
-              <span> components built &nbsp;·&nbsp; </span>
-              <span style={{ color: "#059669", fontWeight: 600 }}>Phases 1–4 complete · Phase 5, Phase 6 & Backlog planned</span>
-            </span>
+            <aside className="tblock">
+              <div className="tblock-row">
+                <span className="tblock-k">PACKAGE</span>
+                <span className="tblock-v"><a href="https://www.npmjs.com/package/powerautodocs">powerautodocs</a></span>
+              </div>
+              <div className="tblock-row">
+                <span className="tblock-k">PIPELINE</span>
+                <span className="tblock-v">INPUT → PARSE → IR → ENRICH → OUTPUT</span>
+              </div>
+              <div className="tblock-row">
+                <span className="tblock-k">STATUS</span>
+                <span className="tblock-v">PHASES 1–4 COMPLETE</span>
+              </div>
+              <div className="tblock-row">
+                <span className="tblock-k">COVERAGE</span>
+                <span className="tblock-v">{doneComponents} / {totalComponents} COMPONENTS · {pct}%</span>
+              </div>
+            </aside>
           </div>
-          <div style={{ display: "flex", gap: 0 }}>
-            {["architecture", "progress", "wiki structure", "decisions"].map(tab => (
-              <button key={tab} className={`tab-btn ${activeTab === tab ? "active" : ""}`} onClick={() => setActiveTab(tab)}>
-                {tab.toUpperCase()}
+
+          <div className="progress-row">
+            <Ticks total={totalComponents} done={doneComponents} />
+            <span className="progress-count"><strong>{doneComponents}</strong> of {totalComponents} components built</span>
+            <span className="progress-phase">PHASES 1–4 COMPLETE · PHASE 5, PHASE 6 &amp; BACKLOG PLANNED</span>
+          </div>
+
+          <div className="tab-row">
+            {["architecture", "progress", "wiki structure", "decisions"].map((tab, i) => (
+              <button key={tab} className={`tab ${activeTab === tab ? "active" : ""}`} onClick={() => setActiveTab(tab)}>
+                <span className="tnum">{String(i + 1).padStart(2, "0")}</span>{tab}
               </button>
             ))}
           </div>
-        </div>
+        </header>
 
-        <div style={{ padding: "28px 40px" }}>
+        <main className="deck">
 
           {activeTab === "architecture" && (
             <div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
-                <span style={{ fontSize: 9, color: "#1e293b", letterSpacing: "0.15em", marginRight: 4 }}>FILTER BY PRIORITY:</span>
-                <button className={`moscow-btn ${moscowFilter === null ? "active" : ""}`}
-                  style={{ borderColor: moscowFilter === null ? "#0f172a" : undefined, background: moscowFilter === null ? "#0f172a" : undefined }}
-                  onClick={() => setMoscowFilter(null)}>ALL</button>
+              <div className="filter-row">
+                <span className="filter-label">FILTER — PRIORITY</span>
+                <button className={`fbtn ${moscowFilter === null ? "active" : ""}`} onClick={() => setMoscowFilter(null)}>ALL</button>
                 {Object.entries(moscow).map(([key, val]) => (
-                  <button key={key} className={`moscow-btn ${moscowFilter === key ? "active" : ""}`}
-                    style={{ borderColor: moscowFilter === key ? val.color : undefined, background: moscowFilter === key ? val.color : undefined }}
+                  <button key={key} className={`fbtn ${moscowFilter === key ? "active" : ""}`}
                     onClick={() => setMoscowFilter(moscowFilter === key ? null : key)}>{val.label}</button>
                 ))}
-                <span style={{ fontSize: 10, color: "#374151", marginLeft: 8 }}>Must · Should · Could · Won't (for now)</span>
+                <span className="filter-key">MoSCoW — must · should · could · won't (for now)</span>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 24, alignItems: "start" }}>
-                <div>
-                  <div style={{ fontSize: 9, color: "#1e293b", letterSpacing: "0.15em", marginBottom: 12 }}>SELECT A LAYER</div>
+
+              <div className="arch-grid">
+                <div className="rail">
                   {layers.map((layer) => {
                     const dc = layer.components.filter(c => c.done).length;
                     const tot = layer.components.length;
                     const visibleCount = moscowFilter ? layer.components.filter(c => c.moscow === moscowFilter).length : tot;
                     return (
-                      <div key={layer.id}>
-                        <div className={`layer-card ${activeLayer === layer.id ? "active" : ""}`}
-                          style={{ "--color": layer.color, "--bg": layer.bg }}
-                          onClick={() => setActiveLayer(activeLayer === layer.id ? null : layer.id)}>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
-                            <span style={{ fontSize: 10, color: layer.color, fontWeight: 500, letterSpacing: "0.08em" }}>{layer.label}</span>
-                            <span style={{ fontSize: 9, color: "#64748b" }}>{dc}/{tot} built{moscowFilter && visibleCount !== tot ? ` · ${visibleCount} visible` : ""}</span>
-                          </div>
-                          <div style={{ fontSize: 11, color: "#374151" }}>{layer.description}</div>
-                          <div style={{ marginTop: 8, height: 2, background: "#f1f5f9", borderRadius: 1, overflow: "hidden" }}>
-                            <div style={{ width: `${dc / tot * 100}%`, height: "100%", background: layer.color, opacity: 0.7 }} />
-                          </div>
-                        </div>
-                      </div>
+                      <button key={layer.id} className={`lbtn ${activeLayer === layer.id ? "active" : ""}`}
+                        onClick={() => setActiveLayer(activeLayer === layer.id ? null : layer.id)}>
+                        <span className="lnum">{layerNum(layer.label)}</span>
+                        <span className="lbody">
+                          <span className="lname-row">
+                            <span className="lname">{layerName(layer.label)}</span>
+                            <span className="lcount">{dc}/{tot} built{moscowFilter && visibleCount !== tot ? ` · ${visibleCount} shown` : ""}</span>
+                          </span>
+                          <span className="ldesc" style={{ display: "block" }}>{layer.description}</span>
+                          <Ticks total={tot} done={dc} size={4} height={7} />
+                        </span>
+                      </button>
                     );
                   })}
                 </div>
-                <div>
-                  {!activeLayer && (
-                    <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 6, padding: 40, textAlign: "center", color: "#cbd5e1", fontSize: 12 }}>
-                      <div style={{ fontSize: 28, marginBottom: 12 }}>←</div>
-                      Select a layer to explore its components
+
+                <div className="panel">
+                  {!active && (
+                    <div className="panel-empty">
+                      <span className="arrow">←</span>
+                      <span className="hint">Select a layer from the pipeline index.</span>
                     </div>
                   )}
-                  {activeLayer && active && (
-                    <div>
-                      <div style={{ fontSize: 9, color: active.color, letterSpacing: "0.15em", marginBottom: 12, fontWeight: 500 }}>
-                        {active.label} — {filteredComponents.length} COMPONENT{filteredComponents.length !== 1 ? "S" : ""}
-                        {moscowFilter && <span style={{ color: moscow[moscowFilter].color }}> · {moscow[moscowFilter].label} ONLY</span>}
+                  {active && (
+                    <div className="rows" key={active.id + (moscowFilter || "")}>
+                      <div className="panel-head">
+                        <div className="panel-label">
+                          {active.label} · {filteredComponents.length} COMPONENT{filteredComponents.length !== 1 ? "S" : ""}
+                          {moscowFilter ? ` · ${moscow[moscowFilter].label} ONLY` : ""}
+                        </div>
+                        <div className="panel-desc">{active.description}</div>
                       </div>
                       {filteredComponents.length === 0 && (
-                        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 6, padding: 24, textAlign: "center", color: "#cbd5e1", fontSize: 11 }}>
-                          No {moscow[moscowFilter]?.label} components in this layer
+                        <div className="panel-empty" style={{ minHeight: 160 }}>
+                          <span className="hint">No {moscow[moscowFilter]?.label} components in this layer.</span>
                         </div>
                       )}
-                      {filteredComponents.map(comp => {
+                      {filteredComponents.map((comp, i) => {
                         const m = moscow[comp.moscow];
                         return (
-                          <div key={comp.name} className={`comp-card ${comp.done ? "done" : ""}`}>
-                            <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                              <span style={{ fontSize: 18, flexShrink: 0, marginTop: 1 }}>{comp.icon}</span>
-                              <div style={{ flex: 1 }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
-                                  <span style={{ fontSize: 13, color: comp.done ? "#15803d" : "#0f172a", fontWeight: 500 }}>{comp.name}</span>
-                                  <span className="pill" style={{ background: m.bg, color: m.color, border: `1px solid ${m.color}40` }}>{m.label}</span>
-                                  {comp.done
-                                    ? <span className="pill" style={{ background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0" }}>BUILT</span>
-                                    : <span className="pill" style={{ background: "#f8fafc", color: "#94a3b8", border: "1px solid #e2e8f0" }}>PLANNED</span>
-                                  }
-                                </div>
-                                <div style={{ fontSize: 11, color: "#374151", lineHeight: 1.6, marginBottom: 7 }}>{comp.detail}</div>
-                                <div>{comp.tags.map(t => <span key={t} className="tag" style={{ color: active.color }}>{t}</span>)}</div>
+                          <div key={comp.name} className={`crow ${comp.done ? "" : "planned"}`}>
+                            <span className="cidx">{layerNum(active.label)}·{String(i + 1).padStart(2, "0")}</span>
+                            <div>
+                              <div className="cname-row">
+                                <span className="cname">{comp.name}</span>
+                                <Chip kind={m.cls}>{m.label}</Chip>
+                                <StatusMark done={comp.done} />
                               </div>
+                              <div className="cdetail">{comp.detail}</div>
+                              <div className="tag-line">{comp.tags.map(t => `[${t}]`).join("  ")}</div>
                             </div>
                           </div>
                         );
@@ -520,132 +825,82 @@ export default function App() {
           )}
 
           {activeTab === "progress" && (
-            <div style={{ maxWidth: 880 }}>
-              <div style={{ fontSize: 9, color: "#1e293b", letterSpacing: "0.15em", marginBottom: 20 }}>BUILD PROGRESS</div>
+            <div style={{ maxWidth: 920 }}>
+              <div className="sec-label">Build progress</div>
               {progress.map(p => {
                 const dc = p.items.filter(i => i.done).length;
                 const tot = p.items.length;
-                const statusStyle = {
-                  "COMPLETE": { bg: "#f0fdf4", color: "#15803d", border: "#bbf7d0" },
-                  "IN PROGRESS": { bg: "#fffbeb", color: "#d97706", border: "#fde68a" },
-                  "PLANNED": { bg: "#f8fafc", color: "#94a3b8", border: "#e2e8f0" },
-                }[p.status] || { bg: "#f8fafc", color: "#94a3b8", border: "#e2e8f0" };
+                const [pnum, pname] = p.phase.split(" — ");
                 return (
-                  <div key={p.phase} style={{ background: "#fff", borderLeft: `3px solid ${p.color}`, border: `1px solid #e2e8f0`, borderRadius: 6, padding: 18, marginBottom: 14, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <span style={{ fontSize: 10, color: p.color, letterSpacing: "0.1em", fontWeight: 500 }}>{p.phase}</span>
-                        <span className="pill" style={{ background: statusStyle.bg, color: statusStyle.color, border: `1px solid ${statusStyle.border}` }}>{p.status}</span>
-                      </div>
-                      <span style={{ fontSize: 10, color: "#94a3b8" }}>{dc}/{tot}</span>
+                  <div key={p.phase} className="phase-block">
+                    <div className="phase-head">
+                      <span className="phase-num">{pnum.toUpperCase()}</span>
+                      <span className="phase-name">{pname}</span>
+                      <span className="phase-meta">
+                        <Ticks total={tot} done={dc} size={4} height={8} />
+                        <span className="phase-count">{dc}/{tot}</span>
+                        <Chip kind={phaseChip[p.status] || "dim"}>{p.status}</Chip>
+                      </span>
                     </div>
-                    <div style={{ height: 2, background: "#f1f5f9", borderRadius: 1, overflow: "hidden", marginBottom: 14 }}>
-                      <div style={{ width: `${dc / tot * 100}%`, height: "100%", background: p.color, opacity: 0.7 }} />
-                    </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 20px" }}>
+                    <div className="phase-items">
                       {p.items.map(item => (
-                        <div key={item.label} style={{ display: "flex", alignItems: "center", gap: 7, padding: "3px 0", fontSize: 11 }}>
-                          <span style={{ color: item.done ? "#15803d" : "#cbd5e1", fontSize: 13 }}>{item.done ? "●" : "○"}</span>
-                          <span style={{ color: item.done ? "#0f172a" : "#94a3b8" }}>{item.label}</span>
+                        <div key={item.label} className={`pitem ${item.done ? "" : "todo"}`}>
+                          <span className="pmark">{item.done ? "■" : "□"}</span>
+                          <span className="ptext">{item.label}</span>
                         </div>
                       ))}
                     </div>
                   </div>
                 );
               })}
-              <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderLeft: "3px solid #2563eb", borderRadius: 6, padding: 14, fontSize: 11, color: "#1e40af", lineHeight: 1.7 }}>
-                <strong>Phases 1–4 are complete and producing real output on live client solutions.</strong> The full pipeline
-                — data model, flows, classic workflows, business rules, plugins, web resources, security roles,
-                environment variables, global choices, email templates, model-driven apps and ER diagrams — publishes end-to-end via ADO pipeline.
-                AI enrichment and Word (.docx) output are both shipped and current. PDF output also shipped, but is planned for deprecation
-                (Lewis, 2026-07-17) — see the "PDF output — deprecation planned?" decision on the Decisions tab.
-                Phase 5 adds Dataverse governance/admin-configuration components (BPF, column security, routing rules, SLAs,
-                masking rules, settings); Phase 6 adds automation, Copilot and integration surfaces (scheduled flow metadata,
-                Copilot Studio agents, virtual tables, custom connectors, plugin source linking, service endpoints).
+              <div className="note-block">
+                <div className="note-label">NOTE — CURRENT STATE</div>
+                <div className="note-body">
+                  <strong>Phases 1–4 are complete and producing real output on live client solutions.</strong> The full pipeline
+                  — data model, flows, classic workflows, business rules, plugins, web resources, security roles,
+                  environment variables, global choices, email templates, model-driven apps and ER diagrams — publishes end-to-end via ADO pipeline.
+                  AI enrichment and Word (.docx) output are both shipped and current. PDF output also shipped, but is planned for deprecation
+                  (Lewis, 2026-07-17) — see the "PDF output — deprecation planned?" decision on the Decisions tab.
+                  Phase 5 adds Dataverse governance/admin-configuration components (BPF, column security, routing rules, SLAs,
+                  masking rules, settings); Phase 6 adds automation, Copilot and integration surfaces (scheduled flow metadata,
+                  Copilot Studio agents, virtual tables, custom connectors, plugin source linking, service endpoints).
+                </div>
               </div>
             </div>
           )}
 
           {activeTab === "wiki structure" && (
-            <div style={{ maxWidth: 820 }}>
-              <div style={{ fontSize: 9, color: "#1e293b", letterSpacing: "0.15em", marginBottom: 20 }}>ADO WIKI PAGE HIERARCHY</div>
-              <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 6, padding: 24, marginBottom: 20, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-                <div style={{ fontSize: 11, color: "#374151", marginBottom: 18, lineHeight: 1.6 }}>
+            <div style={{ maxWidth: 920 }}>
+              <div className="sec-label">ADO wiki page hierarchy</div>
+              <div className="tree-card">
+                <p className="tree-intro">
                   Each solution gets its own top-level wiki section. Pages are generated from the IR layer and published via ADO REST API.
-                </div>
-                <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 12 }}>
-                  {[
-                    { indent: 0, text: "📁 [Solution Name]", color: "#2563eb", done: true },
-                    { indent: 1, text: "🏠 Overview", color: "#0f172a", done: true },
-                    { indent: 1, text: "📁 Data Model", color: "#0f172a", done: true },
-                    { indent: 2, text: "📊 Entity Relationship Diagram ← on Data Model page", color: "#059669", done: true },
-                    { indent: 2, text: "🔌 Virtual Tables", color: "#cbd5e1", done: false },
-                    { indent: 2, text: "📋 [Table Name] × N  ← index page", color: "#0f172a", done: true },
-                    { indent: 3, text: "📝 Columns", color: "#0f172a", done: true },
-                    { indent: 3, text: "👁️ Views", color: "#0f172a", done: true },
-                    { indent: 3, text: "📋 Forms", color: "#0f172a", done: true },
-                    { indent: 3, text: "↔️ Relationships", color: "#0f172a", done: true },
-                    { indent: 3, text: "📐 Business Rules  ← index + per-rule pages", color: "#0f172a", done: true },
-                    { indent: 1, text: "📁 Automation", color: "#0f172a", done: true },
-                    { indent: 2, text: "🔄 Flows (summary + per-flow pages with diagrams)", color: "#0f172a", done: true },
-                    { indent: 2, text: "⚡ Classic Workflows (summary + per-workflow pages)", color: "#0f172a", done: true },
-                    { indent: 2, text: "🔌 Plugin Assemblies", color: "#0f172a", done: true },
-                    { indent: 1, text: "📁 Custom Code", color: "#0f172a", done: true },
-                    { indent: 2, text: "📜 Web Resources (JS) ← linked summary + per-file pages", color: "#0f172a", done: true },
-                    { indent: 2, text: "🧩 PCF Controls", color: "#cbd5e1", done: false },
-                    { indent: 1, text: "📁 Security  ← container page", color: "#0f172a", done: true },
-                    { indent: 2, text: "🔐 Security Roles ← index + per-role matrix pages", color: "#0f172a", done: true },
-                    { indent: 2, text: "🔒 Column Security Profiles", color: "#cbd5e1", done: false },
-                    { indent: 1, text: "📁 Integrations", color: "#0f172a", done: true },
-                    { indent: 2, text: "🌍 Environment Variables", color: "#0f172a", done: true },
-                    { indent: 2, text: "🔗 Connection References", color: "#0f172a", done: true },
-                    { indent: 1, text: "🎛️ Global Choices ← index + per-choice pages", color: "#0f172a", done: true },
-                    { indent: 1, text: "📧 Email Templates ← index + per-template pages", color: "#0f172a", done: true },
-                    { indent: 1, text: "📱 Model-Driven Apps ← index + per-app pages", color: "#0f172a", done: true },
-                    { indent: 2, text: "🖼️ Custom Pages ← surfaced alongside owning app", color: "#cbd5e1", done: false },
-                    { indent: 1, text: "🤖 Copilot Studio Agents", color: "#cbd5e1", done: false },
-                    { indent: 1, text: "📝 Change Log", color: "#cbd5e1", done: false },
-                    { indent: 1, text: "🔁 Business Process Flows ← index + per-BPF pages", color: "#cbd5e1", done: false },
-                    { indent: 1, text: "🔍 Duplicate Detection Rules", color: "#cbd5e1", done: false },
-                    { indent: 1, text: "⏱️ SLAs", color: "#cbd5e1", done: false },
-                    { indent: 1, text: "📊 Dashboards", color: "#cbd5e1", done: false },
-                    { indent: 2, text: "🔌 Service Endpoints ← under Integrations", color: "#cbd5e1", done: false },
-                    { indent: 1, text: "📨 Routing Rule Sets", color: "#cbd5e1", done: false },
-                    { indent: 1, text: "🔗 Custom Connectors", color: "#cbd5e1", done: false },
-                    { indent: 1, text: "🌐 Power Pages", color: "#cbd5e1", done: true },
-                    { indent: 1, text: "🛠️ Settings", color: "#cbd5e1", done: false },
-                    { indent: 2, text: "🎭 Masking Rules ← under Security", color: "#cbd5e1", done: false },
-                  ].map((item, i) => (
-                    <div key={i} style={{
-                      paddingLeft: item.indent * 18, paddingTop: 4, paddingBottom: 4,
-                      color: item.done ? item.color : "#e2e8f0",
-                      borderLeft: item.indent > 0 ? "1px solid #f1f5f9" : "none",
-                      marginLeft: item.indent > 0 ? (item.indent - 1) * 18 + 10 : 0,
-                      display: "flex", alignItems: "center", gap: 10
-                    }}>
-                      <span>{item.text}</span>
-                      {item.done && <span className="pill" style={{ background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0" }}>BUILT</span>}
+                </p>
+                <div className="tree-legend">● BUILT &nbsp;·&nbsp; ○ PLANNED</div>
+                <div className="tree">
+                  {wikiTree.map((item, i) => (
+                    <div key={i} className={item.done ? "" : "planned-row"}>
+                      <span className="guide">{treePrefix(wikiTree, i)}</span>
+                      <span className="tmark">{item.done ? "● " : "○ "}</span>
+                      <span className={`tname ${item.kind === "folder" ? "folder" : ""}`}>{item.name}</span>
+                      {item.note && <span className="tnote">{"  "}— {item.note}</span>}
                     </div>
                   ))}
                 </div>
               </div>
-              <div style={{ fontSize: 9, color: "#1e293b", letterSpacing: "0.15em", marginBottom: 12 }}>PAGES BUILT SO FAR</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+
+              <div className="sec-label">Pages built so far</div>
+              <div className="pages-grid">
                 {pages.map(page => {
                   const m = moscow[page.moscow];
                   return (
-                    <div key={page.name} className={`comp-card ${page.done ? "done" : ""}`}>
-                      <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                        <span style={{ fontSize: 18, flexShrink: 0 }}>{page.emoji}</span>
-                        <div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3, flexWrap: "wrap" }}>
-                            <span style={{ fontSize: 12, color: page.done ? "#15803d" : "#0f172a", fontWeight: 500 }}>{page.name}</span>
-                            <span className="pill" style={{ background: m.bg, color: m.color, border: `1px solid ${m.color}40` }}>{m.label}</span>
-                            {page.done && <span className="pill" style={{ background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0" }}>BUILT</span>}
-                          </div>
-                          <div style={{ fontSize: 11, color: "#374151", lineHeight: 1.5 }}>{page.desc}</div>
-                        </div>
+                    <div key={page.name} className={`pg-row ${page.done ? "" : "planned"}`}>
+                      <div className="pg-name-row">
+                        <span className="pg-name">{page.name}</span>
+                        <Chip kind={m.cls}>{m.label}</Chip>
+                        <StatusMark done={page.done} />
                       </div>
+                      <div className="pg-desc">{page.desc}</div>
                     </div>
                   );
                 })}
@@ -654,31 +909,42 @@ export default function App() {
           )}
 
           {activeTab === "decisions" && (
-            <div style={{ maxWidth: 900 }}>
-              <div style={{ fontSize: 9, color: "#1e293b", letterSpacing: "0.15em", marginBottom: 20 }}>KEY ARCHITECTURAL DECISIONS — CONFIRMED IN BUILD</div>
-              <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 6, overflow: "hidden", marginBottom: 20, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "190px 170px 1fr", gap: 16, padding: "10px 16px", borderBottom: "1px solid #f1f5f9", background: "#f8fafc" }}>
-                  {["Decision", "Choice", "Rationale"].map(h => (
-                    <div key={h} style={{ fontSize: 9, color: "#1e293b", letterSpacing: "0.15em" }}>{h}</div>
-                  ))}
+            <div style={{ maxWidth: 1100 }}>
+              <div className="sec-label">Key architectural decisions — confirmed in build</div>
+              <div className="dec-card">
+                <div className="dec-head">
+                  <span className="label">No.</span>
+                  <span className="label">Decision</span>
+                  <span className="label">Choice</span>
+                  <span className="label">Rationale</span>
                 </div>
-                {decisions.map(d => (
-                  <div key={d.q} className="decision-row">
-                    <div style={{ fontSize: 11, color: "#1e293b" }}>{d.q}</div>
-                    <div style={{ fontSize: 11, color: "#2563eb", fontWeight: 500 }}>{d.a}</div>
-                    <div style={{ fontSize: 11, color: "#374151", lineHeight: 1.6 }}>{d.reason}</div>
+                {decisions.map((d, i) => (
+                  <div key={d.q} className="dec-row">
+                    <span className="dec-idx">D{String(i + 1).padStart(2, "0")}</span>
+                    <span className="dec-q">{d.q}</span>
+                    <span className="dec-a">{d.a}</span>
+                    <span className="dec-r">{d.reason}</span>
                   </div>
                 ))}
               </div>
-              <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderLeft: "3px solid #2563eb", borderRadius: 6, padding: 14, fontSize: 11, color: "#1e40af", lineHeight: 1.7 }}>
-                <strong>IR is the contract.</strong> Parsers only produce IR. Renderers only consume IR.
-                Neither knows about the other. Renderers emit DocNode[] (format-agnostic); MarkdownSerializer converts to ADO Wiki markdown,
-                DocxSerializer converts to Word (.docx) via the docx library. New output formats only need a new serializer.
+              <div className="note-block">
+                <div className="note-label">NOTE — THE CONTRACT</div>
+                <div className="note-body">
+                  <strong>IR is the contract.</strong> Parsers only produce IR. Renderers only consume IR.
+                  Neither knows about the other. Renderers emit DocNode[] (format-agnostic); MarkdownSerializer converts to ADO Wiki markdown,
+                  DocxSerializer converts to Word (.docx) via the docx library. New output formats only need a new serializer.
+                </div>
               </div>
             </div>
           )}
 
-        </div>
+        </main>
+
+        <footer className="colophon">
+          <span className="label">POWERAUTODOCS · SYSTEM ARCHITECTURE</span>
+          <span className="right">MAINTAINED IN docs/architecture.jsx · DEPLOYED VIA GITHUB PAGES</span>
+        </footer>
+
       </div>
     </div>
   );
