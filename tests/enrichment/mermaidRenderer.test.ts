@@ -26,7 +26,7 @@ import {
 // Do not add a test that renders an uncached diagram.
 
 // Cache dirs are always a throwaway tmpdir. The repo's real
-// .powerautodocs-diagram-cache/ holds rendered client solution content and must
+// .powerautodocs-cache/diagrams/ holds rendered client solution content and must
 // never be read or written by a test.
 let cacheDir: string;
 

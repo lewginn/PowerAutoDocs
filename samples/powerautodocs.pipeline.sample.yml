@@ -3,7 +3,12 @@
 # =============================================================================
 # SETUP: Copy this file into your client project repo and rename it (remove
 # ".sample"). Suggested location:
-#   .azuredevops/powerautodocs.yml
+#   PowerAutoDocs/powerautodocs.yml
+#
+# doc-gen.config.yml also lives in that PowerAutoDocs/ folder (DOC_GEN_CONFIG_DIR
+# below points there). Both caches then land next to it, in a folder set by
+# `cache.dir` in doc-gen.config.yml (default: .powerautodocs-cache) — see
+# step 4, which commits that folder back to the repo.
 #
 # Then register it in Azure DevOps:
 #   Pipelines → New Pipeline → Azure Repos Git → select your repo → Existing
@@ -12,8 +17,13 @@
 # Required setup before running:
 #   1. Add a Pipeline Variable named WIKI_PAT (mark as secret)
 #      The PAT needs Wiki (Read & Write) scope
-#   2. Add doc-gen.config.yml to your repo root
+#   2. Add PowerAutoDocs/doc-gen.config.yml
 #      (copy and fill in samples/doc-gen.config.sample.yml)
+#   3. Grant the ADO Build Service account "Contribute" permission on this
+#      repo, so step 4 can push the cache commit back:
+#      Project Settings → Repos → your repo → Security → find "<Project> Build
+#      Service (<Org>)" → set Contribute to Allow. Without this the push in
+#      step 4 fails with a permissions error (the run itself still succeeds).
 #
 # Optional pipeline variables:
 #   POWERAUTODOCS_VERSION — npm version tag to pin (default: latest)
@@ -39,8 +49,17 @@ pool:
 
 variables:
   POWERAUTODOCS_VERSION: latest
+  DOC_GEN_CONFIG_DIR: $(Build.SourcesDirectory)/PowerAutoDocs
 
 steps:
+
+  # ---------------------------------------------------------------------------
+  # 0. Checkout with push credentials persisted
+  # Required so step 4 can push the cache commit back to this branch. ADO's
+  # default checkout leaves the repo in detached HEAD with no push creds.
+  # ---------------------------------------------------------------------------
+  - checkout: self
+    persistCredentials: true
 
   # ---------------------------------------------------------------------------
   # 1. Setup Node.js
@@ -61,7 +80,7 @@ steps:
   # The committed config file always contains REDACTED — never a real token.
   # ---------------------------------------------------------------------------
   - script: |
-      sed -i "s/REDACTED/$(WIKI_PAT)/g" doc-gen.config.yml
+      sed -i "s/REDACTED/$(WIKI_PAT)/g" $(DOC_GEN_CONFIG_DIR)/doc-gen.config.yml
       echo "PAT injected into config"
     displayName: Inject wiki PAT
     env:
@@ -81,12 +100,39 @@ steps:
     displayName: Generate documentation
     workingDirectory: $(Build.SourcesDirectory)
     env:
+      DOC_GEN_CONFIG_DIR: $(DOC_GEN_CONFIG_DIR)
       ANTHROPIC_API_KEY: $(ANTHROPIC_API_KEY)
       AZURE_OPENAI_ENDPOINT: $(AZURE_OPENAI_ENDPOINT)
       AZURE_OPENAI_API_KEY: $(AZURE_OPENAI_API_KEY)
 
   # ---------------------------------------------------------------------------
-  # 4. Publish Word document as a downloadable pipeline artifact
+  # 4. Commit the cache back to the repo
+  # Without this, the cache folder starts empty on every run — this pipeline
+  # runs on an ephemeral agent, so nothing survives between runs unless it's
+  # pushed back to git. Committing it here means unchanged content (AI
+  # summaries and rendered diagrams alike) is skipped on the next run instead
+  # of re-bought/re-rendered from scratch.
+  #
+  # Requires step 0's persistCredentials, and the ADO Build Service account
+  # having Contribute permission on this repo (see setup note above) — this
+  # step no-ops safely if there's nothing to commit, but the push will fail
+  # with a permissions error if Contribute hasn't been granted.
+  # ---------------------------------------------------------------------------
+  - script: |
+      git config user.email "powerautodocs-pipeline@$(System.TeamProject).local"
+      git config user.name "PowerAutoDocs Pipeline"
+      git add -f PowerAutoDocs/.powerautodocs-cache/
+      if git diff --cached --quiet; then
+        echo "No cache changes to commit"
+      else
+        git commit -m "chore: update powerautodocs cache [skip ci]"
+        git push origin HEAD:$(Build.SourceBranchName)
+      fi
+    displayName: Commit cache
+    workingDirectory: $(Build.SourcesDirectory)
+
+  # ---------------------------------------------------------------------------
+  # 5. Publish Word document as a downloadable pipeline artifact
   # Remove this step if you are not generating a Word document (output.word: false)
   # ---------------------------------------------------------------------------
   - task: PublishPipelineArtifact@1

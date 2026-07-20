@@ -12,7 +12,7 @@
 // is a plain hand-written object passed in as a parameter.
 //
 // configDir is always a real mkdtemp dir — the cache file must never land in the
-// repo, and the repo's own .powerautodocs-ai-cache.json holds client data.
+// repo, and the repo's own .powerautodocs-cache/.powerautodocs-ai-cache.json holds client data.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
@@ -37,6 +37,7 @@ import {
   aWebResource,
 } from '../fixtures/ir.js';
 import { aConfig } from '../fixtures/config.js';
+import { DEFAULT_CACHE_DIR } from '../../src/config/index.js';
 
 // -----------------------------------------------
 // Harness
@@ -48,7 +49,7 @@ let summary: RunSummary;
 
 beforeEach(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), 'padocs-ai-'));
-  cachePath = path.join(dir, '.powerautodocs-ai-cache.json');
+  cachePath = path.join(dir, DEFAULT_CACHE_DIR, '.powerautodocs-ai-cache.json');
   summary = createSummary();
   // The summariser narrates every kind it processes.
   vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -132,8 +133,10 @@ interface CacheEntry { hash: string; summary: string; generatedAt: string }
 const readCache = (p = cachePath): Record<string, CacheEntry> =>
   JSON.parse(fs.readFileSync(p, 'utf-8'));
 
-const writeCache = (cache: Record<string, CacheEntry>, p = cachePath): void =>
+const writeCache = (cache: Record<string, CacheEntry>, p = cachePath): void => {
+  fs.mkdirSync(path.dirname(p), { recursive: true });
   fs.writeFileSync(p, JSON.stringify(cache, null, 2), 'utf-8');
+};
 
 const anEntry = (over: Partial<CacheEntry> = {}): CacheEntry => ({
   hash: 'deadbeef-not-a-real-hash',
@@ -894,6 +897,7 @@ describe('enrichWithAiSummaries — cache pruning', () => {
 
 describe('enrichWithAiSummaries — cache file', () => {
   it('warns and starts empty on an unparseable cache file rather than failing the run', async () => {
+    fs.mkdirSync(path.dirname(cachePath), { recursive: true });
     fs.writeFileSync(cachePath, '{ this is not json', 'utf-8');
     const flow = aFlow();
     const provider = aFakeProvider(() => 'Summary.');
@@ -921,6 +925,7 @@ describe('enrichWithAiSummaries — cache file', () => {
     // the same clause. Now rejects the array, starts from an empty object
     // instead, and the run's writes land normally — the file self-heals into
     // a valid object cache on the very next save.
+    fs.mkdirSync(path.dirname(cachePath), { recursive: true });
     fs.writeFileSync(cachePath, '[]', 'utf-8');
     const flow = aFlow();
     const provider = aFakeProvider(() => 'Summary.');

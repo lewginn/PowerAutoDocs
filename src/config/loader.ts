@@ -18,6 +18,13 @@ const DEFAULT_EXCLUDED_COLUMNS = [
   'versionnumber',
 ];
 
+/**
+ * Single folder both caches (AI summaries + rendered diagrams) live under by
+ * default. One folder to commit back to the repo, instead of the AI cache
+ * and diagram cache landing in two unrelated places.
+ */
+export const DEFAULT_CACHE_DIR = '.powerautodocs-cache';
+
 export const CONFIG_DEFAULTS: DocGenConfig = {
   solutions: [
     {
@@ -77,9 +84,24 @@ export const CONFIG_DEFAULTS: DocGenConfig = {
       plugins: false,
       webResources: false,
     },
-    cacheFile: '.powerautodocs-ai-cache.json',
+    // No cacheFile default — leaving it unset means the AI cache resolves
+    // through cache.dir below (see resolveCacheDir). Setting cacheFile here
+    // would always override cache.dir for the AI cache specifically.
+  },
+  cache: {
+    dir: DEFAULT_CACHE_DIR,
   },
 };
+
+/**
+ * Resolves the folder both caches (AI summaries + rendered diagrams) live
+ * under, relative to the config file's directory — never `process.cwd()`,
+ * so it stays correct regardless of what directory a command happens to run
+ * from.
+ */
+export function resolveCacheDir(config: DocGenConfig, configDir: string): string {
+  return path.resolve(configDir, config.cache?.dir ?? DEFAULT_CACHE_DIR);
+}
 
 /**
  * Deep merge — right side wins, arrays are replaced not concatenated.

@@ -15,7 +15,7 @@
 //   * Diagrams: output.wordDiagrams is false in every config built here, AND
 //     POWERAUTODOCS_CHROME_PATH is stubbed to a path that does not exist, so
 //     resolveChromeExecutable() throws before any launch. afterEach then proves
-//     the real .powerautodocs-diagram-cache/ (client data, in this repo) was
+//     the real .powerautodocs-cache/diagrams/ (client data, in this repo) was
 //     neither created nor touched.
 //   * Network: main() calls publishToWiki(config.wiki, pages) with no injectable
 //     fetch, so the only safe wiki configs are ones that stop before the request.
@@ -38,10 +38,11 @@ import * as path from 'path';
 import * as yaml from 'js-yaml';
 import { fileURLToPath } from 'url';
 import { main } from '../src/index.js';
+import { DEFAULT_CACHE_DIR } from '../src/config/index.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CONTOSO = path.join(HERE, 'fixtures', 'solutions', 'ContosoDemo');
-const DIAGRAM_CACHE = path.join(process.cwd(), '.powerautodocs-diagram-cache');
+const DIAGRAM_CACHE = path.join(process.cwd(), DEFAULT_CACHE_DIR, 'diagrams');
 
 /** Entry names of the diagram cache, or null when it does not exist. */
 const readCache = (): string[] | null =>
@@ -663,7 +664,7 @@ describe('main — AI enrichment', () => {
     await main(writeConfig(baseConfig()));
 
     expect(output()).not.toContain('AI Enrichment');
-    expect(fs.existsSync(path.join(dir, '.powerautodocs-ai-cache.json'))).toBe(false);
+    expect(fs.existsSync(path.join(dir, DEFAULT_CACHE_DIR, '.powerautodocs-ai-cache.json'))).toBe(false);
   });
 
   it('reports a failing enrichment run as a warning without failing the build', async () => {

@@ -46,11 +46,11 @@ full autonomy boundary.
 ## Never — no exceptions
 
 - **Never commit client data.** `output/`, `unpacked/`, `dev.log`, `doc-gen.config.yml`,
-  `.powerautodocs-ai-cache.json` and `.powerautodocs-diagram-cache/` all hold real client
-  solution content. They are gitignored — keep it that way. Never paste their contents into
-  a commit, PR, issue, or any external service. The package was renamed from `powerautodoc`
-  after an accidental client data exposure; that is why this rule is absolute rather than
-  a preference.
+  and `.powerautodocs-cache/` (AI summaries + rendered diagrams, `cache.dir`) all hold real
+  client solution content. They are gitignored — keep it that way. Never paste their contents
+  into a commit, PR, issue, or any external service. The package was renamed from
+  `powerautodoc` after an accidental client data exposure; that is why this rule is absolute
+  rather than a preference.
 
 - **Never break the IR contract.** Parsers only *produce* IR; renderers only *consume* it;
   neither knows the other exists. Field names on built IR types are a public contract —

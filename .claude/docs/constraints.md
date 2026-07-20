@@ -25,12 +25,11 @@ These paths exist on disk right now and all contain **real client material**. Ev
 
 | Path | Contents | Ignored at |
 |------|----------|-----------|
-| `doc-gen.config.yml` | **A live 84-character ADO PAT** (`:215`) plus client org/project names | `.gitignore:38` (`*doc-gen.config.yml`) |
+| `doc-gen.config.yml` | **A live 84-character ADO PAT** (`:215`) plus client org/project names | `.gitignore:45` (`*doc-gen.config.yml`) |
 | `unpacked/` | 8 real client solutions, unpacked | `.gitignore:10` |
 | `output/` | Generated client docs (`.docx`, `.pdf`, markdown) | `.gitignore:9` |
 | `dev.log` | Full run output — client component names throughout | `.gitignore:14` (`*.log`) |
-| `.powerautodocs-ai-cache.json` | 57 entries of real client flow names + AI summaries | `.gitignore:44` |
-| `.powerautodocs-diagram-cache/` | 23 rendered PNGs of client ERDs and flows | `.gitignore:47` |
+| `.powerautodocs-cache/` (`cache.dir`) | Real client flow names + AI summaries, plus rendered PNGs of client ERDs and flows | `.gitignore:53` |
 
 The rules:
 

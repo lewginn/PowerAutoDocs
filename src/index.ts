@@ -423,6 +423,7 @@ export async function main(configDir?: string): Promise<void> {
     try {
       await buildWordDocument(
         config,
+        configDir ?? process.env.DOC_GEN_CONFIG_DIR ?? process.cwd(),
         allSolutions,
         mergedSolution,
         allFlows,

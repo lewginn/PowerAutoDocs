@@ -187,9 +187,11 @@ An unparseable cache file warns and starts empty rather than failing the run (`a
 
 ### The diagram cache is the same idiom — with one asymmetry
 
-`renderDiagramPng` caches PNGs to `.powerautodocs-diagram-cache/` keyed by `sha256(mermaidSource).slice(0,16)` (`mermaidRenderer.ts:96-98, 120-127`). A cache hit never launches the browser, which is why most runs never pay for a browser at all. Both caches key on **content**, never mtime or filename.
+`renderDiagramPng` caches PNGs to `<cache.dir>/diagrams/` keyed by `sha256(mermaidSource).slice(0,16)` (`mermaidRenderer.ts:96-98, 120-127`). A cache hit never launches the browser, which is why most runs never pay for a browser at all. Both caches key on **content**, never mtime or filename.
 
-**But the diagram cache has no `PROMPT_VERSION` equivalent.** The key is the Mermaid source alone. So changing `SCALE_FACTOR`, the viewport, or `backgroundColor` **does not invalidate anything** — stale PNGs at the old resolution persist until you manually delete the cache directory. An agent tuning render settings will see no change and conclude the edit didn't work. This asymmetry is a known rough edge, not a designed feature.
+Both caches used to resolve independently — the AI cache configurable and config-dir-relative, the diagram cache a hardcoded constant resolved against `process.cwd()` with no config field at all — so they landed in different places whenever cwd ≠ config dir. `resolveCacheDir(config, configDir)` (`loader.ts`) is now the single resolution point both go through, driven by top-level `cache.dir` (default `.powerautodocs-cache`), always relative to the config file's directory.
+
+**But the diagram cache still has no `PROMPT_VERSION` equivalent.** The key is the Mermaid source alone. So changing `SCALE_FACTOR`, the viewport, or `backgroundColor` **does not invalidate anything** — stale PNGs at the old resolution persist until you manually delete the cache directory. An agent tuning render settings will see no change and conclude the edit didn't work. This asymmetry is a known rough edge, not a designed feature.
 
 ---
 

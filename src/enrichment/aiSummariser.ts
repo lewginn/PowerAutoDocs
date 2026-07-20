@@ -22,6 +22,7 @@ import type {
   DocGenConfig,
   AiEnrichmentConfig,
 } from '../config/schema.js';
+import { resolveCacheDir } from '../config/loader.js';
 import type {
   FlowModel, ClassicWorkflowModel, BusinessRuleModel,
   PluginAssemblyModel, WebResourceModel,
@@ -401,7 +402,11 @@ export async function enrichWithAiSummaries(
   const ai = config.aiEnrichment;
   if (!ai || !ai.enabled) return;
 
-  const cachePath = path.resolve(configDir, ai.cacheFile ?? '.powerautodocs-ai-cache.json');
+  // ai.cacheFile is an advanced override; the common case resolves through
+  // cache.dir so the AI cache lands next to the diagram cache.
+  const cachePath = ai.cacheFile
+    ? path.resolve(configDir, ai.cacheFile)
+    : path.join(resolveCacheDir(config, configDir), '.powerautodocs-ai-cache.json');
   const cache = loadCache(cachePath);
 
   let provider: AiProvider;

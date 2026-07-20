@@ -44,13 +44,16 @@ Thumbs.db
 #yml config file, required for client project, but should not be committed to source control as it may contain environment-specific settings
 *doc-gen.config.yml
 
-# AI enrichment cache — local/per-client artifact (contains real component names
-# and AI-generated summaries from the client's solution). Regenerates automatically.
-# Note: the architecture decision to "commit the cache for PR review" applies to a
-# *client project repo* using powerautodocs, not to this tool's own repo.
+# AI summary + rendered-diagram cache (cache.dir, default .powerautodocs-cache/) —
+# local/per-client artifact (contains real component names, AI-generated
+# summaries, and rendered diagrams from the client's solution). Regenerates
+# automatically. Note: the architecture decision to "commit the cache for PR
+# review" applies to a *client project repo* using powerautodocs, not to this
+# tool's own repo.
+.powerautodocs-cache/
+# Pre-unification cache paths — no longer written, kept ignored in case an
+# older run left one behind locally.
 .powerautodocs-ai-cache.json
-
-# Rendered Mermaid diagram cache — same reasoning as the AI cache above.
 .powerautodocs-diagram-cache/
 
 # Claude Code project instructions (.claude/CLAUDE.md + .claude/docs/) are
