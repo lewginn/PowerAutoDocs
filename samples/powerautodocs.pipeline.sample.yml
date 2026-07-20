@@ -22,8 +22,13 @@
 #   3. Grant the ADO Build Service account "Contribute" permission on this
 #      repo, so step 4 can push the cache commit back:
 #      Project Settings → Repos → your repo → Security → find "<Project> Build
-#      Service (<Org>)" → set Contribute to Allow. Without this the push in
-#      step 4 fails with a permissions error (the run itself still succeeds).
+#      Service (<Org>)" → set Contribute to Allow. Without it the push in step
+#      4 is rejected with:
+#        TF401027: You need the Git 'GenericContribute' permission
+#      ("GenericContribute" is what Contribute is called on the wire.) The
+#      documentation is generated and published regardless — step 4 only
+#      persists the cache — and step 4 is continueOnError, so the run stays
+#      green and logs a warning naming this permission.
 #
 # Optional pipeline variables:
 #   POWERAUTODOCS_VERSION — npm version tag to pin (default: latest)
@@ -122,22 +127,54 @@ steps:
   # of re-bought/re-rendered from scratch.
   #
   # Requires step 0's persistCredentials, and the ADO Build Service account
-  # having Contribute permission on this repo (see setup note above) — this
-  # step no-ops safely if there's nothing to commit, but the push will fail
-  # with a permissions error if Contribute hasn't been granted.
+  # having Contribute permission on this repo (see setup note above).
+  #
+  # The push target is $(Build.SourceBranch) — the FULL ref, refs/heads/x — and
+  # not $(Build.SourceBranchName), which is only the last path segment. On a
+  # branch named `feature/docs`, SourceBranchName is just `docs`, so the cache
+  # would be pushed to a brand-new `docs` branch with no error at all. That is
+  # invisible on `main` (where both forms give `main`) and silently wrong on any
+  # nested branch name.
+  #
+  # continueOnError: the cache is a re-run optimisation, not an output. If the
+  # push fails, the documentation was still generated and published — failing
+  # the whole pipeline here reports a red run for something that cost nothing
+  # but time. The step still prints WHY it failed, so it does not hide the
+  # problem (missing Contribute permission being the usual cause).
   # ---------------------------------------------------------------------------
   - script: |
+      set -o pipefail
       git config user.email "powerautodocs-pipeline@$(System.TeamProject).local"
       git config user.name "PowerAutoDocs Pipeline"
       git add -f PowerAutoDocs/.powerautodocs-cache/
+
       if git diff --cached --quiet; then
         echo "No cache changes to commit"
-      else
-        git commit -m "chore: update powerautodocs cache [skip ci]"
-        git push origin HEAD:$(Build.SourceBranchName)
+        exit 0
       fi
+
+      git commit -m "chore: update powerautodocs cache [skip ci]"
+
+      # Another commit may have landed on the branch while documentation was
+      # generating (a run over several solutions is not quick). Without this a
+      # concurrent push makes this one a non-fast-forward and it is rejected.
+      git fetch origin "$(Build.SourceBranch)"
+      git rebase FETCH_HEAD || {
+        echo "##vso[task.logissue type=warning]Could not rebase onto $(Build.SourceBranch) — skipping cache push."
+        git rebase --abort || true
+        exit 0
+      }
+
+      if ! git push origin "HEAD:$(Build.SourceBranch)"; then
+        echo "##vso[task.logissue type=warning]Cache push failed. Documentation was still generated and published."
+        echo "##vso[task.logissue type=warning]Most likely cause: the '<Project> Build Service (<Org>)' account lacks Contribute on this repo."
+        echo "##vso[task.logissue type=warning]Grant it under Project Settings -> Repos -> <repo> -> Security."
+        exit 1
+      fi
+      echo "Cache pushed to $(Build.SourceBranch)"
     displayName: Commit cache
     workingDirectory: $(Build.SourcesDirectory)
+    continueOnError: true
 
   # ---------------------------------------------------------------------------
   # 5. Publish Word document as a downloadable pipeline artifact
