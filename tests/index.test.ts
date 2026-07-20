@@ -3,7 +3,10 @@
 // main() is the whole pipeline: flags -> config -> per-solution parse -> render ->
 // publish -> summary -> exit code. It has never been tested, because importing this
 // module used to run it. The isCliEntry guard at the bottom of src/index.ts fixed
-// that, and the first test in this file is the regression guard for it.
+// that, and the two tests in the 'module import' describe guard it — in BOTH
+// directions. That pairing is deliberate: the import-must-not-run half is equally
+// satisfied by a guard that is permanently false, which is what shipped in 1.6.0
+// and made the CLI a silent no-op under npx. Neither half is sufficient alone.
 //
 // What is asserted. main() keeps its state (the RunSummary) entirely private, so
 // there is nothing to return-value-check. The observable contract is what a client
@@ -32,6 +35,7 @@
 // read; tests that need to mutate a solution copy it into the tmpdir first.
 
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest';
+import { spawnSync } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -174,6 +178,53 @@ describe('module import', () => {
     expect(warns).toEqual([]);
     expect(errors).toEqual([]);
     expect(exit).not.toHaveBeenCalled();
+  });
+
+  // The test above guards ONE direction: importing must not run main(). It was the
+  // only guard on isCliEntry, and it is satisfied just as well by a guard that is
+  // permanently false — which is exactly what shipped in 1.6.0. isCliEntry compared
+  // import.meta.url to a raw process.argv[1]; under npx, argv[1] is the .bin symlink
+  // npm creates and import.meta.url is the real path it resolves to, so they never
+  // matched. main() never ran, the CLI exited 0 having printed nothing, and every
+  // client's pipeline reported success while generating no documentation.
+  //
+  // This is the other direction, and the reason it invokes a real subprocess through
+  // a real symlink: nothing in-process can catch it. The bug lives entirely in the
+  // relationship between argv[1] and import.meta.url, and both are set by how node
+  // was launched. Importing the module (as every other test here does) never
+  // evaluates that relationship the way a CLI invocation does.
+  it('runs main() when invoked as a CLI through a symlink, as npx does', () => {
+    // tsx runs src directly, so this needs no build step and cannot go stale against
+    // a dist/ someone forgot to rebuild. argv[1] is whatever path was typed — the
+    // symlink — while import.meta.url resolves through it, reproducing the npx shape.
+    const tsx = path.join(HERE, '..', 'node_modules', '.bin', 'tsx');
+    const binDir = path.join(dir, 'bin');
+    fs.mkdirSync(binDir, { recursive: true });
+    const link = path.join(binDir, 'powerautodocs');
+    fs.symlinkSync(path.join(HERE, '..', 'src', 'index.ts'), link);
+
+    // cwd is the empty tmpdir: no doc-gen.config.yml, so main() falls back to
+    // defaults, fails to find ./unpacked, and exits 1. That non-zero exit IS the
+    // assertion — the broken guard exited 0 here, because it did nothing at all.
+    // beforeEach stubs DOC_GEN_CONFIG_DIR to '', which would survive main()'s ?? and
+    // be passed to loadConfig as an empty path. Delete the key outright so the child
+    // takes the intended process.cwd() branch — the tmpdir, which has no config.
+    const childEnv = { ...process.env };
+    delete childEnv.DOC_GEN_CONFIG_DIR;
+
+    const res = spawnSync(process.execPath, [tsx, link], {
+      cwd: dir,
+      encoding: 'utf8',
+      env: childEnv,
+    });
+
+    const output = `${res.stdout}${res.stderr}`;
+
+    // Assert on evidence main() actually executed, not merely on the exit code: a
+    // process that crashes on startup also exits non-zero while printing none of this.
+    expect(output).toContain('Processing:');
+    expect(output).toContain('Run Summary');
+    expect(res.status).toBe(1);
   });
 });
 
