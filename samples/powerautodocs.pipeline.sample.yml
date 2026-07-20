@@ -22,8 +22,13 @@
 #   3. Grant the ADO Build Service account "Contribute" permission on this
 #      repo, so step 4 can push the cache commit back:
 #      Project Settings → Repos → your repo → Security → find "<Project> Build
-#      Service (<Org>)" → set Contribute to Allow. Without this the push in
-#      step 4 fails with a permissions error (the run itself still succeeds).
+#      Service (<Org>)" → set Contribute to Allow. Without it the push in step
+#      4 is rejected with:
+#        TF401027: You need the Git 'GenericContribute' permission
+#      ("GenericContribute" is what Contribute is called on the wire.) The
+#      documentation is generated and published regardless — step 4 only
+#      persists the cache — and step 4 is continueOnError, so the run stays
+#      green and logs a warning naming this permission.
 #
 # Optional pipeline variables:
 #   POWERAUTODOCS_VERSION — npm version tag to pin (default: latest)
