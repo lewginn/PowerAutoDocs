@@ -78,9 +78,17 @@ steps:
   # Replaces the REDACTED placeholder in doc-gen.config.yml with the actual
   # PAT from the pipeline secret variable at runtime.
   # The committed config file always contains REDACTED — never a real token.
+  #
+  # Two details here are deliberate, and both break silently if "simplified":
+  #   * The delimiter is |, not /. ADO PATs are base64 (A-Za-z0-9+/=), so a PAT
+  #     containing / closes the s/// expression early and sed aborts with
+  #     "unknown option to `s'" — leaving the literal REDACTED in place.
+  #   * The PAT is read as the shell variable $WIKI_PAT (from the env block
+  #     below), not the ADO macro $(WIKI_PAT). A macro is textually pasted into
+  #     the generated script file on the agent; the env var is not.
   # ---------------------------------------------------------------------------
   - script: |
-      sed -i "s/REDACTED/$(WIKI_PAT)/g" $(DOC_GEN_CONFIG_DIR)/doc-gen.config.yml
+      sed -i "s|REDACTED|${WIKI_PAT}|g" $(DOC_GEN_CONFIG_DIR)/doc-gen.config.yml
       echo "PAT injected into config"
     displayName: Inject wiki PAT
     env:
