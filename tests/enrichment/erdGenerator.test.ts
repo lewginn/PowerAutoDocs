@@ -64,4 +64,26 @@ describe('generateERDiagram', () => {
     });
     expect(dsl).toBe('');
   });
+
+  it('labels relationships with an empty string, never a blank space', () => {
+    // Not cosmetic. A space is a non-empty text node with no glyphs: Mermaid 11
+    // lays out a label for it, measures a zero-width box, and emits
+    //   <g> attribute transform: Expected number, "translate(undefined, NaN)"
+    // twice per relationship while rendering the ERD into the Word document. On a
+    // real client solution that is a wall of console errors in the pipeline log,
+    // in the middle of a run that otherwise reports success — which reads as a
+    // broken build. "" produces no label element at all.
+    //
+    // Both forms parse under Mermaid 8.14 (verified against that version), which
+    // is what the ADO Wiki renders this same DSL with, so the wiki is unaffected
+    // either way. This assertion exists to stop " " coming back as a "harmless"
+    // tidy-up of the empty label.
+    const dsl = generateERDiagram(TABLES, 'contoso');
+
+    expect(dsl).toContain('||--o{');
+    expect(dsl).not.toMatch(/:\s*" "/);
+    for (const line of dsl.split('\n').filter(l => l.includes('||--o{'))) {
+      expect(line).toMatch(/: ""$/);
+    }
+  });
 });
