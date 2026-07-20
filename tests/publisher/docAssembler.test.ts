@@ -8,7 +8,7 @@
 //
 // BROWSER SAFETY. buildWordDocument calls resolveChromeExecutable() and, when it
 // succeeds, wires a renderer that launches a real Chrome and writes PNGs into
-// .powerautodocs-diagram-cache/ — a real client-data path that exists in this
+// .powerautodocs-cache/diagrams/ — a real client-data path that exists in this
 // repo. Chrome IS installed on a dev machine, so "the test didn't ask for
 // diagrams" is not on its own a guarantee. Two independent belts here:
 //
@@ -39,6 +39,7 @@ import type {
   ModelDrivenAppModel, ConnectionReferenceModel, PowerPagesModel,
 } from '../../src/ir/index.js';
 import { aConfig } from '../fixtures/config.js';
+import { DEFAULT_CACHE_DIR } from '../../src/config/index.js';
 import {
   aTable, aColumn, aView, aForm, aRelationship, aFlow, aPluginAssembly,
   aWebResource, aSecurityRole, aBusinessRule, aClassicWorkflow, aGlobalChoice,
@@ -46,7 +47,7 @@ import {
   aSolution,
 } from '../fixtures/ir.js';
 
-const DIAGRAM_CACHE = path.join(process.cwd(), '.powerautodocs-diagram-cache');
+const DIAGRAM_CACHE = path.join(process.cwd(), DEFAULT_CACHE_DIR, 'diagrams');
 
 let dir: string;
 let cacheSnapshot: string[] | null;
@@ -97,6 +98,7 @@ interface Args {
   modelDrivenApps?: ModelDrivenAppModel[];
   powerPages?: PowerPagesModel[];
   outputPath?: string;
+  configDir?: string;
 }
 
 /** Belt 2: diagrams off unless a test is deliberately exercising the warn path. */
@@ -107,6 +109,7 @@ async function build(args: Args = {}): Promise<string> {
   const outputPath = args.outputPath ?? path.join(dir, 'out.docx');
   await buildWordDocument(
     args.config ?? noDiagrams(),
+    args.configDir ?? process.cwd(),
     solutions,
     args.mergedSolution ?? solutions[0],
     args.flows ?? [],

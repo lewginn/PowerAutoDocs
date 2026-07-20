@@ -194,7 +194,7 @@ Second tier of ERD filtering. The first tier is publisher-prefix + `parse.exclud
 | `components.businessRules` | boolean | `false` | |
 | `components.plugins` | boolean | `false` | |
 | `components.webResources` | boolean | `false` | JavaScript resources only — filtered at aiSummariser.ts (`resourceType === 'JavaScript'`). |
-| `cacheFile` | string? | `.powerautodocs-ai-cache.json` | Resolved **relative to the config dir** (aiSummariser.ts:346). |
+| `cacheFile` | string? | *(unset)* | Advanced override — bypasses `cache.dir` for the AI cache specifically. Resolved relative to the config dir. Most users should use top-level `cache.dir` instead — see [Caches](#caches). |
 
 All AI component toggles default `false` deliberately — they deliberately do not mirror `components` (schema.ts:74). Enrichment costs money; opt-in is per-component.
 
@@ -282,11 +282,14 @@ Exactly four are read anywhere in `src/` (verified by grepping `process.env`).
 
 From `samples/powerautodocs.pipeline.sample.yml`:
 
-- Node `20.x` (`NodeTool@0`), `ubuntu-latest` agent.
+- Node `24.x` (`NodeTool@0`), `ubuntu-latest` agent.
+- Step 0 checks out with `persistCredentials: true` — needed so step 4 can push back to the repo.
+- `doc-gen.config.yml` lives in a `PowerAutoDocs/` folder in the client repo. A `DOC_GEN_CONFIG_DIR` pipeline variable points there; step 3 maps it through to the process env, which is what `loadConfig` (and the cache resolution below) reads instead of `process.cwd()`. `solutions[].path` and `output.path` stay relative to the repo root (the command still runs from `$(Build.SourcesDirectory)`) — only the config file and its cache folder live under `PowerAutoDocs/`.
 - `POWERAUTODOCS_VERSION` pipeline variable, defaulting to `latest`; the run is `npx powerautodocs@$(POWERAUTODOCS_VERSION)`. Set it in the ADO UI to pin a version.
-- Step 2 injects the PAT: `sed -i "s/REDACTED/$(WIKI_PAT)/g" doc-gen.config.yml`.
+- Step 2 injects the PAT: `sed -i "s/REDACTED/$(WIKI_PAT)/g" $(DOC_GEN_CONFIG_DIR)/doc-gen.config.yml`.
 - Step 3 maps AI secrets through an explicit `env:` block. **ADO secret variables are not auto-exposed to script steps** — without the `env:` block the provider throws "environment variable X is not set".
-- Step 4 publishes `output/solution-documentation.docx` as a pipeline artifact.
+- Step 4 commits the cache folder (`PowerAutoDocs/.powerautodocs-cache/`, `cache.dir`) back to the branch, so ADO's ephemeral agent doesn't start cold every run — see [Caches](#caches) below. Requires the ADO Build Service account to have Contribute permission on the repo; otherwise the push fails (the doc generation itself still succeeds).
+- Step 5 publishes `output/solution-documentation.docx` as a pipeline artifact.
 
 ### PAT handling
 
@@ -298,20 +301,26 @@ From `samples/powerautodocs.pipeline.sample.yml`:
 
 ## Caches
 
-Two caches, same idiom: hash the input, look for the hash, only do the expensive thing on a miss. Both key on **content**, never on mtime or filename.
+Two caches, one folder, same idiom: hash the input, look for the hash, only do the expensive thing on a miss. Both key on **content**, never on mtime or filename.
+
+`cache.dir` (`CacheConfig`, schema.ts) sets the shared folder, default `.powerautodocs-cache` (`DEFAULT_CACHE_DIR`, loader.ts), always resolved against **config dir** via `resolveCacheDir(config, configDir)` (loader.ts) — never `process.cwd()`, so both land in the same place regardless of what directory a command happens to run from.
 
 | | AI summary cache | Diagram cache |
 |---|---|---|
-| Location | `aiEnrichment.cacheFile`, default `.powerautodocs-ai-cache.json` | `.powerautodocs-diagram-cache/` (`DIAGRAM_CACHE_DIR`, docAssembler.ts:50) |
-| Resolved against | **config dir** (aiSummariser.ts:346) — honours `DOC_GEN_CONFIG_DIR` | **`process.cwd()`** (mermaidRenderer.ts:121) |
-| Configurable | yes | **no** — hardcoded |
+| Location | `<cache.dir>/.powerautodocs-ai-cache.json` — or `aiEnrichment.cacheFile` if set, an advanced override that bypasses `cache.dir` entirely | `<cache.dir>/diagrams/` (docAssembler.ts) |
 | Key | `{type}:{uniqueName}`, e.g. `flows:My Flow Name` (aiSummariser.ts:54) | `<sha256(mermaidSource).slice(0,16)>.png` (mermaidRenderer.ts:96-98) |
 | Entry | `{ hash, summary, generatedAt }` (aiSummariser.ts:44-51) | the PNG bytes |
 | Hash input | `sha256("v{PROMPT_VERSION}:" + JSON.stringify(summarisableView))` (aiSummariser.ts:74-77) | `sha256(mermaid DSL)` only |
 | Versioned | **yes** — `PROMPT_VERSION` (aiSummariser.ts:38, currently `2`) | **no** |
 | Escape hatch | `--regenerate-ai` | delete the directory |
 
-**The two caches land in different places when `DOC_GEN_CONFIG_DIR` ≠ cwd.** The diagram cache then misses on every run and re-renders everything. Not by design; worth an issue.
+Before this was unified, the diagram cache was a hardcoded constant resolved against `process.cwd()` with no config representation at all, while the AI cache was independently configurable and config-dir-relative — the two landed in different places whenever cwd ≠ config dir. `resolveCacheDir` is the single resolution point both now go through.
+
+### Persisting the cache in ADO
+
+Ephemeral pipeline agents don't retain disk between runs — without extra work, the cache starts empty every single execution, meaning **every run pays full AI cost regardless of how little the solution changed**. `samples/powerautodocs.pipeline.sample.yml` addresses this with a commit-back step (step 4): after generation, it force-adds the whole cache folder, commits, and pushes to the run's branch. This is the **client repo's** copy of the pipeline, and client repos are not bound by this repo's own `.gitignore` — see PAT handling above and `.claude/CLAUDE.md`'s "never commit client data" rule, which is scoped to *this* repo, not the client's.
+
+Consequence worth knowing: since the diagram cache is committed as binary PNGs, the client repo's history grows a binary diff on every run that changes any diagram. The two caches share one folder by design now (that's the whole point — one thing to commit, not two), so this is an all-or-nothing tradeoff: keep both, or drop the `git add -f` line from step 4 entirely and let the cache be purely local/best-effort (no cross-run persistence at all).
 
 ### What invalidates the AI cache
 
@@ -325,11 +334,11 @@ The *summarisable view* is the single source of truth for both the hash and the 
 
 ### What invalidates the diagram cache
 
-Only the Mermaid source text. There is **no `PROMPT_VERSION` equivalent**: changing `SCALE_FACTOR` (mermaidRenderer.ts:34, currently `3`) or `renderMermaid`'s viewport/`backgroundColor` options invalidates **nothing**. Stale-resolution PNGs persist until you delete `.powerautodocs-diagram-cache/` by hand. If a render-settings change appears to have done nothing, this is why.
+Only the Mermaid source text. There is **no `PROMPT_VERSION` equivalent**: changing `SCALE_FACTOR` (mermaidRenderer.ts:34, currently `3`) or `renderMermaid`'s viewport/`backgroundColor` options invalidates **nothing**. Stale-resolution PNGs persist until you delete `<cache.dir>/diagrams/` by hand. If a render-settings change appears to have done nothing, this is why.
 
 ### Committed or not
 
-Both caches are **gitignored in this repo** (`.gitignore:44`, `.gitignore:47`) — the local copies contain real client component names, AI summaries and rendered client ERDs. The "commit the cache so re-runs are deterministic and diffable in PR review" decision applies to a **client project repo consuming powerautodocs**, not here. `.gitignore:41-43` spells this out. Never quote cache contents in an issue or PR body.
+The cache folder is **gitignored in this repo** (`.gitignore` — `.powerautodocs-cache/`) — the local copy contains real client component names, AI summaries and rendered client ERDs. The "commit the cache so re-runs are deterministic and diffable in PR review" decision applies to a **client project repo consuming powerautodocs**, not here. Never quote cache contents in an issue or PR body.
 
 ---
 
@@ -356,12 +365,11 @@ All four `dev*` scripts redirect stdout **and** stderr into `dev.log` (gitignore
 | `output/` | markdown, `.docx`, `.pdf` | gitignored — real client docs |
 | `unpacked/` | pac-unpacked client solutions | gitignored — real client data |
 | `dev.log` | full run output | gitignored |
-| `.powerautodocs-ai-cache.json` | AI summaries + client component names | gitignored |
-| `.powerautodocs-diagram-cache/` | rendered client ERD/flow PNGs | gitignored |
+| `.powerautodocs-cache/` (`cache.dir`) | AI summaries + client component names, rendered ERD/flow PNGs | gitignored |
 | `doc-gen.config.yml` | local config, **live PAT** | gitignored |
 | `dist/` | build output | gitignored |
 
-`npm test` (Vitest, 1113 tests) covers all 17 parsers, all 14 renderers, `MarkdownSerializer`, `DocxSerializer`, `wordTheme`, `erdGenerator`, `config/loader`, all four `publisher/*` modules, `logger`, `main()`, and the enrichment layer including the AI providers — see [roadmap.md](roadmap.md#open-work-outside-the-phase-plan). It does **not** touch `PdfSerializer`/`pdfAssembler` (deprecated, see the `output.pdf` row above) or a real-browser Mermaid launch — so no test exercises actual PDF byte output or a cold Puppeteer render. Passing tests are not a verified change. For what verification actually means here — including how to inspect the generated `.docx`/`.pdf` — see [process.md](process.md).
+`npm test` (Vitest, 1134 tests) covers all 17 parsers, all 14 renderers, `MarkdownSerializer`, `DocxSerializer`, `wordTheme`, `erdGenerator`, `config/loader`, all four `publisher/*` modules, `logger`, `main()`, and the enrichment layer including the AI providers — see [roadmap.md](roadmap.md#open-work-outside-the-phase-plan). It does **not** touch `PdfSerializer`/`pdfAssembler` (deprecated, see the `output.pdf` row above) or a real-browser Mermaid launch — so no test exercises actual PDF byte output or a cold Puppeteer render. Passing tests are not a verified change. For what verification actually means here — including how to inspect the generated `.docx`/`.pdf` — see [process.md](process.md).
 
 ---
 
@@ -425,8 +433,8 @@ Other details worth knowing:
 
 | File | What it is |
 |------|------------|
-| `samples/doc-gen.config.sample.yml` | The fully-annotated config clients copy into their repo root. |
-| `samples/powerautodocs.pipeline.sample.yml` | The ADO pipeline clients copy to `.azuredevops/powerautodocs.yml`. |
+| `samples/doc-gen.config.sample.yml` | The fully-annotated config clients copy into a `PowerAutoDocs/` folder in their repo. |
+| `samples/powerautodocs.pipeline.sample.yml` | The ADO pipeline clients copy to `PowerAutoDocs/powerautodocs.yml`. |
 
 These are what clients actually deploy. **Any schema change must be mirrored into `doc-gen.config.sample.yml`** or client deployments drift silently — mirroring it is part of the change, not a follow-up.
 

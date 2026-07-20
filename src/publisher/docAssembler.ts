@@ -12,6 +12,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import type { DocGenConfig } from '../config/index.js';
+import { resolveCacheDir } from '../config/index.js';
 import type {
   SolutionModel, FlowModel, PluginAssemblyModel, WebResourceModel,
   SecurityRoleModel, ClassicWorkflowModel, BusinessRuleModel, EnvironmentVariableModel,
@@ -48,11 +49,6 @@ import {
 
 type Block = Paragraph | Table | TableOfContents;
 
-// Cache directory for rendered Mermaid PNGs, keyed by content hash — same
-// "unchanged input, skip the work" pattern as the AI enrichment cache file.
-// Committable: unchanged diagrams across runs/machines never re-render.
-const DIAGRAM_CACHE_DIR = '.powerautodocs-diagram-cache';
-
 /**
  * Mermaid diagrams are skipped when rendering is unavailable (no local
  * Chrome/Edge found — see mermaidRenderer.ts). Renderers shared with the
@@ -80,6 +76,7 @@ async function push(
 
 export async function buildWordDocument(
   config: DocGenConfig,
+  configDir: string,
   solutions: SolutionModel[],
   mergedSolution: SolutionModel,
   flows: FlowModel[],
@@ -113,7 +110,10 @@ export async function buildWordDocument(
   if (config.output.wordDiagrams !== false) {
     try {
       resolveChromeExecutable();
-      renderMermaid = (code: string) => renderDiagramPng(code, DIAGRAM_CACHE_DIR);
+      // Same folder as the AI cache (cache.dir), under a "diagrams" subfolder
+      // — one folder to commit back to the repo instead of two.
+      const diagramCacheDir = path.join(resolveCacheDir(config, configDir), 'diagrams');
+      renderMermaid = (code: string) => renderDiagramPng(code, diagramCacheDir);
     } catch (err) {
       console.warn(`  ✗ Mermaid diagrams skipped in Word output — ${(err as Error).message}`);
     }

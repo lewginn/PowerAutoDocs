@@ -239,14 +239,14 @@ Then assert on the OOXML directly:
 ```bash
 python3 -c "
 d = open('/tmp/doc.xml').read()
-print('embedded images:', d.count('<a:blip'))     # → 23, matches .powerautodocs-diagram-cache/
+print('embedded images:', d.count('<a:blip'))     # → 23, matches <cache.dir>/diagrams/
 print('native list refs:', d.count('<w:numPr'))   # → 272; zero means bullets regressed to fake indents
 import re; print(re.findall(r'<w:t[^>]*>([^<]*)</w:t>', d)[:8])
 "
 ```
 
 - `word/numbering.xml` **present** ⇒ native Word lists survived. Its absence is the `60a5df4` regression: hand-rolled per-depth `indent` values are "a plain paragraph wearing a bullet costume" — no list semantics, so renderers lay them out however they like.
-- `<a:blip>` count should equal the PNG count in `.powerautodocs-diagram-cache/`.
+- `<a:blip>` count should equal the PNG count in `<cache.dir>/diagrams/`.
 - Count `<a:blip>` and `<w:numPr>` on `main` first, then compare. Absolute numbers mean little; deltas mean everything.
 
 **Do not verify `.docx` in macOS Pages.** Pages renders `.docx` unreliably — it mangles manual paragraph indents (it flattened the `60a5df4` bullet staircase into a near-vertical column). Ironically that made it useful *once*, as the canary that exposed the fake-bullet bug — but as a general check it will report failures that aren't real and hide ones that are. **Use real Word (or Word Online), or LibreOffice.**
@@ -337,10 +337,9 @@ Node **18 (Apr 2025) and 20 (Apr 2026) are both end-of-life.** 22 is supported u
 | `unpacked/` | Real client solutions, unpacked. Do not name them outside this working tree. |
 | `output/` | Generated client docs — `.docx` / `.pdf` |
 | `dev.log` | Full run output, client component names throughout |
-| `.powerautodocs-ai-cache.json` | 57 entries of real client flow names + AI summaries |
-| `.powerautodocs-diagram-cache/` | 23 rendered PNGs of client ERDs and flows |
+| `.powerautodocs-cache/` (`cache.dir`) | Real client flow names + AI summaries, plus rendered PNGs of client ERDs and flows |
 
-The "commit the AI cache so re-runs are diffable in PR review" decision applies to a **client project repo consuming powerautodocs**, not to this repo. Here it is ignored (`.gitignore:44`) precisely because it contains client names.
+The "commit the cache so re-runs are diffable in PR review" decision applies to a **client project repo consuming powerautodocs**, not to this repo. Here it is ignored (`.gitignore:53`) precisely because it contains client names.
 
 **`.gitignore` is the only guardrail and it works by path, not by content.** Pasting `dev.log` into an issue, quoting a cache entry in a PR body, or attaching an `output/*.docx` to a GitHub comment defeats it entirely. So does `git add -f`. Note also `unpackSolutions/` is not directory-ignored — only its `*.zip` contents are (`.gitignore:32`), so any other artifact dropped there is exposed. **Any new client-data-producing path needs a `.gitignore` entry before its first run.**
 

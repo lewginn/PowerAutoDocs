@@ -1,8 +1,15 @@
 # =============================================================================
 # doc-gen.config.yml — PowerAutoDocs configuration
 # =============================================================================
-# SETUP: Copy this file to your repo root and rename it to: doc-gen.config.yml
-# Remove ".sample" from the filename — powerautodocs looks for doc-gen.config.yml
+# SETUP: Copy this file into the PowerAutoDocs/ folder in your repo and rename
+# it to: doc-gen.config.yml (remove ".sample" — powerautodocs looks for that
+# exact filename). See samples/powerautodocs.pipeline.sample.yml for how the
+# pipeline points at it there via DOC_GEN_CONFIG_DIR.
+#
+# solutions[].path and output.path below are relative to wherever the pipeline
+# runs the command from (the repo root, in the sample pipeline) — not to this
+# file's own folder. Only cacheFile/cache.dir resolve relative to this file.
+#
 # Full documentation: https://github.com/lewginn/PowerAutoDocs
 # =============================================================================
 
@@ -29,7 +36,7 @@ solutions:
 # CLI flags --wiki, --word and --pdf override these settings at runtime.
 # -----------------------------------------------------------------------------
 output:
-  path: ./output                      # Local folder for generated files
+  path: ./output                      # Local folder for generated files (never committed — just a pipeline artifact)
 
   wiki: true                          # Publish to Azure DevOps Wiki
   word: true                          # Generate a Word (.docx) document
@@ -159,10 +166,8 @@ components:
 # Generates short AI summaries for selected component types and embeds them
 # on the relevant detail pages (hidden automatically when no summary exists).
 #
-# Cache-first: summaries are cached in `aiEnrichment.cacheFile` (JSON, commit
-# it to your repo) keyed by a hash of each component's content. Re-runs only
-# call the AI for components that changed — keeping output deterministic and
-# cost low. Bumping promptVersion internally forces a full regeneration.
+# Cache-first: summaries are cached (see CACHE below) keyed by a hash of each
+# component's content. Re-runs only call the AI for components that changed.
 #
 # Secrets follow the same pattern as wiki.pat/WIKI_PAT — name the env var here,
 # inject the real value via your ADO pipeline secret variables. Never commit
@@ -171,7 +176,6 @@ components:
 # aiEnrichment:
 #   enabled: true
 #   provider: anthropic                 # anthropic | azure-openai
-#   cacheFile: .powerautodocs-ai-cache.json
 #
 #   # Required when provider: anthropic
 #   anthropic:
@@ -194,6 +198,17 @@ components:
 #     businessRules: true
 #     plugins: true
 #     webResources: true
+
+
+# -----------------------------------------------------------------------------
+# CACHE (optional)
+# One folder for everything that makes re-runs cheap: AI summaries and
+# rendered diagrams. Commit it to your repo — that's what lets an unchanged
+# solution skip AI calls and diagram re-renders on the next pipeline run
+# instead of paying full cost every time. Resolved relative to this file.
+# -----------------------------------------------------------------------------
+# cache:
+#   dir: .powerautodocs-cache
 
 
 # -----------------------------------------------------------------------------

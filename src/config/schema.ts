@@ -73,8 +73,27 @@ export interface AiEnrichmentConfig {
   azureOpenAI?: AzureOpenAIProviderConfig;
   /** Per-component opt-in toggles — all default to false (deliberately not mirroring `components`) */
   components: AiEnrichmentComponentsConfig;
-  /** Path to the cache file, relative to the config file. Default: '.powerautodocs-ai-cache.json' */
+  /**
+   * Advanced override: explicit path to the AI cache file, relative to the
+   * config file. Most users don't need this — by default the AI cache lives
+   * inside `cache.dir` alongside the diagram cache. Only set this if the AI
+   * cache specifically needs to live somewhere else.
+   */
   cacheFile?: string;
+}
+
+// -----------------------------------------------
+// Cache
+// -----------------------------------------------
+
+export interface CacheConfig {
+  /**
+   * Folder (relative to the config file) where both caches live: the AI
+   * summary cache and the rendered-diagram cache. One folder to commit back
+   * to the repo so re-runs skip unchanged work instead of paying full AI/
+   * render cost every time. Default: '.powerautodocs-cache'
+   */
+  dir?: string;
 }
 
 // -----------------------------------------------
@@ -206,6 +225,7 @@ export interface DocGenConfig {
   wiki?: WikiConfig;
   erd?: ErdConfig;
   aiEnrichment?: AiEnrichmentConfig;
+  cache?: CacheConfig;
 }
 export interface ErdConfig {
   /** Entity logical names to exclude entirely from the diagram */
