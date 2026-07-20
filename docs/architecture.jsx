@@ -2,9 +2,9 @@ import { useState } from "react";
 
 const moscow = {
   M: { label: "MUST", cls: "fill" },
-  S: { label: "SHOULD", cls: "" },
-  C: { label: "COULD", cls: "mid" },
-  W: { label: "WON'T", cls: "dash" },
+  S: { label: "SHOULD", cls: "bare" },
+  C: { label: "COULD", cls: "bare dim" },
+  W: { label: "WON'T", cls: "bare dim strike" },
 };
 
 const layers = [
@@ -382,9 +382,11 @@ const wikiTree = [
   { indent: 1, kind: "folder", name: "Security", done: true, note: "container page" },
   { indent: 2, kind: "page", name: "Security Roles", done: true, note: "index + per-role matrix pages" },
   { indent: 2, kind: "page", name: "Column Security Profiles", done: false },
+  { indent: 2, kind: "page", name: "Masking Rules", done: false },
   { indent: 1, kind: "folder", name: "Integrations", done: true },
   { indent: 2, kind: "page", name: "Environment Variables", done: true },
   { indent: 2, kind: "page", name: "Connection References", done: true },
+  { indent: 2, kind: "page", name: "Service Endpoints", done: false },
   { indent: 1, kind: "page", name: "Global Choices", done: true, note: "index + per-choice pages" },
   { indent: 1, kind: "page", name: "Email Templates", done: true, note: "index + per-template pages" },
   { indent: 1, kind: "page", name: "Model-Driven Apps", done: true, note: "index + per-app pages" },
@@ -395,12 +397,10 @@ const wikiTree = [
   { indent: 1, kind: "page", name: "Duplicate Detection Rules", done: false },
   { indent: 1, kind: "page", name: "SLAs", done: false },
   { indent: 1, kind: "page", name: "Dashboards", done: false },
-  { indent: 2, kind: "page", name: "Service Endpoints", done: false, note: "under Integrations" },
   { indent: 1, kind: "page", name: "Routing Rule Sets", done: false },
   { indent: 1, kind: "page", name: "Custom Connectors", done: false },
   { indent: 1, kind: "page", name: "Power Pages", done: true },
   { indent: 1, kind: "page", name: "Settings", done: false },
-  { indent: 2, kind: "page", name: "Masking Rules", done: false, note: "under Security" },
 ];
 
 // Box-drawing prefix for row i: "│  " where an ancestor level continues,
@@ -456,6 +456,7 @@ const css = `
   --ink: #1c1913;
   --soft: #57524a;
   --faint: #9b958a;
+  --faint-text: #6f6a5e;
   --hair: #d8d3c6;
   --hair2: #e4e0d5;
   --accent: #cf4500;
@@ -484,33 +485,35 @@ body { background: var(--paper); }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--hair); border-radius: 0; }
 
-.pad-root a { color: inherit; text-decoration: none; }
-.pad-root button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; border-radius: 0; padding: 0; }
+:where(.pad-root) a { color: inherit; text-decoration: none; }
+:where(.pad-root button) { font: inherit; color: inherit; background: none; border: none; cursor: pointer; border-radius: 0; padding: 0; }
 .pad-root button:focus-visible, .pad-root a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* ---- shared atoms ---- */
 .label { font: 500 9px/1 var(--mono); letter-spacing: 0.18em; color: var(--soft); text-transform: uppercase; }
-.chip { display: inline-block; font: 500 8.5px/1 var(--mono); letter-spacing: 0.1em; padding: 3px 6px 2px; border: 1px solid var(--ink); color: var(--ink); white-space: nowrap; }
+.chip { display: inline-block; font: 500 9px/1 var(--mono); letter-spacing: 0.1em; padding: 3px 6px 2px; border: 1px solid var(--ink); color: var(--ink); white-space: nowrap; }
 .chip.fill { background: var(--ink); color: var(--paper); }
 .chip.mid { border-color: var(--soft); color: var(--soft); }
-.chip.dim { border-color: var(--faint); color: var(--faint); }
-.chip.dash { border-style: dashed; border-color: var(--faint); color: var(--faint); }
+.chip.dim { border-color: var(--faint); color: var(--faint-text); }
+.chip.dash { border-style: dashed; border-color: var(--faint); color: var(--faint-text); }
 .chip.accent { border-color: var(--accent); color: var(--accent-ink); }
-.stat { font: 500 9px/1 var(--mono); letter-spacing: 0.12em; color: var(--faint); white-space: nowrap; }
+.chip.bare { border: none; padding: 3px 0 2px; letter-spacing: 0.14em; color: var(--soft); }
+.chip.bare.dim { color: var(--faint-text); }
+.chip.bare.strike { text-decoration: line-through; }
+.stat { font: 500 9px/1 var(--mono); letter-spacing: 0.12em; color: var(--faint-text); white-space: nowrap; }
 .stat.built { color: var(--ink); }
-.ticks { display: inline-flex; align-items: center; flex-wrap: wrap; row-gap: 2px; max-width: 100%; }
-.tag-line { font: 400 10px/1.8 var(--mono); color: var(--faint); letter-spacing: 0.02em; }
+.ticks { display: inline-flex; align-items: center; flex-wrap: wrap; row-gap: 2px; max-width: 100%; min-width: 0; }
+.tag-line { font: 400 10px/1.8 var(--mono); color: var(--faint-text); letter-spacing: 0.02em; }
 .serif-note { font-family: var(--serif); font-style: italic; }
 
 /* ---- header / title block ---- */
 .masthead { position: relative; padding: 34px 0 0; }
-.reg { position: absolute; font: 300 13px/1 var(--mono); color: var(--faint); user-select: none; }
 .eyebrow-row { display: flex; align-items: baseline; gap: 14px; margin-bottom: 26px; }
 .brand { font: 600 11px/1 var(--mono); letter-spacing: 0.22em; color: var(--ink); }
 .brand::before { content: '■ '; color: var(--accent); }
-.eyebrow-sub { font: 400 10px/1 var(--mono); letter-spacing: 0.18em; color: var(--faint); }
+.eyebrow-sub { font: 400 10px/1.5 var(--mono); letter-spacing: 0.18em; color: var(--faint-text); }
 .mast-links { margin-left: auto; display: flex; gap: 22px; }
-.mast-links a { font: 500 10px/1 var(--mono); letter-spacing: 0.1em; color: var(--soft); border-bottom: 1px solid transparent; padding-bottom: 2px; }
+.mast-links a { font: 500 10px/1 var(--mono); letter-spacing: 0.1em; color: var(--soft); border-bottom: 1px solid transparent; padding-bottom: 2px; white-space: nowrap; }
 .mast-links a:hover { color: var(--accent-ink); border-bottom-color: var(--accent); }
 
 .mast-grid { display: grid; grid-template-columns: 1fr 292px; gap: 48px; align-items: start; }
@@ -521,7 +524,7 @@ body { background: var(--paper); }
 .tblock { border: 1px solid var(--ink); background: var(--surface); }
 .tblock-row { display: grid; grid-template-columns: 96px 1fr; border-top: 1px solid var(--hair); }
 .tblock-row:first-child { border-top: none; }
-.tblock-k { font: 500 8.5px/1 var(--mono); letter-spacing: 0.16em; color: var(--faint); padding: 10px 12px 9px; border-right: 1px solid var(--hair); }
+.tblock-k { font: 500 9px/1 var(--mono); letter-spacing: 0.16em; color: var(--faint-text); padding: 10px 12px 9px; border-right: 1px solid var(--hair); }
 .tblock-v { font: 500 10px/1.4 var(--mono); letter-spacing: 0.04em; color: var(--ink); padding: 8px 12px 7px; }
 .tblock-v a { border-bottom: 1px solid var(--hair); }
 .tblock-v a:hover { color: var(--accent-ink); border-bottom-color: var(--accent); }
@@ -529,32 +532,32 @@ body { background: var(--paper); }
 .progress-row { display: flex; align-items: center; gap: 18px; margin: 30px 0 0; flex-wrap: wrap; }
 .progress-count { font: 500 11px/1 var(--mono); letter-spacing: 0.06em; color: var(--soft); }
 .progress-count strong { color: var(--ink); font-weight: 700; }
-.progress-phase { font: 400 10px/1 var(--mono); letter-spacing: 0.08em; color: var(--faint); }
+.progress-phase { font: 400 10px/1.5 var(--mono); letter-spacing: 0.08em; color: var(--faint-text); }
 
 .tab-row { display: flex; gap: 34px; margin-top: 26px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--hair); }
-.tab { font: 500 10.5px/1 var(--mono); letter-spacing: 0.14em; color: var(--faint); padding: 15px 0 13px; border-bottom: 2px solid transparent; margin-bottom: -1px; text-transform: uppercase; transition: color 0.15s; white-space: nowrap; }
+.tab { font: 500 10.5px/1 var(--mono); letter-spacing: 0.14em; color: var(--faint-text); padding: 15px 0 13px; border-bottom: 2px solid transparent; margin-bottom: -1px; text-transform: uppercase; transition: color 0.15s; white-space: nowrap; }
 .tab:hover { color: var(--ink); }
 .tab.active { color: var(--ink); border-bottom-color: var(--accent); }
-.tab .tnum { color: var(--accent-ink); margin-right: 7px; }
+.tab .tnum { color: var(--faint); margin-right: 7px; }
+.tab.active .tnum { color: var(--accent-ink); }
 
 .deck { padding-top: 36px; }
 .sec-label { font: 500 9px/1 var(--mono); letter-spacing: 0.2em; color: var(--soft); text-transform: uppercase; margin-bottom: 18px; }
-.sec-label::before { content: '// '; color: var(--faint); }
 
 /* ---- architecture tab ---- */
 .filter-row { display: flex; align-items: center; gap: 8px; margin-bottom: 28px; flex-wrap: wrap; }
 .filter-label { font: 500 9px/1 var(--mono); letter-spacing: 0.18em; color: var(--soft); margin-right: 6px; }
-.fbtn { font: 500 9.5px/1 var(--mono); letter-spacing: 0.12em; padding: 7px 12px 6px; border: 1px solid var(--hair); color: var(--soft); background: var(--surface); transition: all 0.12s; white-space: nowrap; }
+.fbtn { font: 500 9.5px/1 var(--mono); letter-spacing: 0.12em; padding: 7px 12px 6px; border: 1px solid var(--faint); color: var(--soft); background: var(--surface); transition: all 0.12s; white-space: nowrap; }
 .fbtn:hover { border-color: var(--ink); color: var(--ink); }
 .fbtn.active { background: var(--ink); border-color: var(--ink); color: var(--paper); }
-.filter-key { font: 400 10px/1 var(--mono); color: var(--faint); margin-left: 10px; letter-spacing: 0.02em; }
+.filter-key { font: 400 10px/1.5 var(--mono); color: var(--faint-text); margin-left: 10px; letter-spacing: 0.02em; }
 
 .arch-grid { display: grid; grid-template-columns: 330px 1fr; gap: 36px; align-items: start; }
 
 .rail { position: sticky; top: 28px; }
-.rail::before { content: ''; position: absolute; left: 15px; top: 12px; bottom: 12px; width: 1px; background: var(--hair); }
 .lbtn { display: grid; grid-template-columns: 32px 1fr; gap: 16px; width: 100%; text-align: left; padding: 0; margin-bottom: 22px; position: relative; }
 .lbtn:last-child { margin-bottom: 0; }
+.lbtn:not(:last-child)::after { content: ''; position: absolute; left: 15px; top: 36px; bottom: -18px; width: 1px; background: var(--hair); }
 .lnum { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font: 600 11px/1 var(--mono); border: 1px solid var(--hair); background: var(--surface); color: var(--soft); transition: all 0.15s; }
 .lbtn:hover .lnum { border-color: var(--ink); color: var(--ink); }
 .lbtn.active .lnum { background: var(--accent); border-color: var(--accent); color: #fff; }
@@ -563,34 +566,34 @@ body { background: var(--paper); }
 .lname { font: 600 11px/1 var(--mono); letter-spacing: 0.12em; color: var(--ink); transition: color 0.15s; }
 .lbtn:hover .lname { color: var(--accent-ink); }
 .lbtn.active .lname { color: var(--accent-ink); }
-.lcount { font: 400 9.5px/1 var(--mono); color: var(--faint); margin-left: auto; letter-spacing: 0.04em; }
+.lcount { font: 400 9.5px/1 var(--mono); color: var(--faint-text); margin-left: auto; letter-spacing: 0.04em; }
 .ldesc { font-size: 11.5px; line-height: 1.55; color: var(--soft); margin-bottom: 8px; }
 
 .panel { background: var(--surface); border: 1px solid var(--hair); padding: 28px 32px 20px; min-height: 320px; }
 .panel-head { border-bottom: 1px solid var(--ink); padding-bottom: 18px; }
 .panel-label { font: 500 9.5px/1 var(--mono); letter-spacing: 0.18em; color: var(--accent-ink); margin-bottom: 10px; }
 .panel-desc { font-family: var(--serif); font-style: italic; font-size: 21px; line-height: 1.3; color: var(--ink); }
-.panel-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 320px; gap: 14px; }
-.panel-empty .arrow { font: 300 26px/1 var(--mono); color: var(--faint); }
-.panel-empty .hint { font-family: var(--serif); font-style: italic; font-size: 20px; color: var(--faint); }
+.panel-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 160px; gap: 14px; }
+.panel-empty .hint { font-family: var(--serif); font-style: italic; font-size: 21px; color: var(--faint-text); }
 
 .rows { animation: rise 0.3s cubic-bezier(0.2, 0.7, 0.3, 1); }
 @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 .crow { display: grid; grid-template-columns: 44px 1fr; gap: 0 14px; padding: 15px 0 14px; border-top: 1px solid var(--hair2); }
 .crow:first-child { border-top: none; }
-.cidx { font: 500 10px/1 var(--mono); color: var(--faint); padding-top: 3px; letter-spacing: 0.04em; }
-.cname-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cidx { font: 500 10px/1 var(--mono); color: var(--faint-text); padding-top: 3px; letter-spacing: 0.04em; }
+.cname-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: start; }
+.cname-group { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .cname { font-size: 13px; font-weight: 600; color: var(--ink); }
 .crow.planned .cname { color: var(--soft); }
-.cname-row .stat { margin-left: auto; }
+.cname-row .stat { padding-top: 3px; }
 .cdetail { font-size: 12px; line-height: 1.65; color: var(--soft); margin-top: 5px; max-width: 780px; }
-.crow.planned .cdetail { color: var(--faint); }
+.crow.planned .cdetail { color: var(--faint-text); }
 
 /* ---- progress tab ---- */
 .phase-block { border: 1px solid var(--hair); background: var(--surface); margin-bottom: 16px; }
 .phase-head { display: flex; align-items: center; gap: 14px; padding: 16px 22px 14px; border-bottom: 1px solid var(--hair2); flex-wrap: wrap; }
 .phase-num { font: 600 10px/1 var(--mono); letter-spacing: 0.14em; color: var(--accent-ink); }
-.phase-name { font-family: var(--serif); font-size: 18px; color: var(--ink); }
+.phase-name { font-family: var(--serif); font-size: 21px; color: var(--ink); }
 .phase-meta { margin-left: auto; display: flex; align-items: center; gap: 14px; }
 .phase-count { font: 500 10px/1 var(--mono); color: var(--soft); letter-spacing: 0.04em; }
 .phase-items { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 32px; padding: 16px 22px 18px; }
@@ -598,65 +601,69 @@ body { background: var(--paper); }
 .pitem .pmark { font: 400 9px/1 var(--mono); color: var(--ink); flex-shrink: 0; position: relative; top: -1px; }
 .pitem.todo .pmark { color: var(--faint); }
 .pitem .ptext { color: var(--ink); }
-.pitem.todo .ptext { color: var(--faint); }
+.pitem.todo .ptext { color: var(--faint-text); }
 
-.note-block { border-top: 1px solid var(--ink); border-bottom: 1px solid var(--hair); padding: 18px 0; margin-top: 28px; }
+.note-block { border-top: 1px solid var(--ink); padding: 18px 0; margin-top: 28px; }
 .note-label { font: 600 9px/1 var(--mono); letter-spacing: 0.2em; color: var(--accent-ink); margin-bottom: 10px; }
-.note-body { font-size: 12.5px; line-height: 1.75; color: var(--soft); max-width: 860px; }
+.note-body { font-size: 12.5px; line-height: 1.75; color: var(--soft); max-width: 64ch; }
 .note-body strong { color: var(--ink); font-weight: 600; }
 
 /* ---- wiki tab ---- */
-.tree-card { background: var(--surface); border: 1px solid var(--hair); padding: 24px 28px; margin-bottom: 36px; overflow-x: auto; }
-.tree-intro { font-size: 12.5px; line-height: 1.7; color: var(--soft); max-width: 640px; margin-bottom: 6px; }
-.tree-legend { font: 400 9.5px/1 var(--mono); letter-spacing: 0.1em; color: var(--faint); text-align: right; margin-bottom: 14px; }
-.tree { font: 400 12px/2 var(--mono); white-space: pre; }
+.tree-card { background: var(--surface); border: 1px solid var(--hair); padding: 24px 40px 24px 28px; margin-bottom: 36px; overflow-x: auto; width: fit-content; min-width: min(620px, 100%); max-width: 100%; }
+.tree-intro { font-size: 12.5px; line-height: 1.7; color: var(--soft); max-width: 56ch; margin-bottom: 6px; }
+.tree-legend { font: 400 9.5px/1.5 var(--mono); letter-spacing: 0.1em; color: var(--faint-text); margin-bottom: 14px; }
+.tree-legend .b { color: var(--accent-ink); }
+.tree-legend .p { color: var(--faint); }
+.tree { font: 400 12px/1.6 var(--mono); white-space: pre; }
 .tree .guide { color: var(--hair); }
 .tree .tname { color: var(--ink); }
 .tree .tname.folder { font-weight: 600; }
-.tree .planned-row .tname { color: var(--faint); font-weight: 400; }
+.tree .planned-row .tname { color: var(--faint-text); font-weight: 400; }
 .tree .tmark { color: var(--accent-ink); }
-.tree .planned-row .tmark { color: var(--hair); }
-.tree .tnote { font-family: var(--serif); font-style: italic; font-size: 13px; color: var(--faint); }
+.tree .planned-row .tmark { color: var(--faint); }
+.tree .tnote { font-family: var(--serif); font-style: italic; font-size: 13px; color: var(--faint-text); }
 
 .pages-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 40px; }
 .pg-row { padding: 13px 0 12px; border-top: 1px solid var(--hair2); }
-.pg-name-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.pg-name-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: start; margin-bottom: 4px; }
 .pg-name { font-size: 12.5px; font-weight: 600; color: var(--ink); }
 .pg-row.planned .pg-name { color: var(--soft); }
-.pg-name-row .stat { margin-left: auto; }
+.pg-name-row .stat { padding-top: 2px; }
 .pg-desc { font-size: 11.5px; line-height: 1.6; color: var(--soft); }
-.pg-row.planned .pg-desc { color: var(--faint); }
+.pg-row.planned .pg-desc { color: var(--faint-text); }
 
 /* ---- decisions tab ---- */
 .dec-card { background: var(--surface); border: 1px solid var(--hair); }
-.dec-head { display: grid; grid-template-columns: 44px 196px 186px 1fr; gap: 18px; padding: 12px 22px; border-bottom: 1px solid var(--ink); }
-.dec-head .label { color: var(--faint); }
-.dec-row { display: grid; grid-template-columns: 44px 196px 186px 1fr; gap: 18px; padding: 14px 22px 13px; border-bottom: 1px solid var(--hair2); }
+.dec-head { display: grid; grid-template-columns: 52px 200px 220px 1fr; gap: 18px; padding: 12px 22px; border-bottom: 1px solid var(--ink); }
+.dec-head .label { color: var(--faint-text); }
+.dec-row { display: grid; grid-template-columns: 52px 200px 220px 1fr; gap: 18px; padding: 14px 22px 13px; border-bottom: 1px solid var(--hair2); }
 .dec-row:last-child { border-bottom: none; }
-.dec-idx { font: 500 10px/1.5 var(--mono); color: var(--accent-ink); letter-spacing: 0.04em; }
-.dec-q { font-size: 12px; font-weight: 600; color: var(--ink); line-height: 1.5; }
+.dec-idx { font: 500 10px/1.6 var(--mono); color: var(--faint-text); letter-spacing: 0.04em; }
+.dec-q { font-size: 12px; font-weight: 600; color: var(--ink); line-height: 1.6; }
 .dec-a { font: 500 11px/1.6 var(--mono); color: var(--ink); letter-spacing: 0.01em; }
-.dec-r { font-size: 12px; line-height: 1.7; color: var(--soft); }
+.dec-r { font-size: 12px; line-height: 1.6; color: var(--soft); max-width: 68ch; }
 
 /* ---- footer ---- */
-.colophon { display: flex; align-items: baseline; gap: 14px; margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--hair); }
-.colophon .label { color: var(--faint); }
-.colophon .right { margin-left: auto; font: 400 9.5px/1 var(--mono); letter-spacing: 0.1em; color: var(--faint); }
+.colophon { display: flex; align-items: baseline; gap: 14px; margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--hair); flex-wrap: wrap; }
+.colophon .label { color: var(--faint-text); }
+.colophon .right { margin-left: auto; font: 400 9.5px/1.5 var(--mono); letter-spacing: 0.1em; color: var(--faint-text); }
 
 @media (max-width: 980px) {
   .pad-shell { padding: 0 22px 56px; }
-  .reg { display: none; }
+  .eyebrow-row { flex-wrap: wrap; row-gap: 10px; }
+  .mast-links { margin-left: 0; flex-basis: 100%; }
   .mast-grid { grid-template-columns: 1fr; gap: 26px; }
   .mast-title { font-size: 38px; }
+  .progress-row .ticks { flex: 1 1 100%; }
   .arch-grid { grid-template-columns: 1fr; }
-  .rail::before { display: none; }
+  .rail { position: static; }
   .phase-items { grid-template-columns: 1fr; }
   .pages-grid { grid-template-columns: 1fr; }
   .dec-head { display: none; }
-  .dec-row { grid-template-columns: 44px 1fr; grid-template-rows: auto auto auto; }
+  .dec-row { grid-template-columns: 52px 1fr; grid-template-rows: auto auto auto; }
   .dec-a { grid-column: 2; }
   .dec-r { grid-column: 2; }
-  .tab-row { gap: 20px; overflow-x: auto; }
+  .tab-row { flex-wrap: wrap; gap: 8px 20px; }
 }
 `;
 
@@ -683,9 +690,6 @@ export default function App() {
       <div className="pad-shell">
 
         <header className="masthead">
-          <span className="reg" style={{ top: 12, left: -26 }}>+</span>
-          <span className="reg" style={{ top: 12, right: -26 }}>+</span>
-
           <div className="eyebrow-row">
             <span className="brand">POWERAUTODOCS</span>
             <span className="eyebrow-sub">SYSTEM ARCHITECTURE</span>
@@ -781,8 +785,7 @@ export default function App() {
 
                 <div className="panel">
                   {!active && (
-                    <div className="panel-empty">
-                      <span className="arrow">←</span>
+                    <div className="panel-empty" style={{ minHeight: 320 }}>
                       <span className="hint">Select a layer from the pipeline index.</span>
                     </div>
                   )}
@@ -807,8 +810,10 @@ export default function App() {
                             <span className="cidx">{layerNum(active.label)}·{String(i + 1).padStart(2, "0")}</span>
                             <div>
                               <div className="cname-row">
-                                <span className="cname">{comp.name}</span>
-                                <Chip kind={m.cls}>{m.label}</Chip>
+                                <span className="cname-group">
+                                  <span className="cname">{comp.name}</span>
+                                  <Chip kind={m.cls}>{m.label}</Chip>
+                                </span>
                                 <StatusMark done={comp.done} />
                               </div>
                               <div className="cdetail">{comp.detail}</div>
@@ -825,7 +830,7 @@ export default function App() {
           )}
 
           {activeTab === "progress" && (
-            <div style={{ maxWidth: 920 }}>
+            <div style={{ maxWidth: 1000 }}>
               <div className="sec-label">Build progress</div>
               {progress.map(p => {
                 const dc = p.items.filter(i => i.done).length;
@@ -870,13 +875,13 @@ export default function App() {
           )}
 
           {activeTab === "wiki structure" && (
-            <div style={{ maxWidth: 920 }}>
+            <div style={{ maxWidth: 1000 }}>
               <div className="sec-label">ADO wiki page hierarchy</div>
               <div className="tree-card">
                 <p className="tree-intro">
                   Each solution gets its own top-level wiki section. Pages are generated from the IR layer and published via ADO REST API.
                 </p>
-                <div className="tree-legend">● BUILT &nbsp;·&nbsp; ○ PLANNED</div>
+                <div className="tree-legend"><span className="b">●</span> BUILT &nbsp;·&nbsp; <span className="p">○</span> PLANNED</div>
                 <div className="tree">
                   {wikiTree.map((item, i) => (
                     <div key={i} className={item.done ? "" : "planned-row"}>
@@ -896,8 +901,10 @@ export default function App() {
                   return (
                     <div key={page.name} className={`pg-row ${page.done ? "" : "planned"}`}>
                       <div className="pg-name-row">
-                        <span className="pg-name">{page.name}</span>
-                        <Chip kind={m.cls}>{m.label}</Chip>
+                        <span className="cname-group">
+                          <span className="pg-name">{page.name}</span>
+                          <Chip kind={m.cls}>{m.label}</Chip>
+                        </span>
                         <StatusMark done={page.done} />
                       </div>
                       <div className="pg-desc">{page.desc}</div>
@@ -909,7 +916,7 @@ export default function App() {
           )}
 
           {activeTab === "decisions" && (
-            <div style={{ maxWidth: 1100 }}>
+            <div>
               <div className="sec-label">Key architectural decisions — confirmed in build</div>
               <div className="dec-card">
                 <div className="dec-head">
