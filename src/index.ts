@@ -490,11 +490,22 @@ export async function main(configDir?: string): Promise<void> {
 // Only run when invoked as the CLI entry point, not when imported. Importing
 // this module used to fire main() as a side effect, which made the whole
 // pipeline untestable — a test that imported main() ran a real solution parse.
-// process.argv[1] is the resolved script path under both `node dist/index.js`
-// and `tsx src/index.ts`; comparing it to import.meta.url via pathToFileURL
-// keeps the CLI behaviour byte-identical while leaving main() importable.
-const isCliEntry = process.argv[1] !== undefined
-  && import.meta.url === pathToFileURL(process.argv[1]).href;
+// process.argv[1] is NOT always the resolved script path: under `npx` it is the
+// .bin symlink npm creates, while import.meta.url is the real file it points at.
+// Comparing them raw made isCliEntry false under npx, so main() silently never
+// ran and the CLI exited 0 having done nothing — which is how every client
+// invokes this. realpathSync both sides so symlinked and direct invocation agree.
+function resolveCliEntry(): boolean {
+  const argv1 = process.argv[1];
+  if (argv1 === undefined) return false;
+  try {
+    return import.meta.url === pathToFileURL(fs.realpathSync(argv1)).href;
+  } catch {
+    return false;
+  }
+}
+
+const isCliEntry = resolveCliEntry();
 
 if (isCliEntry) {
   main().catch((err) => {
