@@ -356,8 +356,9 @@ const progress = [
 
 // ---------------------------------------------------------------------------
 // Presentation layer — everything below renders the content above.
-// Aesthetic: technical specification sheet. Paper ground, ink type, one
-// vermilion accent. Serif for display, mono for data, sans for reading.
+// Aesthetic: light technical console. White ground, slate ink, fine blueprint
+// grid, spectral pipeline ramp (one hue per layer), magenta interaction accent.
+// Space Grotesk display / JetBrains Mono data / Inter body.
 // ---------------------------------------------------------------------------
 
 const wikiTree = [
@@ -420,6 +421,44 @@ function treePrefix(items, i) {
   return prefix;
 }
 
+// Spectral pipeline ramp — one hue per layer, in ribbon order. `tick` fills
+// small solid marks (dark enough to hold on white); `text` is the same hue
+// deepened for small-text legibility; `ink` is the numeral colour on a
+// tick-filled chip — per hue, since the ramp spans light and dark hues.
+const LAYER_HUES = {
+  input:      { tick: "#C78F00", text: "#8A6D00", ink: "#1A2024" },
+  parser:     { tick: "#E07207", text: "#AC5500", ink: "#1A2024" },
+  ir:         { tick: "#CD3292", text: "#B0257E", ink: "#FFFFFF" },
+  enrichment: { tick: "#8D2A90", text: "#8D2A90", ink: "#FFFFFF" },
+  output:     { tick: "#304D9E", text: "#304D9E", ink: "#FFFFFF" },
+  pipeline:   { tick: "#0F9089", text: "#0B756F", ink: "#1A2024" },
+};
+
+const RIBBON_COLORS = ["#E8AC00", "#F37B0B", "#CC238C", "#8A238B", "#25469D", "#0FA39A", "#34B77A"];
+
+// Thin flowing lines, phase-shifted and amplitude-tapered at both ends —
+// drawn as code rather than pasted as an asset.
+function ribbonPath(i, w = 1200, h = 32) {
+  const amp = 7 + i * 0.7, freq = 1.7, phase = i * 0.62;
+  const pts = [];
+  for (let x = 0; x <= w; x += 16) {
+    const t = x / w;
+    const y = h / 2 + amp * Math.sin(t * Math.PI * 2 * freq + phase) * Math.sin(t * Math.PI);
+    pts.push(`${x},${y.toFixed(1)}`);
+  }
+  return "M" + pts.join(" L");
+}
+
+function Ribbon({ height = 32 }) {
+  return (
+    <svg className="ribbon" viewBox={`0 0 1200 ${height}`} preserveAspectRatio="none" style={{ height }} aria-hidden="true">
+      {RIBBON_COLORS.map((c, i) => (
+        <path key={c} d={ribbonPath(i, 1200, height)} fill="none" stroke={c} strokeWidth="1.1" opacity="0.85" />
+      ))}
+    </svg>
+  );
+}
+
 const phaseChip = {
   "COMPLETE": "fill",
   "IN PROGRESS": "accent",
@@ -427,11 +466,15 @@ const phaseChip = {
   "BACKLOG": "dash",
 };
 
-function Ticks({ total, done, size = 3, gap = 2, height = 9 }) {
+// segments: [{done, hue}] — per-segment colouring (the hero bar renders the
+// whole pipeline in layer order, so it reads as the spectral ramp).
+// Falls back to total/done with a single colour.
+function Ticks({ total, done, segments, color = "var(--accent)", size = 3, gap = 2, height = 9 }) {
+  const segs = segments || Array.from({ length: total }, (_, i) => ({ done: i < done, hue: color }));
   return (
     <span className="ticks" style={{ gap }}>
-      {Array.from({ length: total }, (_, i) => (
-        <span key={i} style={{ width: size, height, background: i < done ? "var(--accent)" : "var(--hair)" }} />
+      {segs.map((s, i) => (
+        <span key={i} style={{ width: size, height, background: s.done ? s.hue : "var(--hair)" }} />
       ))}
     </span>
   );
@@ -448,33 +491,37 @@ function StatusMark({ done }) {
 }
 
 const css = `
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
 
 :root {
-  --paper: #f2efe8;
-  --surface: #faf8f3;
-  --ink: #1c1913;
-  --soft: #57524a;
-  --faint: #9b958a;
-  --faint-text: #6f6a5e;
-  --hair: #d8d3c6;
-  --hair2: #e4e0d5;
-  --accent: #cf4500;
-  --accent-ink: #a83a05;
-  --serif: 'Instrument Serif', Georgia, serif;
+  --bg: #FFFFFF;
+  --surface: #F8FAFA;
+  --surface2: #F1F4F5;
+  --ink: #29343B;
+  --soft: #55646C;
+  --faint-text: #64737B;
+  --faint: #9AA7AD;
+  --hair: #D9E0E2;
+  --hair2: #E7ECED;
+  --accent: #CD3292;
+  --accent-text: #B0257E;
+  --ok: #197B4B;
+  --disp: 'Space Grotesk', 'Inter', system-ui, sans-serif;
   --sans: 'Inter', system-ui, -apple-system, sans-serif;
   --mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html { color-scheme: light; }
-body { background: var(--paper); }
+body { background: #FFFFFF; }
 
 .pad-root {
   min-height: 100vh;
-  background: var(--paper);
-  background-image: radial-gradient(var(--hair2) 1px, transparent 1px);
-  background-size: 28px 28px;
+  background: var(--bg);
+  background-image:
+    linear-gradient(rgba(41,52,59,0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(41,52,59,0.045) 1px, transparent 1px);
+  background-size: 32px 32px;
   color: var(--ink);
   font-family: var(--sans);
   -webkit-font-smoothing: antialiased;
@@ -491,20 +538,19 @@ body { background: var(--paper); }
 
 /* ---- shared atoms ---- */
 .label { font: 500 9px/1 var(--mono); letter-spacing: 0.18em; color: var(--soft); text-transform: uppercase; }
-.chip { display: inline-block; font: 500 9px/1 var(--mono); letter-spacing: 0.1em; padding: 3px 6px 2px; border: 1px solid var(--ink); color: var(--ink); white-space: nowrap; }
-.chip.fill { background: var(--ink); color: var(--paper); }
-.chip.mid { border-color: var(--soft); color: var(--soft); }
+.chip { display: inline-block; font: 500 9px/1 var(--mono); letter-spacing: 0.1em; padding: 3px 6px 2px; border: 1px solid var(--soft); color: var(--ink); white-space: nowrap; }
+.chip.fill { background: var(--accent-text); border-color: var(--accent-text); color: #fff; }
+.chip.mid { border-color: var(--faint); color: var(--soft); }
 .chip.dim { border-color: var(--faint); color: var(--faint-text); }
 .chip.dash { border-style: dashed; border-color: var(--faint); color: var(--faint-text); }
-.chip.accent { border-color: var(--accent); color: var(--accent-ink); }
+.chip.accent { border-color: var(--accent); color: var(--accent-text); }
 .chip.bare { border: none; padding: 3px 0 2px; letter-spacing: 0.14em; color: var(--soft); }
 .chip.bare.dim { color: var(--faint-text); }
-.chip.bare.strike { text-decoration: line-through; }
+.chip.bare.strike { text-decoration: line-through; color: var(--soft); }
 .stat { font: 500 9px/1 var(--mono); letter-spacing: 0.12em; color: var(--faint-text); white-space: nowrap; }
-.stat.built { color: var(--ink); }
+.stat.built { color: var(--ok); }
 .ticks { display: inline-flex; align-items: center; flex-wrap: wrap; row-gap: 2px; max-width: 100%; min-width: 0; }
 .tag-line { font: 400 10px/1.8 var(--mono); color: var(--faint-text); letter-spacing: 0.02em; }
-.serif-note { font-family: var(--serif); font-style: italic; }
 
 /* ---- header / title block ---- */
 .masthead { position: relative; padding: 34px 0 0; }
@@ -514,12 +560,17 @@ body { background: var(--paper); }
 .eyebrow-sub { font: 400 10px/1.5 var(--mono); letter-spacing: 0.18em; color: var(--faint-text); }
 .mast-links { margin-left: auto; display: flex; gap: 22px; }
 .mast-links a { font: 500 10px/1 var(--mono); letter-spacing: 0.1em; color: var(--soft); border-bottom: 1px solid transparent; padding-bottom: 2px; white-space: nowrap; }
-.mast-links a:hover { color: var(--accent-ink); border-bottom-color: var(--accent); }
+.mast-links a:hover { color: var(--accent-text); border-bottom-color: var(--accent); }
 
-.mast-grid { display: grid; grid-template-columns: 1fr 292px; gap: 48px; align-items: start; }
-.mast-title { font-family: var(--serif); font-weight: 400; font-size: 52px; line-height: 1.02; letter-spacing: -0.015em; margin: 0 0 18px; max-width: 640px; }
-.mast-title em { font-style: italic; color: var(--accent-ink); }
+.mast-grid { display: grid; grid-template-columns: 1fr 300px; gap: 48px; align-items: start; }
+.mast-title { font-family: var(--disp); font-weight: 600; font-size: 44px; line-height: 1.06; letter-spacing: -0.02em; margin: 0 0 18px; max-width: 640px; color: var(--ink); }
+.mast-title em {
+  font-style: normal;
+  background: linear-gradient(100deg, #B8830A, #E07207 28%, #CD3292 55%, #8D2A90 80%, #0F9089);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
 .mast-desc { font-size: 13px; line-height: 1.75; color: var(--soft); max-width: 620px; }
+.mast-desc strong { color: var(--ink); }
 
 .tblock { border: 1px solid var(--ink); background: var(--surface); }
 .tblock-row { display: grid; grid-template-columns: 96px 1fr; border-top: 1px solid var(--hair); }
@@ -527,19 +578,22 @@ body { background: var(--paper); }
 .tblock-k { font: 500 9px/1 var(--mono); letter-spacing: 0.16em; color: var(--faint-text); padding: 10px 12px 9px; border-right: 1px solid var(--hair); }
 .tblock-v { font: 500 10px/1.4 var(--mono); letter-spacing: 0.04em; color: var(--ink); padding: 8px 12px 7px; }
 .tblock-v a { border-bottom: 1px solid var(--hair); }
-.tblock-v a:hover { color: var(--accent-ink); border-bottom-color: var(--accent); }
+.tblock-v a:hover { color: var(--accent-text); border-bottom-color: var(--accent); }
+.tblock-v .sp { }
 
 .progress-row { display: flex; align-items: center; gap: 18px; margin: 30px 0 0; flex-wrap: wrap; }
 .progress-count { font: 500 11px/1 var(--mono); letter-spacing: 0.06em; color: var(--soft); }
 .progress-count strong { color: var(--ink); font-weight: 700; }
 .progress-phase { font: 400 10px/1.5 var(--mono); letter-spacing: 0.08em; color: var(--faint-text); }
 
-.tab-row { display: flex; gap: 34px; margin-top: 26px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--hair); }
+.ribbon { display: block; width: 100%; margin-top: 26px; }
+
+.tab-row { display: flex; gap: 34px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--hair); }
 .tab { font: 500 10.5px/1 var(--mono); letter-spacing: 0.14em; color: var(--faint-text); padding: 15px 0 13px; border-bottom: 2px solid transparent; margin-bottom: -1px; text-transform: uppercase; transition: color 0.15s; white-space: nowrap; }
 .tab:hover { color: var(--ink); }
 .tab.active { color: var(--ink); border-bottom-color: var(--accent); }
 .tab .tnum { color: var(--faint); margin-right: 7px; }
-.tab.active .tnum { color: var(--accent-ink); }
+.tab.active .tnum { color: var(--accent-text); }
 
 .deck { padding-top: 36px; }
 .sec-label { font: 500 9px/1 var(--mono); letter-spacing: 0.2em; color: var(--soft); text-transform: uppercase; margin-bottom: 18px; }
@@ -549,7 +603,7 @@ body { background: var(--paper); }
 .filter-label { font: 500 9px/1 var(--mono); letter-spacing: 0.18em; color: var(--soft); margin-right: 6px; }
 .fbtn { font: 500 9.5px/1 var(--mono); letter-spacing: 0.12em; padding: 7px 12px 6px; border: 1px solid var(--faint); color: var(--soft); background: var(--surface); transition: all 0.12s; white-space: nowrap; }
 .fbtn:hover { border-color: var(--ink); color: var(--ink); }
-.fbtn.active { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.fbtn.active { background: var(--accent-text); border-color: var(--accent-text); color: #fff; }
 .filter-key { font: 400 10px/1.5 var(--mono); color: var(--faint-text); margin-left: 10px; letter-spacing: 0.02em; }
 
 .arch-grid { display: grid; grid-template-columns: 330px 1fr; gap: 36px; align-items: start; }
@@ -559,22 +613,21 @@ body { background: var(--paper); }
 .lbtn:last-child { margin-bottom: 0; }
 .lbtn:not(:last-child)::after { content: ''; position: absolute; left: 15px; top: 36px; bottom: -18px; width: 1px; background: var(--hair); }
 .lnum { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font: 600 11px/1 var(--mono); border: 1px solid var(--hair); background: var(--surface); color: var(--soft); transition: all 0.15s; }
-.lbtn:hover .lnum { border-color: var(--ink); color: var(--ink); }
-.lbtn.active .lnum { background: var(--accent); border-color: var(--accent); color: #fff; }
+.lbtn:hover .lnum { border-color: var(--hue, var(--ink)); color: var(--ink); }
+.lbtn.active .lnum { background: var(--hue, var(--accent)); border-color: var(--hue, var(--accent)); color: var(--hue-ink, #fff); font-weight: 700; }
 .lbody { padding-top: 2px; }
 .lname-row { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
 .lname { font: 600 11px/1 var(--mono); letter-spacing: 0.12em; color: var(--ink); transition: color 0.15s; }
-.lbtn:hover .lname { color: var(--accent-ink); }
-.lbtn.active .lname { color: var(--accent-ink); }
+.lbtn:hover .lname, .lbtn.active .lname { color: var(--hue-text, var(--accent-text)); }
 .lcount { font: 400 9.5px/1 var(--mono); color: var(--faint-text); margin-left: auto; letter-spacing: 0.04em; }
 .ldesc { font-size: 11.5px; line-height: 1.55; color: var(--soft); margin-bottom: 8px; }
 
 .panel { background: var(--surface); border: 1px solid var(--hair); padding: 28px 32px 20px; min-height: 320px; }
 .panel-head { border-bottom: 1px solid var(--ink); padding-bottom: 18px; }
-.panel-label { font: 500 9.5px/1 var(--mono); letter-spacing: 0.18em; color: var(--accent-ink); margin-bottom: 10px; }
-.panel-desc { font-family: var(--serif); font-style: italic; font-size: 21px; line-height: 1.3; color: var(--ink); }
+.panel-label { font: 500 9.5px/1 var(--mono); letter-spacing: 0.18em; color: var(--hue-text, var(--accent-text)); margin-bottom: 10px; }
+.panel-desc { font-family: var(--disp); font-weight: 500; font-size: 20px; line-height: 1.35; color: var(--ink); letter-spacing: -0.01em; }
 .panel-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 160px; gap: 14px; }
-.panel-empty .hint { font-family: var(--serif); font-style: italic; font-size: 21px; color: var(--faint-text); }
+.panel-empty .hint { font-family: var(--disp); font-weight: 500; font-size: 18px; color: var(--faint-text); }
 
 .rows { animation: rise 0.3s cubic-bezier(0.2, 0.7, 0.3, 1); }
 @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
@@ -592,19 +645,19 @@ body { background: var(--paper); }
 /* ---- progress tab ---- */
 .phase-block { border: 1px solid var(--hair); background: var(--surface); margin-bottom: 16px; }
 .phase-head { display: flex; align-items: center; gap: 14px; padding: 16px 22px 14px; border-bottom: 1px solid var(--hair2); flex-wrap: wrap; }
-.phase-num { font: 600 10px/1 var(--mono); letter-spacing: 0.14em; color: var(--accent-ink); }
-.phase-name { font-family: var(--serif); font-size: 21px; color: var(--ink); }
+.phase-num { font: 600 10px/1 var(--mono); letter-spacing: 0.14em; color: var(--accent-text); }
+.phase-name { font-family: var(--disp); font-weight: 500; font-size: 18px; color: var(--ink); letter-spacing: -0.01em; }
 .phase-meta { margin-left: auto; display: flex; align-items: center; gap: 14px; }
 .phase-count { font: 500 10px/1 var(--mono); color: var(--soft); letter-spacing: 0.04em; }
 .phase-items { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 32px; padding: 16px 22px 18px; }
 .pitem { display: flex; align-items: baseline; gap: 9px; font-size: 12px; line-height: 1.9; }
-.pitem .pmark { font: 400 9px/1 var(--mono); color: var(--ink); flex-shrink: 0; position: relative; top: -1px; }
+.pitem .pmark { font: 400 9px/1 var(--mono); color: var(--ok); flex-shrink: 0; position: relative; top: -1px; }
 .pitem.todo .pmark { color: var(--faint); }
 .pitem .ptext { color: var(--ink); }
 .pitem.todo .ptext { color: var(--faint-text); }
 
 .note-block { border-top: 1px solid var(--ink); padding: 18px 0; margin-top: 28px; }
-.note-label { font: 600 9px/1 var(--mono); letter-spacing: 0.2em; color: var(--accent-ink); margin-bottom: 10px; }
+.note-label { font: 600 9px/1 var(--mono); letter-spacing: 0.2em; color: var(--accent-text); margin-bottom: 10px; }
 .note-body { font-size: 12.5px; line-height: 1.75; color: var(--soft); max-width: 64ch; }
 .note-body strong { color: var(--ink); font-weight: 600; }
 
@@ -612,16 +665,16 @@ body { background: var(--paper); }
 .tree-card { background: var(--surface); border: 1px solid var(--hair); padding: 24px 40px 24px 28px; margin-bottom: 36px; overflow-x: auto; width: fit-content; min-width: min(620px, 100%); max-width: 100%; }
 .tree-intro { font-size: 12.5px; line-height: 1.7; color: var(--soft); max-width: 56ch; margin-bottom: 6px; }
 .tree-legend { font: 400 9.5px/1.5 var(--mono); letter-spacing: 0.1em; color: var(--faint-text); margin-bottom: 14px; }
-.tree-legend .b { color: var(--accent-ink); }
+.tree-legend .b { color: var(--ok); }
 .tree-legend .p { color: var(--faint); }
 .tree { font: 400 12px/1.6 var(--mono); white-space: pre; }
 .tree .guide { color: var(--hair); }
 .tree .tname { color: var(--ink); }
 .tree .tname.folder { font-weight: 600; }
 .tree .planned-row .tname { color: var(--faint-text); font-weight: 400; }
-.tree .tmark { color: var(--accent-ink); }
+.tree .tmark { color: var(--ok); }
 .tree .planned-row .tmark { color: var(--faint); }
-.tree .tnote { font-family: var(--serif); font-style: italic; font-size: 13px; color: var(--faint-text); }
+.tree .tnote { font: italic 400 11px/1 var(--mono); color: var(--faint-text); }
 
 .pages-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 40px; }
 .pg-row { padding: 13px 0 12px; border-top: 1px solid var(--hair2); }
@@ -653,7 +706,7 @@ body { background: var(--paper); }
   .eyebrow-row { flex-wrap: wrap; row-gap: 10px; }
   .mast-links { margin-left: 0; flex-basis: 100%; }
   .mast-grid { grid-template-columns: 1fr; gap: 26px; }
-  .mast-title { font-size: 38px; }
+  .mast-title { font-size: 34px; }
   .progress-row .ticks { flex: 1 1 100%; }
   .arch-grid { grid-template-columns: 1fr; }
   .rail { position: static; }
@@ -683,6 +736,12 @@ export default function App() {
 
   const layerNum = label => label.split(" — ")[0];
   const layerName = label => label.split(" — ")[1];
+
+  // Hero tick bar: every component in pipeline order, coloured by its layer —
+  // the spectral ramp doubles as the coverage readout.
+  const heroSegments = layers.flatMap(l =>
+    l.components.map(c => ({ done: c.done, hue: LAYER_HUES[l.id].tick }))
+  );
 
   return (
     <div className="pad-root">
@@ -718,7 +777,14 @@ export default function App() {
               </div>
               <div className="tblock-row">
                 <span className="tblock-k">PIPELINE</span>
-                <span className="tblock-v">INPUT → PARSE → IR → ENRICH → OUTPUT</span>
+                <span className="tblock-v">
+                  {layers.map((l, i) => (
+                    <span key={l.id}>
+                      <span style={{ color: LAYER_HUES[l.id].text }}>{layerName(l.label).replace(" LAYER", "")}</span>
+                      {i < layers.length - 1 ? " → " : ""}
+                    </span>
+                  ))}
+                </span>
               </div>
               <div className="tblock-row">
                 <span className="tblock-k">STATUS</span>
@@ -732,10 +798,12 @@ export default function App() {
           </div>
 
           <div className="progress-row">
-            <Ticks total={totalComponents} done={doneComponents} />
+            <Ticks segments={heroSegments} />
             <span className="progress-count"><strong>{doneComponents}</strong> of {totalComponents} components built</span>
             <span className="progress-phase">PHASES 1–4 COMPLETE · PHASE 5, PHASE 6 &amp; BACKLOG PLANNED</span>
           </div>
+
+          <Ribbon />
 
           <div className="tab-row">
             {["architecture", "progress", "wiki structure", "decisions"].map((tab, i) => (
@@ -766,8 +834,10 @@ export default function App() {
                     const dc = layer.components.filter(c => c.done).length;
                     const tot = layer.components.length;
                     const visibleCount = moscowFilter ? layer.components.filter(c => c.moscow === moscowFilter).length : tot;
+                    const hue = LAYER_HUES[layer.id];
                     return (
                       <button key={layer.id} className={`lbtn ${activeLayer === layer.id ? "active" : ""}`}
+                        style={{ "--hue": hue.tick, "--hue-text": hue.text, "--hue-ink": hue.ink }}
                         onClick={() => setActiveLayer(activeLayer === layer.id ? null : layer.id)}>
                         <span className="lnum">{layerNum(layer.label)}</span>
                         <span className="lbody">
@@ -776,7 +846,7 @@ export default function App() {
                             <span className="lcount">{dc}/{tot} built{moscowFilter && visibleCount !== tot ? ` · ${visibleCount} shown` : ""}</span>
                           </span>
                           <span className="ldesc" style={{ display: "block" }}>{layer.description}</span>
-                          <Ticks total={tot} done={dc} size={4} height={7} />
+                          <Ticks total={tot} done={dc} color={hue.tick} size={4} height={7} />
                         </span>
                       </button>
                     );
@@ -790,7 +860,8 @@ export default function App() {
                     </div>
                   )}
                   {active && (
-                    <div className="rows" key={active.id + (moscowFilter || "")}>
+                    <div className="rows" key={active.id + (moscowFilter || "")}
+                      style={{ "--hue": LAYER_HUES[active.id].tick, "--hue-text": LAYER_HUES[active.id].text }}>
                       <div className="panel-head">
                         <div className="panel-label">
                           {active.label} · {filteredComponents.length} COMPONENT{filteredComponents.length !== 1 ? "S" : ""}
