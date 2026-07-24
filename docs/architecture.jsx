@@ -2,9 +2,9 @@ import { useState } from "react";
 
 const moscow = {
   M: { label: "MUST", cls: "fill" },
-  S: { label: "SHOULD", cls: "bare" },
-  C: { label: "COULD", cls: "bare dim" },
-  W: { label: "WON'T", cls: "bare dim strike" },
+  S: { label: "SHOULD", cls: "blue" },
+  C: { label: "COULD", cls: "teal" },
+  W: { label: "WON'T", cls: "grey" },
 };
 
 const layers = [
@@ -356,10 +356,15 @@ const progress = [
 
 // ---------------------------------------------------------------------------
 // Presentation layer — everything below renders the content above.
-// Aesthetic: light technical console. White ground, slate ink, fine blueprint
-// grid, spectral pipeline ramp (one hue per layer), magenta interaction accent.
+// Aesthetic: brand spectral console. Dark slate masthead band (brand dark
+// slides: grid, glow, ribbon) over a light tinted deck. Spectral pipeline
+// ramp (one hue per layer), magenta interaction accent, per-priority MoSCoW
+// colours. Motion: scroll reveals, tick boot-up, ribbon draw-in, flowing
+// pipeline packets — all disabled under prefers-reduced-motion.
 // Space Grotesk display / JetBrains Mono data / Inter body.
 // ---------------------------------------------------------------------------
+
+import { useEffect, useRef, useState as useStateReact } from "react";
 
 const wikiTree = [
   { indent: 0, kind: "folder", name: "[Solution Name]", done: true },
@@ -421,23 +426,22 @@ function treePrefix(items, i) {
   return prefix;
 }
 
-// Spectral pipeline ramp — one hue per layer, in ribbon order. `tick` fills
-// small solid marks (dark enough to hold on white); `text` is the same hue
-// deepened for small-text legibility; `ink` is the numeral colour on a
-// tick-filled chip — per hue, since the ramp spans light and dark hues.
+// Spectral pipeline ramp — one hue per layer, in ribbon order.
+// `tick`/`text` are tuned for the light deck; `bright` for the dark masthead
+// band; `ink` is the numeral colour on a tick-filled chip.
 const LAYER_HUES = {
-  input:      { tick: "#C78F00", text: "#8A6D00", ink: "#1A2024" },
-  parser:     { tick: "#E07207", text: "#AC5500", ink: "#1A2024" },
-  ir:         { tick: "#CD3292", text: "#B0257E", ink: "#FFFFFF" },
-  enrichment: { tick: "#8D2A90", text: "#8D2A90", ink: "#FFFFFF" },
-  output:     { tick: "#304D9E", text: "#304D9E", ink: "#FFFFFF" },
-  pipeline:   { tick: "#0F9089", text: "#0B756F", ink: "#1A2024" },
+  input:      { tick: "#C78F00", text: "#8A6D00", bright: "#FCC412", ink: "#1A2024" },
+  parser:     { tick: "#E07207", text: "#AC5500", bright: "#F4871F", ink: "#1A2024" },
+  ir:         { tick: "#CD3292", text: "#B0257E", bright: "#E668B5", ink: "#FFFFFF" },
+  enrichment: { tick: "#8D2A90", text: "#8D2A90", bright: "#C36FC6", ink: "#FFFFFF" },
+  output:     { tick: "#304D9E", text: "#304D9E", bright: "#7A93DC", ink: "#FFFFFF" },
+  pipeline:   { tick: "#0F9089", text: "#0B756F", bright: "#2FD3CC", ink: "#1A2024" },
 };
 
-const RIBBON_COLORS = ["#E8AC00", "#F37B0B", "#CC238C", "#8A238B", "#25469D", "#0FA39A", "#34B77A"];
+const RIBBON_COLORS = ["#FCC412", "#F37B0B", "#CC238C", "#B44FB7", "#7A93DC", "#08B9B1", "#34B77A"];
 
 // Thin flowing lines, phase-shifted and amplitude-tapered at both ends —
-// drawn as code rather than pasted as an asset.
+// the brand wave drawn as code rather than pasted as an asset.
 function ribbonPath(i, w = 1200, h = 32) {
   const amp = 7 + i * 0.7, freq = 1.7, phase = i * 0.62;
   const pts = [];
@@ -453,14 +457,15 @@ function Ribbon({ height = 32 }) {
   return (
     <svg className="ribbon" viewBox={`0 0 1200 ${height}`} preserveAspectRatio="none" style={{ height }} aria-hidden="true">
       {RIBBON_COLORS.map((c, i) => (
-        <path key={c} d={ribbonPath(i, 1200, height)} fill="none" stroke={c} strokeWidth="1.1" opacity="0.85" />
+        <path key={c} d={ribbonPath(i, 1200, height)} fill="none" stroke={c} strokeWidth="1.1"
+          style={{ "--i": i }} />
       ))}
     </svg>
   );
 }
 
 const phaseChip = {
-  "COMPLETE": "fill",
+  "COMPLETE": "okfill",
   "IN PROGRESS": "accent",
   "PLANNED": "dim",
   "BACKLOG": "dash",
@@ -468,14 +473,24 @@ const phaseChip = {
 
 // segments: [{done, hue}] — per-segment colouring (the hero bar renders the
 // whole pipeline in layer order, so it reads as the spectral ramp).
-// Falls back to total/done with a single colour.
-function Ticks({ total, done, segments, color = "var(--accent)", size = 3, gap = 2, height = 9 }) {
+function Ticks({ total, done, segments, color = "var(--accent)", empty = "var(--hair)", size = 3, gap = 2, height = 9, boot = false }) {
   const segs = segments || Array.from({ length: total }, (_, i) => ({ done: i < done, hue: color }));
   return (
-    <span className="ticks" style={{ gap }}>
+    <span className={`ticks ${boot ? "boot" : ""}`} style={{ gap }}>
       {segs.map((s, i) => (
-        <span key={i} style={{ width: size, height, background: s.done ? s.hue : "var(--hair)" }} />
+        <span key={i} style={{ width: size, height, background: s.done ? s.hue : empty, "--d": i }} />
       ))}
+    </span>
+  );
+}
+
+// Slim proportional bar — replaces the per-phase tick strips, which read as
+// noise next to the spectral hero bar. Green when the phase is complete.
+function PhaseBar({ done, total }) {
+  const pct = total ? Math.round(done / total * 100) : 0;
+  return (
+    <span className="pbar" role="img" aria-label={`${done} of ${total} complete`}>
+      <span className={`pbar-fill ${done === total ? "done" : ""}`} style={{ width: `${pct}%` }} />
     </span>
   );
 }
@@ -490,22 +505,149 @@ function StatusMark({ done }) {
     : <span className="stat">○ PLANNED</span>;
 }
 
+// Scroll-reveal: adds .in when the element enters the viewport. No-op under
+// prefers-reduced-motion (CSS gates the initial offset, so nothing hides).
+function useReveal() {
+  const ref = useRef(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver(entries => {
+      entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } });
+    }, { rootMargin: "0px 0px -40px 0px", threshold: 0 });
+    el.querySelectorAll(".reveal:not(.in)").forEach(n => {
+      // Only nodes below the fold wait for scroll; anything at or above the
+      // viewport reveals immediately (it could otherwise never intersect).
+      if (n.getBoundingClientRect().top < window.innerHeight * 0.6) n.classList.add("in");
+      else io.observe(n);
+    });
+    return () => io.disconnect();
+  });
+  return ref;
+}
+
+// Count-up for the hero coverage number.
+function CountUp({ value }) {
+  const [n, setN] = useStateReact(() =>
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches ? value : 0
+  );
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) { setN(value); return; }
+    let raf;
+    const t0 = performance.now(), dur = 900;
+    const step = t => {
+      const p = Math.min(1, (t - t0) / dur);
+      setN(Math.round(value * (1 - Math.pow(1 - p, 3))));
+      if (p < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [value]);
+  return <>{n}</>;
+}
+
+// Animated pipeline-flow infographic. Packets travel Git → the six stages →
+// the shipped artifacts; clicking a stage selects that layer below.
+function FlowDiagram({ activeLayer, onSelect }) {
+  const stages = layers.map(l => ({
+    id: l.id,
+    num: l.label.split(" — ")[0],
+    name: l.label.split(" — ")[1].replace(" LAYER", ""),
+    hue: LAYER_HUES[l.id],
+  }));
+  const BOX_W = 108, BOX_H = 44, GAP = 26, X0 = 148, Y = 56;
+  const stageX = i => X0 + i * (BOX_W + GAP);
+  const lastRight = stageX(5) + BOX_W;
+  const mainPath = `M 122 ${Y + BOX_H / 2} L ${lastRight + 4} ${Y + BOX_H / 2}`;
+  const wikiPath = `M ${lastRight + 4} ${Y + BOX_H / 2} L ${lastRight + 34} ${Y - 6} L ${lastRight + 60} ${Y - 6}`;
+  const docxPath = `M ${lastRight + 4} ${Y + BOX_H / 2} L ${lastRight + 34} ${Y + BOX_H + 6} L ${lastRight + 60} ${Y + BOX_H + 6}`;
+  const DOT_COLORS = ["#C78F00", "#CD3292", "#0F9089"];
+  return (
+    <div className="flow-wrap reveal">
+      <svg className="flow" viewBox="0 24 1092 108" role="group"
+        aria-label="Pipeline flow: solution XML from the Git repo passes through input, parser, IR, enrichment, output and pipeline layers, and ships to the ADO wiki and Word document">
+        {/* spine + branches */}
+        <path d={mainPath} className="flow-line" />
+        <path d={wikiPath} className="flow-line" />
+        <path d={docxPath} className="flow-line" />
+
+        {/* main-path packets travel BEHIND the boxes, appearing only in the
+            connector gaps; negative begins mean they are mid-path on first
+            frame instead of parked at the origin */}
+        {[0, 1, 2].map(k => (
+          <circle key={`m${k}`} className="flowdot" r="3" cx="-20" cy="-20" fill={DOT_COLORS[k]}>
+            <animateMotion dur="7s" begin={`${-k * 2.3}s`} repeatCount="indefinite" path={mainPath} />
+          </circle>
+        ))}
+
+        {/* source node */}
+        <g className="flow-node">
+          <rect x="14" y={Y + 5} width="108" height="34" rx="2" />
+          <text x="68" y={Y + 20} className="flow-name">GIT REPO</text>
+          <text x="68" y={Y + 32} className="flow-cap">solution XML</text>
+        </g>
+
+        {/* stage boxes */}
+        {stages.map((s, i) => (
+          <g key={s.id} className={`flow-stage ${activeLayer === s.id ? "on" : ""}`}
+            style={{ "--hue": s.hue.tick, "--hue-text": s.hue.text }}
+            onClick={() => onSelect(s.id)} tabIndex={0} role="button"
+            aria-label={`Select ${s.num} ${s.name} layer`} aria-pressed={activeLayer === s.id}
+            onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(s.id); } }}>
+            <rect x={stageX(i)} y={Y} width={BOX_W} height={BOX_H} rx="2" />
+            <text x={stageX(i) + BOX_W / 2} y={Y + 18} className="flow-num">{s.num}</text>
+            <text x={stageX(i) + BOX_W / 2} y={Y + 33} className="flow-name">{s.name}</text>
+          </g>
+        ))}
+
+        {/* artifact nodes */}
+        <g className="flow-node out">
+          <rect x={lastRight + 60} y={Y - 24} width="96" height="34" rx="2" />
+          <text x={lastRight + 108} y={Y - 9} className="flow-name">ADO WIKI</text>
+          <text x={lastRight + 108} y={Y + 3} className="flow-cap">markdown</text>
+        </g>
+        <g className="flow-node out">
+          <rect x={lastRight + 60} y={Y + BOX_H - 10} width="96" height="34" rx="2" />
+          <text x={lastRight + 108} y={Y + BOX_H + 5} className="flow-name">WORD .DOCX</text>
+          <text x={lastRight + 108} y={Y + BOX_H + 17} className="flow-cap">themed + diagrams</text>
+        </g>
+
+        {/* branch packets — neutral, so they don't echo the priority chips */}
+        <circle className="flowdot" r="3" cx="-20" cy="-20" fill="#4C5B63">
+          <animateMotion dur="1s" begin="-0.3s" repeatCount="indefinite" path={wikiPath} />
+        </circle>
+        <circle className="flowdot" r="3" cx="-20" cy="-20" fill="#4C5B63">
+          <animateMotion dur="1s" begin="-0.8s" repeatCount="indefinite" path={docxPath} />
+        </circle>
+      </svg>
+    </div>
+  );
+}
+
 const css = `
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
 
 :root {
+  --ground: #F2F5F6;
   --bg: #FFFFFF;
-  --surface: #F8FAFA;
-  --surface2: #F1F4F5;
-  --ink: #29343B;
-  --soft: #55646C;
+  --surface: #FFFFFF;
+  --ink: #232E35;
+  --soft: #4C5B63;
   --faint-text: #64737B;
-  --faint: #9AA7AD;
-  --hair: #D9E0E2;
-  --hair2: #E7ECED;
+  --faint: #93A1A8;
+  --hair: #D2DADD;
+  --hair2: #E2E8EA;
   --accent: #CD3292;
   --accent-text: #B0257E;
   --ok: #197B4B;
+  --m-should: #5246B8;
+  --m-could: #0A7DA0;
+  --band: #232B30;
+  --band-surface: #2B353B;
+  --band-ink: #EDF1F2;
+  --band-soft: #B9C3C7;
+  --band-faint: #93A0A6;
+  --band-hair: #3D484E;
   --disp: 'Space Grotesk', 'Inter', system-ui, sans-serif;
   --sans: 'Inter', system-ui, -apple-system, sans-serif;
   --mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
@@ -513,20 +655,10 @@ const css = `
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html { color-scheme: light; }
-body { background: #FFFFFF; }
+body { background: #F2F5F6; }
 
-.pad-root {
-  min-height: 100vh;
-  background: var(--bg);
-  background-image:
-    linear-gradient(rgba(41,52,59,0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(41,52,59,0.045) 1px, transparent 1px);
-  background-size: 32px 32px;
-  color: var(--ink);
-  font-family: var(--sans);
-  -webkit-font-smoothing: antialiased;
-}
-.pad-shell { max-width: 1260px; margin: 0 auto; padding: 0 48px 72px; }
+.pad-root { min-height: 100vh; background: var(--ground); color: var(--ink); font-family: var(--sans); -webkit-font-smoothing: antialiased; }
+.pad-shell { max-width: 1260px; margin: 0 auto; padding: 0 48px; position: relative; }
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -534,76 +666,128 @@ body { background: #FFFFFF; }
 
 :where(.pad-root) a { color: inherit; text-decoration: none; }
 :where(.pad-root button) { font: inherit; color: inherit; background: none; border: none; cursor: pointer; border-radius: 0; padding: 0; }
-.pad-root button:focus-visible, .pad-root a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.pad-root button:focus-visible, .pad-root a:focus-visible, .pad-root [tabindex]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ---- masthead band (brand dark-slide language: grid, glow, ribbon) ---- */
+.mast-band {
+  position: relative;
+  background: var(--band);
+  background-image:
+    radial-gradient(720px 340px at 82% -10%, rgba(205,50,146,0.20), transparent 70%),
+    radial-gradient(560px 300px at 8% 78%, rgba(141,42,144,0.16), transparent 70%),
+    linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+  background-size: auto, auto, 32px 32px, 32px 32px;
+  color: var(--band-ink);
+}
+.masthead { padding: 34px 0 0; }
+.eyebrow-row { display: flex; align-items: baseline; gap: 14px; margin-bottom: 26px; }
+.brand { font: 600 11px/1 var(--mono); letter-spacing: 0.22em; color: var(--band-ink); }
+.brand::before { content: '■ '; color: var(--accent); }
+.eyebrow-sub { font: 400 10px/1.5 var(--mono); letter-spacing: 0.18em; color: var(--band-faint); }
+.mast-links { margin-left: auto; display: flex; gap: 22px; }
+.mast-links a { font: 500 10px/1 var(--mono); letter-spacing: 0.1em; color: var(--band-soft); border-bottom: 1px solid transparent; padding-bottom: 2px; white-space: nowrap; }
+.mast-links a:hover { color: #fff; border-bottom-color: var(--accent); }
+
+.mast-grid { display: grid; grid-template-columns: 1fr 300px; gap: 48px; align-items: start; }
+.mast-title { font-family: var(--disp); font-weight: 600; font-size: 44px; line-height: 1.06; letter-spacing: -0.02em; margin: 0 0 18px; max-width: 640px; color: #fff; }
+.mast-title em {
+  font-style: normal;
+  background: linear-gradient(100deg, #FCC412, #F37B0B 28%, #E668B5 55%, #C36FC6 80%, #38D6CF);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.mast-desc { font-size: 13px; line-height: 1.75; color: var(--band-soft); max-width: 620px; }
+.mast-desc strong { color: var(--band-ink); }
+
+.tblock { border: 1px solid rgba(255,255,255,0.28); background: rgba(43,53,59,0.72); backdrop-filter: blur(2px); }
+.tblock-row { display: grid; grid-template-columns: 96px 1fr; border-top: 1px solid var(--band-hair); }
+.tblock-row:first-child { border-top: none; }
+.tblock-k { font: 500 9px/1 var(--mono); letter-spacing: 0.16em; color: var(--band-faint); padding: 10px 12px 9px; border-right: 1px solid var(--band-hair); }
+.tblock-v { font: 500 10px/1.4 var(--mono); letter-spacing: 0.04em; color: var(--band-ink); padding: 8px 12px 7px; }
+.tblock-v a { border-bottom: 1px solid var(--band-hair); }
+.tblock-v a:hover { color: #fff; border-bottom-color: var(--accent); }
+
+.progress-row { display: flex; align-items: center; gap: 18px; margin: 30px 0 0; flex-wrap: wrap; }
+.progress-count { font: 500 11px/1 var(--mono); letter-spacing: 0.06em; color: var(--band-soft); }
+.progress-count strong { color: #fff; font-weight: 700; }
+.progress-phase { font: 400 10px/1.5 var(--mono); letter-spacing: 0.08em; color: var(--band-faint); }
+
+.ribbon { display: block; width: 100%; margin-top: 26px; -webkit-mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); }
+
+.tab-row { display: flex; gap: 34px; border-top: 1px solid rgba(255,255,255,0.25); }
+.tab { font: 500 10.5px/1 var(--mono); letter-spacing: 0.14em; color: var(--band-faint); padding: 15px 0 13px; border-bottom: 2px solid transparent; text-transform: uppercase; transition: color 0.15s; white-space: nowrap; }
+.tab:hover { color: #fff; }
+.tab.active { color: #fff; border-bottom-color: var(--accent); }
+.tab .tnum { color: var(--band-faint); margin-right: 7px; }
+.tab.active .tnum { color: var(--accent); }
+
+/* ---- deck (light) ---- */
+.deck { padding: 40px 0 72px; }
+.deck-band { position: relative; }
+.deck-band::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    linear-gradient(rgba(35,46,53,0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(35,46,53,0.05) 1px, transparent 1px);
+  background-size: 32px 32px;
+  -webkit-mask-image: linear-gradient(180deg, rgba(0,0,0,0.9), rgba(0,0,0,0.35) 55%, transparent 92%);
+  mask-image: linear-gradient(180deg, rgba(0,0,0,0.9), rgba(0,0,0,0.35) 55%, transparent 92%);
+}
+.deck-band > * { position: relative; }
+.sec-label { font: 500 9px/1 var(--mono); letter-spacing: 0.2em; color: var(--soft); text-transform: uppercase; margin-bottom: 18px; }
+
+.card { background: var(--surface); border: 1px solid var(--hair); box-shadow: 0 1px 3px rgba(20,30,35,0.05); }
 
 /* ---- shared atoms ---- */
 .label { font: 500 9px/1 var(--mono); letter-spacing: 0.18em; color: var(--soft); text-transform: uppercase; }
 .chip { display: inline-block; font: 500 9px/1 var(--mono); letter-spacing: 0.1em; padding: 3px 6px 2px; border: 1px solid var(--soft); color: var(--ink); white-space: nowrap; }
 .chip.fill { background: var(--accent-text); border-color: var(--accent-text); color: #fff; }
+.chip.okfill { background: var(--ok); border-color: var(--ok); color: #fff; }
+.chip.blue { background: #E5E3F7; border-color: var(--m-should); color: var(--m-should); }
+.chip.teal { background: transparent; border-color: var(--m-could); color: var(--m-could); }
+.chip.grey { border-style: dashed; border-color: var(--faint); color: var(--faint-text); }
 .chip.mid { border-color: var(--faint); color: var(--soft); }
 .chip.dim { border-color: var(--faint); color: var(--faint-text); }
 .chip.dash { border-style: dashed; border-color: var(--faint); color: var(--faint-text); }
 .chip.accent { border-color: var(--accent); color: var(--accent-text); }
-.chip.bare { border: none; padding: 3px 0 2px; letter-spacing: 0.14em; color: var(--soft); }
-.chip.bare.dim { color: var(--faint-text); }
-.chip.bare.strike { text-decoration: line-through; color: var(--soft); }
 .stat { font: 500 9px/1 var(--mono); letter-spacing: 0.12em; color: var(--faint-text); white-space: nowrap; }
 .stat.built { color: var(--ok); }
 .ticks { display: inline-flex; align-items: center; flex-wrap: wrap; row-gap: 2px; max-width: 100%; min-width: 0; }
 .tag-line { font: 400 10px/1.8 var(--mono); color: var(--faint-text); letter-spacing: 0.02em; }
 
-/* ---- header / title block ---- */
-.masthead { position: relative; padding: 34px 0 0; }
-.eyebrow-row { display: flex; align-items: baseline; gap: 14px; margin-bottom: 26px; }
-.brand { font: 600 11px/1 var(--mono); letter-spacing: 0.22em; color: var(--ink); }
-.brand::before { content: '■ '; color: var(--accent); }
-.eyebrow-sub { font: 400 10px/1.5 var(--mono); letter-spacing: 0.18em; color: var(--faint-text); }
-.mast-links { margin-left: auto; display: flex; gap: 22px; }
-.mast-links a { font: 500 10px/1 var(--mono); letter-spacing: 0.1em; color: var(--soft); border-bottom: 1px solid transparent; padding-bottom: 2px; white-space: nowrap; }
-.mast-links a:hover { color: var(--accent-text); border-bottom-color: var(--accent); }
+.pbar { display: inline-block; width: 110px; height: 4px; background: var(--hair2); overflow: hidden; }
+.pbar-fill { display: block; height: 100%; background: #C78F00; transition: width 0.6s cubic-bezier(0.2, 0.7, 0.3, 1); }
+.pbar-fill.done { background: var(--ok); }
 
-.mast-grid { display: grid; grid-template-columns: 1fr 300px; gap: 48px; align-items: start; }
-.mast-title { font-family: var(--disp); font-weight: 600; font-size: 44px; line-height: 1.06; letter-spacing: -0.02em; margin: 0 0 18px; max-width: 640px; color: var(--ink); }
-.mast-title em {
-  font-style: normal;
-  background: linear-gradient(100deg, #B8830A, #E07207 28%, #CD3292 55%, #8D2A90 80%, #0F9089);
-  -webkit-background-clip: text; background-clip: text; color: transparent;
-}
-.mast-desc { font-size: 13px; line-height: 1.75; color: var(--soft); max-width: 620px; }
-.mast-desc strong { color: var(--ink); }
-
-.tblock { border: 1px solid var(--ink); background: var(--surface); }
-.tblock-row { display: grid; grid-template-columns: 96px 1fr; border-top: 1px solid var(--hair); }
-.tblock-row:first-child { border-top: none; }
-.tblock-k { font: 500 9px/1 var(--mono); letter-spacing: 0.16em; color: var(--faint-text); padding: 10px 12px 9px; border-right: 1px solid var(--hair); }
-.tblock-v { font: 500 10px/1.4 var(--mono); letter-spacing: 0.04em; color: var(--ink); padding: 8px 12px 7px; }
-.tblock-v a { border-bottom: 1px solid var(--hair); }
-.tblock-v a:hover { color: var(--accent-text); border-bottom-color: var(--accent); }
-.tblock-v .sp { }
-
-.progress-row { display: flex; align-items: center; gap: 18px; margin: 30px 0 0; flex-wrap: wrap; }
-.progress-count { font: 500 11px/1 var(--mono); letter-spacing: 0.06em; color: var(--soft); }
-.progress-count strong { color: var(--ink); font-weight: 700; }
-.progress-phase { font: 400 10px/1.5 var(--mono); letter-spacing: 0.08em; color: var(--faint-text); }
-
-.ribbon { display: block; width: 100%; margin-top: 26px; }
-
-.tab-row { display: flex; gap: 34px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--hair); }
-.tab { font: 500 10.5px/1 var(--mono); letter-spacing: 0.14em; color: var(--faint-text); padding: 15px 0 13px; border-bottom: 2px solid transparent; margin-bottom: -1px; text-transform: uppercase; transition: color 0.15s; white-space: nowrap; }
-.tab:hover { color: var(--ink); }
-.tab.active { color: var(--ink); border-bottom-color: var(--accent); }
-.tab .tnum { color: var(--faint); margin-right: 7px; }
-.tab.active .tnum { color: var(--accent-text); }
-
-.deck { padding-top: 36px; }
-.sec-label { font: 500 9px/1 var(--mono); letter-spacing: 0.2em; color: var(--soft); text-transform: uppercase; margin-bottom: 18px; }
+/* ---- pipeline flow infographic ---- */
+.flow-wrap { overflow-x: auto; margin-bottom: 30px; }
+.flow { display: block; width: 100%; min-width: 1080px; height: auto; }
+.flow-line { fill: none; stroke: var(--faint); stroke-width: 1; }
+.flow-node rect { fill: var(--surface); stroke: var(--soft); stroke-width: 1; }
+.flow-node .flow-name { font: 600 10px var(--mono); letter-spacing: 0.08em; fill: var(--ink); text-anchor: middle; }
+.flow-node .flow-cap { font: 400 8.5px var(--mono); letter-spacing: 0.04em; fill: var(--faint-text); text-anchor: middle; }
+.flow-stage { cursor: pointer; }
+.flow-stage rect { fill: var(--surface); stroke: var(--hue); stroke-width: 1.2; transition: fill 0.15s; }
+.flow-stage .flow-num { font: 700 10px var(--mono); fill: var(--hue-text); text-anchor: middle; letter-spacing: 0.08em; }
+.flow-stage .flow-name { font: 600 10px var(--mono); fill: var(--ink); text-anchor: middle; letter-spacing: 0.06em; }
+.flow-stage:hover rect { fill: color-mix(in srgb, var(--hue) 8%, white); }
+.flow-stage.on rect { fill: color-mix(in srgb, var(--hue) 14%, white); stroke-width: 2; }
+.flow-stage:focus-visible { outline: none; }
+.flow-stage:focus-visible rect { stroke: var(--accent); stroke-width: 2.5; }
 
 /* ---- architecture tab ---- */
 .filter-row { display: flex; align-items: center; gap: 8px; margin-bottom: 28px; flex-wrap: wrap; }
 .filter-label { font: 500 9px/1 var(--mono); letter-spacing: 0.18em; color: var(--soft); margin-right: 6px; }
 .fbtn { font: 500 9.5px/1 var(--mono); letter-spacing: 0.12em; padding: 7px 12px 6px; border: 1px solid var(--faint); color: var(--soft); background: var(--surface); transition: all 0.12s; white-space: nowrap; }
 .fbtn:hover { border-color: var(--ink); color: var(--ink); }
-.fbtn.active { background: var(--accent-text); border-color: var(--accent-text); color: #fff; }
+.fbtn.active { background: var(--ink); border-color: var(--ink); color: #fff; }
+.fbtn.f-m.active { background: var(--accent-text); border-color: var(--accent-text); }
+.fbtn.f-s.active { background: var(--m-should); border-color: var(--m-should); }
+.fbtn.f-c.active { background: var(--m-could); border-color: var(--m-could); }
+.fbtn.f-w.active { background: var(--ink); border-style: dashed; border-color: var(--faint); }
+.filter-key .k-m { color: var(--accent-text); font-weight: 600; }
+.filter-key .k-s { color: var(--m-should); font-weight: 600; }
+.filter-key .k-c { color: var(--m-could); font-weight: 600; }
 .filter-key { font: 400 10px/1.5 var(--mono); color: var(--faint-text); margin-left: 10px; letter-spacing: 0.02em; }
 
 .arch-grid { display: grid; grid-template-columns: 330px 1fr; gap: 36px; align-items: start; }
@@ -622,7 +806,7 @@ body { background: #FFFFFF; }
 .lcount { font: 400 9.5px/1 var(--mono); color: var(--faint-text); margin-left: auto; letter-spacing: 0.04em; }
 .ldesc { font-size: 11.5px; line-height: 1.55; color: var(--soft); margin-bottom: 8px; }
 
-.panel { background: var(--surface); border: 1px solid var(--hair); padding: 28px 32px 20px; min-height: 320px; }
+.panel { padding: 28px 32px 20px; min-height: 320px; }
 .panel-head { border-bottom: 1px solid var(--ink); padding-bottom: 18px; }
 .panel-label { font: 500 9.5px/1 var(--mono); letter-spacing: 0.18em; color: var(--hue-text, var(--accent-text)); margin-bottom: 10px; }
 .panel-desc { font-family: var(--disp); font-weight: 500; font-size: 20px; line-height: 1.35; color: var(--ink); letter-spacing: -0.01em; }
@@ -631,9 +815,11 @@ body { background: #FFFFFF; }
 
 .rows { animation: rise 0.3s cubic-bezier(0.2, 0.7, 0.3, 1); }
 @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-.crow { display: grid; grid-template-columns: 44px 1fr; gap: 0 14px; padding: 15px 0 14px; border-top: 1px solid var(--hair2); }
+.crow { display: grid; grid-template-columns: 44px 1fr; gap: 0 14px; padding: 15px 0 14px; border-top: 1px solid var(--hair2); transition: background 0.15s; }
 .crow:first-child { border-top: none; }
+.crow:hover { background: color-mix(in srgb, var(--hue, var(--accent)) 3%, transparent); }
 .cidx { font: 500 10px/1 var(--mono); color: var(--faint-text); padding-top: 3px; letter-spacing: 0.04em; }
+.crow:hover .cidx { color: var(--hue-text, var(--accent-text)); }
 .cname-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: start; }
 .cname-group { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .cname { font-size: 13px; font-weight: 600; color: var(--ink); }
@@ -643,7 +829,7 @@ body { background: #FFFFFF; }
 .crow.planned .cdetail { color: var(--faint-text); }
 
 /* ---- progress tab ---- */
-.phase-block { border: 1px solid var(--hair); background: var(--surface); margin-bottom: 16px; }
+.phase-block { margin-bottom: 16px; }
 .phase-head { display: flex; align-items: center; gap: 14px; padding: 16px 22px 14px; border-bottom: 1px solid var(--hair2); flex-wrap: wrap; }
 .phase-num { font: 600 10px/1 var(--mono); letter-spacing: 0.14em; color: var(--accent-text); }
 .phase-name { font-family: var(--disp); font-weight: 500; font-size: 18px; color: var(--ink); letter-spacing: -0.01em; }
@@ -662,7 +848,7 @@ body { background: #FFFFFF; }
 .note-body strong { color: var(--ink); font-weight: 600; }
 
 /* ---- wiki tab ---- */
-.tree-card { background: var(--surface); border: 1px solid var(--hair); padding: 24px 40px 24px 28px; margin-bottom: 36px; overflow-x: auto; width: fit-content; min-width: min(620px, 100%); max-width: 100%; }
+.tree-card { padding: 24px 40px 24px 28px; margin-bottom: 36px; overflow-x: auto; width: fit-content; min-width: min(620px, 100%); max-width: 100%; }
 .tree-intro { font-size: 12.5px; line-height: 1.7; color: var(--soft); max-width: 56ch; margin-bottom: 6px; }
 .tree-legend { font: 400 9.5px/1.5 var(--mono); letter-spacing: 0.1em; color: var(--faint-text); margin-bottom: 14px; }
 .tree-legend .b { color: var(--ok); }
@@ -686,7 +872,6 @@ body { background: #FFFFFF; }
 .pg-row.planned .pg-desc { color: var(--faint-text); }
 
 /* ---- decisions tab ---- */
-.dec-card { background: var(--surface); border: 1px solid var(--hair); }
 .dec-head { display: grid; grid-template-columns: 52px 200px 220px 1fr; gap: 18px; padding: 12px 22px; border-bottom: 1px solid var(--ink); }
 .dec-head .label { color: var(--faint-text); }
 .dec-row { display: grid; grid-template-columns: 52px 200px 220px 1fr; gap: 18px; padding: 14px 22px 13px; border-bottom: 1px solid var(--hair2); }
@@ -701,8 +886,23 @@ body { background: #FFFFFF; }
 .colophon .label { color: var(--faint-text); }
 .colophon .right { margin-left: auto; font: 400 9.5px/1.5 var(--mono); letter-spacing: 0.1em; color: var(--faint-text); }
 
+/* ---- motion (all gated) ---- */
+@media (prefers-reduced-motion: no-preference) {
+  .reveal { opacity: 0; transform: translateY(14px); transition: opacity 0.55s ease, transform 0.55s cubic-bezier(0.2, 0.7, 0.3, 1); transition-delay: var(--rd, 0ms); }
+  .reveal.in { opacity: 1; transform: none; }
+  .ticks.boot span { transform-origin: bottom; animation: tickin 0.35s both; animation-delay: calc(var(--d) * 5ms); }
+  @keyframes tickin { from { transform: scaleY(0); } }
+  .ribbon path { stroke-dasharray: 1300; stroke-dashoffset: 1300; animation: ribdraw 1.5s ease-out forwards; animation-delay: calc(var(--i) * 110ms); }
+  @keyframes ribdraw { to { stroke-dashoffset: 0; } }
+}
+@media (prefers-reduced-motion: reduce) {
+  .flowdot { display: none; }
+  .rows { animation: none; }
+  .pbar-fill { transition: none; }
+}
+
 @media (max-width: 980px) {
-  .pad-shell { padding: 0 22px 56px; }
+  .pad-shell { padding: 0 22px; }
   .eyebrow-row { flex-wrap: wrap; row-gap: 10px; }
   .mast-links { margin-left: 0; flex-basis: 100%; }
   .mast-grid { grid-template-columns: 1fr; gap: 26px; }
@@ -724,6 +924,7 @@ export default function App() {
   const [activeLayer, setActiveLayer] = useState("input");
   const [activeTab, setActiveTab] = useState("architecture");
   const [moscowFilter, setMoscowFilter] = useState(null);
+  const revealRoot = useReveal();
 
   const active = layers.find(l => l.id === activeLayer);
   const totalComponents = layers.flatMap(l => l.components).length;
@@ -738,94 +939,103 @@ export default function App() {
   const layerName = label => label.split(" — ")[1];
 
   // Hero tick bar: every component in pipeline order, coloured by its layer —
-  // the spectral ramp doubles as the coverage readout.
+  // the spectral ramp doubles as the coverage readout. Bright variants on the
+  // dark band.
   const heroSegments = layers.flatMap(l =>
-    l.components.map(c => ({ done: c.done, hue: LAYER_HUES[l.id].tick }))
+    l.components.map(c => ({ done: c.done, hue: LAYER_HUES[l.id].bright }))
   );
 
   return (
-    <div className="pad-root">
+    <div className="pad-root" ref={revealRoot}>
       <style>{css}</style>
-      <div className="pad-shell">
 
-        <header className="masthead">
-          <div className="eyebrow-row">
-            <span className="brand">POWERAUTODOCS</span>
-            <span className="eyebrow-sub">SYSTEM ARCHITECTURE</span>
-            <nav className="mast-links">
-              <a href="https://www.npmjs.com/package/powerautodocs">npm ↗</a>
-              <a href="https://github.com/lewginn/PowerAutoDocs">GitHub ↗</a>
-              <a href="https://github.com/users/lewginn/projects/3">Project board ↗</a>
-            </nav>
-          </div>
-
-          <div className="mast-grid">
-            <div>
-              <h1 className="mast-title">Automated <em>as-built</em> documentation for Power Platform</h1>
-              <p className="mast-desc">
-                A reusable pipeline that reads Power Platform solution artifacts directly from Git and produces
-                structured, cross-linked wiki documentation in Azure DevOps — including Mermaid flow diagrams,
-                nested action trees, business rules, plugin registrations, web resource indexes, security role
-                matrices, environment variables, global choices, email templates, model-driven apps and
-                auto-generated ER diagrams. Published as <strong>powerautodocs</strong> on npm.
-              </p>
+      <div className="mast-band">
+        <div className="pad-shell">
+          <header className="masthead">
+            <div className="eyebrow-row">
+              <span className="brand">POWERAUTODOCS</span>
+              <span className="eyebrow-sub">SYSTEM ARCHITECTURE</span>
+              <nav className="mast-links">
+                <a href="https://www.npmjs.com/package/powerautodocs">npm ↗</a>
+                <a href="https://github.com/lewginn/PowerAutoDocs">GitHub ↗</a>
+                <a href="https://github.com/users/lewginn/projects/3">Project board ↗</a>
+              </nav>
             </div>
-            <aside className="tblock">
-              <div className="tblock-row">
-                <span className="tblock-k">PACKAGE</span>
-                <span className="tblock-v"><a href="https://www.npmjs.com/package/powerautodocs">powerautodocs</a></span>
-              </div>
-              <div className="tblock-row">
-                <span className="tblock-k">PIPELINE</span>
-                <span className="tblock-v">
-                  {layers.map((l, i) => (
-                    <span key={l.id}>
-                      <span style={{ color: LAYER_HUES[l.id].text }}>{layerName(l.label).replace(" LAYER", "")}</span>
-                      {i < layers.length - 1 ? " → " : ""}
-                    </span>
-                  ))}
-                </span>
-              </div>
-              <div className="tblock-row">
-                <span className="tblock-k">STATUS</span>
-                <span className="tblock-v">PHASES 1–4 COMPLETE</span>
-              </div>
-              <div className="tblock-row">
-                <span className="tblock-k">COVERAGE</span>
-                <span className="tblock-v">{doneComponents} / {totalComponents} COMPONENTS · {pct}%</span>
-              </div>
-            </aside>
-          </div>
 
-          <div className="progress-row">
-            <Ticks segments={heroSegments} />
-            <span className="progress-count"><strong>{doneComponents}</strong> of {totalComponents} components built</span>
-            <span className="progress-phase">PHASES 1–4 COMPLETE · PHASE 5, PHASE 6 &amp; BACKLOG PLANNED</span>
-          </div>
+            <div className="mast-grid">
+              <div>
+                <h1 className="mast-title">Automated <em>as-built</em> documentation for Power Platform</h1>
+                <p className="mast-desc">
+                  A reusable pipeline that reads Power Platform solution artifacts directly from Git and produces
+                  structured, cross-linked wiki documentation in Azure DevOps — including Mermaid flow diagrams,
+                  nested action trees, business rules, plugin registrations, web resource indexes, security role
+                  matrices, environment variables, global choices, email templates, model-driven apps and
+                  auto-generated ER diagrams. Published as <strong>powerautodocs</strong> on npm.
+                </p>
+              </div>
+              <aside className="tblock">
+                <div className="tblock-row">
+                  <span className="tblock-k">PACKAGE</span>
+                  <span className="tblock-v"><a href="https://www.npmjs.com/package/powerautodocs">powerautodocs</a></span>
+                </div>
+                <div className="tblock-row">
+                  <span className="tblock-k">PIPELINE</span>
+                  <span className="tblock-v">
+                    {layers.map((l, i) => (
+                      <span key={l.id}>
+                        <span style={{ color: LAYER_HUES[l.id].bright }}>{layerName(l.label).replace(" LAYER", "")}</span>
+                        {i < layers.length - 1 ? " → " : ""}
+                      </span>
+                    ))}
+                  </span>
+                </div>
+                <div className="tblock-row">
+                  <span className="tblock-k">STATUS</span>
+                  <span className="tblock-v">PHASES 1–4 COMPLETE</span>
+                </div>
+                <div className="tblock-row">
+                  <span className="tblock-k">COVERAGE</span>
+                  <span className="tblock-v"><CountUp value={doneComponents} /> / {totalComponents} COMPONENTS · {pct}%</span>
+                </div>
+              </aside>
+            </div>
 
-          <Ribbon />
+            <div className="progress-row">
+              <Ticks segments={heroSegments} empty="#4A565D" boot />
+              <span className="progress-count"><strong><CountUp value={doneComponents} /></strong> of {totalComponents} components built</span>
+              <span className="progress-phase">PHASES 1–4 COMPLETE · PHASE 5, PHASE 6 &amp; BACKLOG PLANNED</span>
+            </div>
 
-          <div className="tab-row">
-            {["architecture", "progress", "wiki structure", "decisions"].map((tab, i) => (
-              <button key={tab} className={`tab ${activeTab === tab ? "active" : ""}`} onClick={() => setActiveTab(tab)}>
-                <span className="tnum">{String(i + 1).padStart(2, "0")}</span>{tab}
-              </button>
-            ))}
-          </div>
-        </header>
+            <Ribbon />
 
+            <div className="tab-row">
+              {["architecture", "progress", "wiki structure", "decisions"].map((tab, i) => (
+                <button key={tab} className={`tab ${activeTab === tab ? "active" : ""}`} onClick={() => setActiveTab(tab)}>
+                  <span className="tnum">{String(i + 1).padStart(2, "0")}</span>{tab}
+                </button>
+              ))}
+            </div>
+          </header>
+        </div>
+      </div>
+
+      <div className="deck-band">
+      <div className="pad-shell">
         <main className="deck">
 
           {activeTab === "architecture" && (
             <div>
+              <div className="sec-label">Pipeline flow — click a stage to inspect it</div>
+              <FlowDiagram activeLayer={activeLayer} onSelect={id => setActiveLayer(id)} />
+
               <div className="filter-row">
                 <span className="filter-label">FILTER — PRIORITY</span>
                 <button className={`fbtn ${moscowFilter === null ? "active" : ""}`} onClick={() => setMoscowFilter(null)}>ALL</button>
                 {Object.entries(moscow).map(([key, val]) => (
-                  <button key={key} className={`fbtn ${moscowFilter === key ? "active" : ""}`}
+                  <button key={key} className={`fbtn f-${key.toLowerCase()} ${moscowFilter === key ? "active" : ""}`}
                     onClick={() => setMoscowFilter(moscowFilter === key ? null : key)}>{val.label}</button>
                 ))}
-                <span className="filter-key">MoSCoW — must · should · could · won't (for now)</span>
+                <span className="filter-key">MoSCoW — <span className="k-m">must</span> · <span className="k-s">should</span> · <span className="k-c">could</span> · won't (for now)</span>
               </div>
 
               <div className="arch-grid">
@@ -853,7 +1063,7 @@ export default function App() {
                   })}
                 </div>
 
-                <div className="panel">
+                <div className="panel card">
                   {!active && (
                     <div className="panel-empty" style={{ minHeight: 320 }}>
                       <span className="hint">Select a layer from the pipeline index.</span>
@@ -903,17 +1113,17 @@ export default function App() {
           {activeTab === "progress" && (
             <div style={{ maxWidth: 1000 }}>
               <div className="sec-label">Build progress</div>
-              {progress.map(p => {
+              {progress.map((p, pi) => {
                 const dc = p.items.filter(i => i.done).length;
                 const tot = p.items.length;
                 const [pnum, pname] = p.phase.split(" — ");
                 return (
-                  <div key={p.phase} className="phase-block">
+                  <div key={p.phase} className="phase-block card reveal" style={{ "--rd": `${Math.min(pi, 3) * 60}ms` }}>
                     <div className="phase-head">
                       <span className="phase-num">{pnum.toUpperCase()}</span>
                       <span className="phase-name">{pname}</span>
                       <span className="phase-meta">
-                        <Ticks total={tot} done={dc} size={4} height={8} />
+                        <PhaseBar done={dc} total={tot} />
                         <span className="phase-count">{dc}/{tot}</span>
                         <Chip kind={phaseChip[p.status] || "dim"}>{p.status}</Chip>
                       </span>
@@ -929,7 +1139,7 @@ export default function App() {
                   </div>
                 );
               })}
-              <div className="note-block">
+              <div className="note-block reveal">
                 <div className="note-label">NOTE — CURRENT STATE</div>
                 <div className="note-body">
                   <strong>Phases 1–4 are complete and producing real output on live client solutions.</strong> The full pipeline
@@ -948,7 +1158,7 @@ export default function App() {
           {activeTab === "wiki structure" && (
             <div style={{ maxWidth: 1000 }}>
               <div className="sec-label">ADO wiki page hierarchy</div>
-              <div className="tree-card">
+              <div className="tree-card card reveal">
                 <p className="tree-intro">
                   Each solution gets its own top-level wiki section. Pages are generated from the IR layer and published via ADO REST API.
                 </p>
@@ -989,7 +1199,7 @@ export default function App() {
           {activeTab === "decisions" && (
             <div>
               <div className="sec-label">Key architectural decisions — confirmed in build</div>
-              <div className="dec-card">
+              <div className="dec-card card reveal">
                 <div className="dec-head">
                   <span className="label">No.</span>
                   <span className="label">Decision</span>
@@ -1005,7 +1215,7 @@ export default function App() {
                   </div>
                 ))}
               </div>
-              <div className="note-block">
+              <div className="note-block reveal">
                 <div className="note-label">NOTE — THE CONTRACT</div>
                 <div className="note-body">
                   <strong>IR is the contract.</strong> Parsers only produce IR. Renderers only consume IR.
@@ -1018,11 +1228,11 @@ export default function App() {
 
         </main>
 
-        <footer className="colophon">
+        <footer className="colophon" style={{ marginTop: 0, paddingBottom: 40 }}>
           <span className="label">POWERAUTODOCS · SYSTEM ARCHITECTURE</span>
           <span className="right">MAINTAINED IN docs/architecture.jsx · DEPLOYED VIA GITHUB PAGES</span>
         </footer>
-
+      </div>
       </div>
     </div>
   );
