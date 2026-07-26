@@ -555,10 +555,10 @@ function FlowDiagram({ activeLayer, onSelect }) {
     name: l.label.split(" / ")[1].replace(" LAYER", ""),
     hue: LAYER_HUES[l.id],
   }));
-  const BOX_W = 108, BOX_H = 44, GAP = 26, X0 = 148, Y = 56;
+  const BOX_W = 88, BOX_H = 44, GAP = 50, X0 = 148, Y = 56;
   const stageX = i => X0 + i * (BOX_W + GAP);
   const lastRight = stageX(5) + BOX_W;
-  const mainPath = `M 122 ${Y + BOX_H / 2} L ${lastRight + 4} ${Y + BOX_H / 2}`;
+  const mainPath = `M 102 ${Y + BOX_H / 2} L ${lastRight + 4} ${Y + BOX_H / 2}`;
   const wikiPath = `M ${lastRight + 4} ${Y + BOX_H / 2} L ${lastRight + 34} ${Y - 6} L ${lastRight + 60} ${Y - 6}`;
   const docxPath = `M ${lastRight + 4} ${Y + BOX_H / 2} L ${lastRight + 34} ${Y + BOX_H + 6} L ${lastRight + 60} ${Y + BOX_H + 6}`;
   const DOT_COLORS = ["#C78F00", "#CD3292", "#0F9089"];
@@ -576,15 +576,15 @@ function FlowDiagram({ activeLayer, onSelect }) {
             frame instead of parked at the origin */}
         {[0, 1, 2, 3, 4, 5, 6].map(k => (
           <circle key={`m${k}`} className="flowdot" r="3" fill={DOT_COLORS[k % 3]}>
-            <animateMotion dur="13s" begin={`${(-k * 13 / 7).toFixed(2)}s`} repeatCount="indefinite" path={mainPath} />
+            <animateMotion dur="18s" begin={`${(-k * 18 / 7).toFixed(2)}s`} repeatCount="indefinite" path={mainPath} />
           </circle>
         ))}
 
         {/* source node */}
         <g className="flow-node">
-          <rect x="14" y={Y + 5} width="108" height="34" rx="2" />
-          <text x="68" y={Y + 20} className="flow-name">GIT REPO</text>
-          <text x="68" y={Y + 32} className="flow-cap">solution XML</text>
+          <rect x="14" y={Y + 5} width="88" height="34" rx="2" />
+          <text x="58" y={Y + 20} className="flow-name">GIT REPO</text>
+          <text x="58" y={Y + 32} className="flow-cap">solution XML</text>
         </g>
 
         {/* stage boxes */}
@@ -614,10 +614,10 @@ function FlowDiagram({ activeLayer, onSelect }) {
 
         {/* branch packets - neutral, so they don't echo the priority chips */}
         <circle className="flowdot" r="3" fill="#4C5B63">
-          <animateMotion dur="1.8s" begin="-0.5s" repeatCount="indefinite" path={wikiPath} />
+          <animateMotion dur="2.4s" begin="-0.7s" repeatCount="indefinite" path={wikiPath} />
         </circle>
         <circle className="flowdot" r="3" fill="#4C5B63">
-          <animateMotion dur="1.8s" begin="-1.4s" repeatCount="indefinite" path={docxPath} />
+          <animateMotion dur="2.4s" begin="-1.9s" repeatCount="indefinite" path={docxPath} />
         </circle>
       </svg>
     </div>
@@ -775,21 +775,35 @@ body { background: #F2F5F6; }
 
 /* ---- pipeline flow infographic ---- */
 .flow-wrap { overflow-x: auto; margin-bottom: 30px; background: var(--surface); border: 1px solid var(--hair); padding: 8px 14px; box-shadow: 0 1px 3px rgba(20,30,35,0.05); }
-/* Scroll takeover: as the flow card enters the viewport it scales up,
-   brightens and lifts, becoming the focal point of the screen. Pure CSS
-   view() timeline; browsers without support fall back to the reveal fade. */
-@supports (animation-timeline: view()) {
+/* Scroll takeover: the flow card is scrubbed directly by page scroll.
+   At the top of the page it sits slightly small, dim and flat; over the
+   first ~420px of scrolling it expands to full size, brightens and lifts
+   onto an elevated shadow, then holds. Scrolling back up reverses it.
+   Chrome/Edge (and Safari 26+) only; other browsers keep the reveal fade. */
+@supports (animation-timeline: scroll()) {
   @media (prefers-reduced-motion: no-preference) {
     .flow-wrap.reveal { opacity: 1; transform: none; transition: none; }
     .flow-wrap {
       animation: takeover linear both;
-      animation-timeline: view();
-      animation-range: entry 0% entry 90%;
+      animation-timeline: scroll(root block);
+      animation-range: 0px 420px;
       transform-origin: 50% 0;
     }
     @keyframes takeover {
-      from { transform: scale(0.96) translateY(14px); opacity: 0.45; box-shadow: 0 1px 3px rgba(20,30,35,0.05); }
-      to { transform: none; opacity: 1; box-shadow: 0 16px 38px rgba(20,30,35,0.13); }
+      from { transform: scale(0.94); opacity: 0.55; box-shadow: 0 1px 3px rgba(20,30,35,0.05); }
+      to { transform: scale(1); opacity: 1; box-shadow: 0 18px 44px rgba(20,30,35,0.14); }
+    }
+    /* Cards further down each tab rise into place as they enter the
+       scrollport, so the whole page answers to scrolling, not just the top. */
+    .deck .card.reveal { opacity: 1; transform: none; transition: none; }
+    .deck .card {
+      animation: card-rise linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 65%;
+    }
+    @keyframes card-rise {
+      from { transform: translateY(18px) scale(0.985); opacity: 0.55; }
+      to { transform: none; opacity: 1; }
     }
   }
 }
