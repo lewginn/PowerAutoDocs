@@ -576,7 +576,7 @@ function FlowDiagram({ activeLayer, onSelect }) {
             frame instead of parked at the origin */}
         {[0, 1, 2, 3, 4, 5, 6].map(k => (
           <circle key={`m${k}`} className="flowdot" r="3" fill={DOT_COLORS[k % 3]}>
-            <animateMotion dur="7s" begin={`${-k}s`} repeatCount="indefinite" path={mainPath} />
+            <animateMotion dur="13s" begin={`${(-k * 13 / 7).toFixed(2)}s`} repeatCount="indefinite" path={mainPath} />
           </circle>
         ))}
 
@@ -614,10 +614,10 @@ function FlowDiagram({ activeLayer, onSelect }) {
 
         {/* branch packets - neutral, so they don't echo the priority chips */}
         <circle className="flowdot" r="3" fill="#4C5B63">
-          <animateMotion dur="1s" begin="-0.3s" repeatCount="indefinite" path={wikiPath} />
+          <animateMotion dur="1.8s" begin="-0.5s" repeatCount="indefinite" path={wikiPath} />
         </circle>
         <circle className="flowdot" r="3" fill="#4C5B63">
-          <animateMotion dur="1s" begin="-0.8s" repeatCount="indefinite" path={docxPath} />
+          <animateMotion dur="1.8s" begin="-1.4s" repeatCount="indefinite" path={docxPath} />
         </circle>
       </svg>
     </div>
@@ -754,6 +754,19 @@ body { background: #F2F5F6; }
 .stat.built { color: var(--ok); background: #DFF2E7; border: 1px solid #B7E0C9; padding: 3px 7px 2px; }
 .ticks { display: inline-flex; align-items: center; flex-wrap: wrap; row-gap: 2px; max-width: 100%; min-width: 0; }
 .hero-ticks { display: inline-flex; align-items: center; gap: 9px; flex-wrap: wrap; row-gap: 4px; max-width: 100%; min-width: 0; }
+.hero-group { position: relative; display: inline-flex; cursor: pointer; }
+.hero-group:hover .ticks span, .hero-group:focus-visible .ticks span { filter: brightness(1.3); }
+.hero-group::after {
+  content: attr(data-tip); position: absolute; bottom: calc(100% + 8px); left: 50%;
+  transform: translateX(-50%) translateY(3px);
+  background: #10151A; color: var(--band-ink); border: 1px solid var(--band-hair);
+  font: 500 9.5px/1.4 var(--mono); letter-spacing: 0.08em; padding: 6px 9px;
+  white-space: nowrap; opacity: 0; pointer-events: none;
+  transition: opacity 0.15s, transform 0.15s; z-index: 5;
+}
+.hero-group:hover::after, .hero-group:focus-visible::after { opacity: 1; transform: translateX(-50%) translateY(0); }
+.hero-ticks .hero-group:first-child::after { left: 0; transform: translateY(3px); }
+.hero-ticks .hero-group:first-child:hover::after, .hero-ticks .hero-group:first-child:focus-visible::after { transform: translateY(0); }
 .tag-line { font: 400 10px/1.8 var(--mono); color: var(--faint-text); letter-spacing: 0.02em; }
 
 .pbar { display: inline-block; width: 110px; height: 4px; background: var(--hair2); overflow: hidden; }
@@ -761,7 +774,25 @@ body { background: #F2F5F6; }
 .pbar-fill.done { background: var(--ok); }
 
 /* ---- pipeline flow infographic ---- */
-.flow-wrap { overflow-x: auto; margin-bottom: 30px; }
+.flow-wrap { overflow-x: auto; margin-bottom: 30px; background: var(--surface); border: 1px solid var(--hair); padding: 8px 14px; box-shadow: 0 1px 3px rgba(20,30,35,0.05); }
+/* Scroll takeover: as the flow card enters the viewport it scales up,
+   brightens and lifts, becoming the focal point of the screen. Pure CSS
+   view() timeline; browsers without support fall back to the reveal fade. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .flow-wrap.reveal { opacity: 1; transform: none; transition: none; }
+    .flow-wrap {
+      animation: takeover linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 90%;
+      transform-origin: 50% 0;
+    }
+    @keyframes takeover {
+      from { transform: scale(0.96) translateY(14px); opacity: 0.45; box-shadow: 0 1px 3px rgba(20,30,35,0.05); }
+      to { transform: none; opacity: 1; box-shadow: 0 16px 38px rgba(20,30,35,0.13); }
+    }
+  }
+}
 .flow { display: block; width: 100%; min-width: 1080px; height: auto; }
 .flow-line { fill: none; stroke: var(--faint); stroke-width: 1; }
 .flow-node rect { fill: var(--surface); stroke: var(--soft); stroke-width: 1; }
@@ -947,10 +978,23 @@ export default function App() {
   // the dark band.
   const heroGroups = layers.map(l => ({
     id: l.id,
+    num: layerNum(l.label),
+    name: layerName(l.label),
     total: l.components.length,
     done: l.components.filter(c => c.done).length,
     hue: LAYER_HUES[l.id].bright,
   }));
+
+  // Hero bar click-through: open the layer in the architecture tab and bring
+  // the pipeline index into view.
+  const goToLayer = id => {
+    setActiveTab("architecture");
+    setActiveLayer(id);
+    const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    setTimeout(() => {
+      document.querySelector(".arch-grid")?.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "start" });
+    }, 60);
+  };
 
   return (
     <div className="pad-root" ref={revealRoot}>
@@ -1010,7 +1054,12 @@ export default function App() {
             <div className="progress-row">
               <span className="hero-ticks">
                 {heroGroups.map(g => (
-                  <Ticks key={g.id} total={g.total} done={g.done} color={g.hue} empty="#4A565D" boot />
+                  <button key={g.id} className="hero-group"
+                    data-tip={`${g.num} ${g.name} · ${g.done}/${g.total} BUILT · CLICK TO VIEW`}
+                    aria-label={`${g.name}: ${g.done} of ${g.total} components built. View this layer.`}
+                    onClick={() => goToLayer(g.id)}>
+                    <Ticks total={g.total} done={g.done} color={g.hue} empty="#4A565D" boot />
+                  </button>
                 ))}
               </span>
               <span className="progress-count"><strong><CountUp value={doneComponents} /></strong> of {totalComponents} components built</span>
