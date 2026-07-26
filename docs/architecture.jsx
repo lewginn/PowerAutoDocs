@@ -561,7 +561,15 @@ function FlowDiagram({ activeLayer, onSelect }) {
   const mainPath = `M 102 ${Y + BOX_H / 2} L ${lastRight + 4} ${Y + BOX_H / 2}`;
   const wikiPath = `M ${lastRight + 4} ${Y + BOX_H / 2} L ${lastRight + 34} ${Y - 6} L ${lastRight + 60} ${Y - 6}`;
   const docxPath = `M ${lastRight + 4} ${Y + BOX_H / 2} L ${lastRight + 34} ${Y + BOX_H + 6} L ${lastRight + 60} ${Y + BOX_H + 6}`;
-  const DOT_COLORS = ["#C78F00", "#CD3292", "#0F9089"];
+  // Packets are "processed" as they travel: they leave the repo grey and take
+  // on each layer's colour at the moment they emerge from its stage box. The
+  // fill animation shares the motion animation's clock, with discrete colour
+  // switches timed to each box's right edge along the path.
+  const pathStart = 102, pathEnd = lastRight + 4;
+  const fillValues = ["#93A1A8", ...stages.map(s => s.hue.tick)].join(";");
+  const fillKeyTimes = ["0", ...stages.map((s, i) =>
+    (((stageX(i) + BOX_W) - pathStart) / (pathEnd - pathStart)).toFixed(3)
+  )].join(";");
   return (
     <div className="flow-wrap reveal">
       <svg className="flow" viewBox="0 24 1092 108" role="group"
@@ -574,11 +582,16 @@ function FlowDiagram({ activeLayer, onSelect }) {
         {/* main-path packets travel BEHIND the boxes, appearing only in the
             connector gaps; negative begins mean they are mid-path on first
             frame instead of parked at the origin */}
-        {[0, 1, 2, 3, 4, 5, 6].map(k => (
-          <circle key={`m${k}`} className="flowdot" r="3" fill={DOT_COLORS[k % 3]}>
-            <animateMotion dur="18s" begin={`${(-k * 18 / 7).toFixed(2)}s`} repeatCount="indefinite" path={mainPath} />
-          </circle>
-        ))}
+        {[0, 1, 2, 3, 4, 5, 6].map(k => {
+          const beg = `${(-k * 18 / 7).toFixed(2)}s`;
+          return (
+            <circle key={`m${k}`} className="flowdot" r="3" fill="#93A1A8">
+              <animateMotion dur="18s" begin={beg} repeatCount="indefinite" path={mainPath} />
+              <animate attributeName="fill" dur="18s" begin={beg} repeatCount="indefinite"
+                calcMode="discrete" values={fillValues} keyTimes={fillKeyTimes} />
+            </circle>
+          );
+        })}
 
         {/* source node */}
         <g className="flow-node">
@@ -612,11 +625,12 @@ function FlowDiagram({ activeLayer, onSelect }) {
           <text x={lastRight + 108} y={Y + BOX_H + 17} className="flow-cap">themed + diagrams</text>
         </g>
 
-        {/* branch packets - neutral, so they don't echo the priority chips */}
-        <circle className="flowdot" r="3" fill="#4C5B63">
+        {/* branch packets carry the final stage's colour: fully processed,
+            on their way to the shipped artifacts */}
+        <circle className="flowdot" r="3" fill="#0F9089">
           <animateMotion dur="2.4s" begin="-0.7s" repeatCount="indefinite" path={wikiPath} />
         </circle>
-        <circle className="flowdot" r="3" fill="#4C5B63">
+        <circle className="flowdot" r="3" fill="#0F9089">
           <animateMotion dur="2.4s" begin="-1.9s" repeatCount="indefinite" path={docxPath} />
         </circle>
       </svg>
