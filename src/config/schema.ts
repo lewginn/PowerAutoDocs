@@ -230,6 +230,15 @@ export interface DocGenConfig {
     /**
      * Visual theme for the Word document — fonts, brand colour, table styling.
      * Omit entirely for the built-in default theme.
+     *
+     * Composes with `wordTemplate` rather than competing with it. A template
+     * wins everything it defines (fonts, heading styles, page setup, headers
+     * and footers), and this fills only the gaps a Word template has no way to
+     * express — code-chip colour, table font size, and table colours when no
+     * `wordTemplateStyles.table` is named. With a template in use, values
+     * *derived* from `accentColor` fall back to neutral grey so our default
+     * brand cannot bleed into the client's document; explicitly configured
+     * colours are still honoured. See resolveWordTheme.
      */
     wordTheme?: WordThemeConfig;
   };

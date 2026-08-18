@@ -212,3 +212,41 @@ describe('resolveWordTheme — explicit overrides', () => {
     expect(theme.table.color).toBe('333333');
   });
 });
+
+describe('resolveWordTheme — a template and a theme together', () => {
+  // These compose rather than being either/or, and the rule is
+  // derived-vs-explicit, not on-vs-off. A template cannot express a code-chip
+  // colour or a table font size, so the theme still has to supply them; but
+  // what it *derives* from our accent must not seep into a document carrying
+  // someone else's brand.
+  const templated = (cfg?: Parameters<typeof resolveWordTheme>[0]) =>
+    resolveWordTheme(cfg, { inUse: true });
+
+  it('does not derive colours from our accent when a template owns the branding', () => {
+    // The real-run symptom this prevents: with no wordTheme block at all,
+    // accentColor defaults to our blue, and a purple-branded document came out
+    // with 1,226 runs of navy code text nobody chose.
+    const theme = templated();
+    expect(theme.code.color).not.toBe(resolveWordTheme().code.color);
+    expect(theme.table.headerFill).not.toBe(resolveWordTheme().table.headerFill);
+  });
+
+  it('still honours a colour the client set explicitly', () => {
+    // They asked for it, and the template has no way to express it.
+    expect(templated({ codeColor: '#8D2A90' }).code.color).toBe('8D2A90');
+    expect(templated({ tableHeaderFill: '#8D2A90' }).table.headerFill).toBe('8D2A90');
+  });
+
+  it('keeps supplying what a template cannot express', () => {
+    // Not everything is a leak — these have no template equivalent and must
+    // survive, or tables lose their column measurement basis.
+    expect(templated().table.fontSizePt).toBe(resolveWordTheme().table.fontSizePt);
+    expect(templated().code.font).toBe(resolveWordTheme().code.font);
+  });
+
+  it('leaves the no-template path deriving from the accent exactly as before', () => {
+    const plain = resolveWordTheme({ accentColor: '#2A6099' });
+    expect(plain.table.headerFill).toBe('2A6099');
+    expect(plain.ruleColor).toBe('2A6099');
+  });
+});

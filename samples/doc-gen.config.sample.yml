@@ -76,6 +76,17 @@ output:
   #                                   # painting their own borders and row shading.
   #                                   # Layout tables are deliberately left alone.
 
+  # Setting BOTH a template and wordTheme is fine — they are not either/or.
+  # The template wins everything it defines: fonts, heading styles, page size,
+  # margins, headers and footers. wordTheme then supplies only what a Word
+  # template cannot express — the code-chip colour and the table font size —
+  # plus table colours if you did not name a table style above.
+  #
+  # With a template in use, anything wordTheme would otherwise *derive* from
+  # accentColor goes neutral grey instead, so our default brand colour cannot
+  # bleed into a document carrying yours. Colours you set explicitly are always
+  # honoured; it is only the derived fallbacks that change.
+
   # ---------------------------------------------------------------------------
   # WORD THEME (optional)
   # Styling for the Word document. Omit this whole block for the built-in

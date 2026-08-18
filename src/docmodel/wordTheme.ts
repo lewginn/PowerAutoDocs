@@ -103,6 +103,13 @@ export interface WordTheme {
 /** Brand-agnostic rule colour used when a company template owns the styling. */
 const NEUTRAL_RULE = '808080';
 
+/**
+ * Stands in for the accent when a template owns the branding, so every colour
+ * we still derive (code text, and table fills when no table style is named)
+ * lands on neutral grey rather than on our blue.
+ */
+const NEUTRAL_BRAND = '595959';
+
 const HEX_RE = /^#?([0-9a-fA-F]{6})$/;
 
 /**
@@ -268,6 +275,18 @@ export function resolveWordTheme(
   const cfg = config ?? {};
 
   const accent = normaliseHex(cfg.accentColor, DEFAULT_ACCENT, 'accentColor');
+
+  // What *derived* colours are built from. Under a company template this goes
+  // neutral, so our brand never seeps into a document meant to carry theirs.
+  //
+  // The distinction is derived-vs-explicit, not on-vs-off. Anything the client
+  // actually wrote in `wordTheme` still wins below — they asked for it, and a
+  // template cannot express things like code-chip colour anyway. What changes
+  // is the *fallback*: with no wordTheme block at all, accentColor defaults to
+  // our blue, and a real run against a purple template produced 1,226 runs of
+  // navy code text. Nobody chose that colour; it was simply the default
+  // leaking through a gap the template has no way to fill.
+  const brand = template?.inUse ? NEUTRAL_BRAND : accent;
   const bodyColor = normaliseHex(cfg.bodyColor, INK, 'bodyColor');
 
   const headingColor = cfg.headingColor !== undefined
@@ -275,8 +294,8 @@ export function resolveWordTheme(
     : accent;
 
   const tableHeaderFill = cfg.tableHeaderFill !== undefined
-    ? normaliseHex(cfg.tableHeaderFill, accent, 'tableHeaderFill')
-    : accent;
+    ? normaliseHex(cfg.tableHeaderFill, brand, 'tableHeaderFill')
+    : brand;
 
   const tableHeaderColor = cfg.tableHeaderColor !== undefined
     ? normaliseHex(cfg.tableHeaderColor, readableTextOn(tableHeaderFill), 'tableHeaderColor')
@@ -285,8 +304,8 @@ export function resolveWordTheme(
   // 0.92 towards white: present enough to guide the eye across a wide row,
   // faint enough that body text on top keeps its contrast.
   const bandFill = cfg.tableBandFill !== undefined
-    ? normaliseHex(cfg.tableBandFill, tint(accent, 0.92), 'tableBandFill')
-    : tint(accent, 0.92);
+    ? normaliseHex(cfg.tableBandFill, tint(brand, 0.92), 'tableBandFill')
+    : tint(brand, 0.92);
 
   const bodySizePt = cfg.bodyFontSize ?? DEFAULT_BODY_SIZE_PT;
 
@@ -323,8 +342,8 @@ export function resolveWordTheme(
       bandFill,
       rowFill: 'FFFFFF',
       borderColor: cfg.tableBorderColor !== undefined
-        ? normaliseHex(cfg.tableBorderColor, tint(accent, 0.7), 'tableBorderColor')
-        : tint(accent, 0.7),
+        ? normaliseHex(cfg.tableBorderColor, tint(brand, 0.7), 'tableBorderColor')
+        : tint(brand, 0.7),
       color: bodyColor,
       banded: cfg.tableBanding ?? true,
       fontSizePt: cfg.tableFontSize ?? DEFAULT_TABLE_SIZE_PT,
@@ -332,7 +351,7 @@ export function resolveWordTheme(
     code: {
       font: cfg.codeFont ?? DEFAULT_CODE_FONT,
       fill: normaliseHex(cfg.codeFill, 'F2F2F2', 'codeFill'),
-      color: normaliseHex(cfg.codeColor, shade(accent, 0.35), 'codeColor'),
+      color: normaliseHex(cfg.codeColor, shade(brand, 0.35), 'codeColor'),
     },
     footerColor: '767676',
     // Trimmed to undefined so an empty string in config reads as "not set"
