@@ -155,6 +155,51 @@ export interface WordThemeConfig {
   codeColor?: string;
 }
 
+/**
+ * Named styles to borrow from `output.wordTemplate` — `output.wordTemplateStyles`.
+ *
+ * These are style *names as defined in the template*, not values. The point is
+ * that branding lives in the template file and this config only says which of
+ * its styles to use, so a rebrand is a new .docx rather than a code change.
+ *
+ * Optional. Omitting a style leaves that element styled by `wordTheme` exactly
+ * as it is without a template, so a template can be adopted for headings and
+ * furniture alone.
+ *
+ * Only meaningful alongside `wordTemplate`; ignored without one.
+ */
+export interface WordTemplateStyles {
+  /**
+   * Table style name, e.g. 'Velrada' or the Word built-in 'Table Grid'.
+   *
+   * When set, data tables reference this style instead of painting their own
+   * borders and row shading, so they inherit the template's table look. Layout
+   * tables (those with a blank header row — see serializeTable) deliberately
+   * do not take it: they are invisible scaffolding, and a bordered style would
+   * draw a box around what is meant to be plain columns.
+   */
+  table?: string;
+  /**
+   * Paragraph style name for bulleted lists, e.g. 'VBullet'.
+   *
+   * Name a style and bulleted content adopts the template's own bullet: the
+   * glyph, font and colour all come from the style's numbering definition, so
+   * lists look like the rest of the company's documents. Nesting is still
+   * carried by an explicit indent per level, since a template style defines a
+   * single level rather than nine.
+   *
+   * The trade-off, and the reason this is opt-in: one glyph is used at every
+   * depth, where the built-in default cycles ●/○/▪ to signal level. Deep
+   * action trees read more clearly with the cycle; shallow lists look more
+   * on-brand with the style.
+   *
+   * Name a *bullet* style, not a numbered one. A numbered style would share
+   * one numbering instance across every list in the document and count
+   * continuously from the first item to the last.
+   */
+  bullet?: string;
+}
+
 export interface DocGenConfig {
   solutions: SolutionEntry[];
 
@@ -180,8 +225,39 @@ export interface DocGenConfig {
      */
     wordDiagrams?: boolean;
     /**
+     * Path to a company-branded Word template (.docx) to render the document
+     * into, relative to the config file. When set, the template owns every
+     * visual decision: fonts, heading styles, page size, margins, and the
+     * headers and footers carrying the logo. `wordTheme` is bypassed for
+     * everything the template defines.
+     *
+     * Needs no preparation: an ordinary company template works as-is, its own
+     * sample body replaced by the generated documentation. Add the placeholder
+     * text `{{content}}` to the template to control placement instead, in
+     * which case everything around it — a cover page before, a back page
+     * after — is preserved exactly. Multi-section templates require the
+     * placeholder and are refused without it, rather than being flattened.
+     *
+     * Omit for the built-in theme (the default, and unchanged behaviour).
+     */
+    wordTemplate?: string;
+    /**
+     * Which of the template's named styles to apply to generated content.
+     * Only meaningful with `wordTemplate`.
+     */
+    wordTemplateStyles?: WordTemplateStyles;
+    /**
      * Visual theme for the Word document — fonts, brand colour, table styling.
      * Omit entirely for the built-in default theme.
+     *
+     * Composes with `wordTemplate` rather than competing with it. A template
+     * wins everything it defines (fonts, heading styles, page setup, headers
+     * and footers), and this fills only the gaps a Word template has no way to
+     * express — code-chip colour, table font size, and table colours when no
+     * `wordTemplateStyles.table` is named. With a template in use, values
+     * *derived* from `accentColor` fall back to neutral grey so our default
+     * brand cannot bleed into the client's document; explicitly configured
+     * colours are still honoured. See resolveWordTheme.
      */
     wordTheme?: WordThemeConfig;
   };

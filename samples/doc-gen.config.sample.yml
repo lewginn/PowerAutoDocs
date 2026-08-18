@@ -46,6 +46,56 @@ output:
   pdfFilename: solution-documentation.pdf    # PDF output filename
 
   # ---------------------------------------------------------------------------
+  # COMPANY WORD TEMPLATE (optional)
+  # Render the Word document into your own branded template instead of styling
+  # it from scratch. The template then owns every visual decision: fonts,
+  # heading styles, page size, margins, and the headers and footers carrying
+  # your logo. `wordTheme` below is bypassed for everything the template
+  # defines, so you do not need both.
+  #
+  # No preparation needed. Point this at your company .docx (or a .dotx saved
+  # as .docx) and run — the template's own sample body is replaced by the
+  # generated documentation, and its styles, headers, footers and page setup
+  # are left alone. The run logs a note saying the body was replaced.
+  #
+  # To keep something from the template — a cover page, a back page — type
+  # {{content}} in it, on its own line, where the documentation should begin.
+  # Everything around the placeholder is then preserved exactly. This is also
+  # required for templates with more than one section, which are refused rather
+  # than flattened.
+  #
+  # Path is relative to this config file.
+  # ---------------------------------------------------------------------------
+  # wordTemplate: ./company-template.docx
+  #
+  # Which of the template's own named styles to apply to generated content.
+  # Find the name in Word under Home > Styles (right-click > Modify shows it).
+  # Omit the block to leave tables styled by wordTheme below.
+  # wordTemplateStyles:
+  #   table: 'Company Table'          # Data tables reference this style instead of
+  #                                   # painting their own borders and row shading.
+  #                                   # Layout tables are deliberately left alone.
+  #   bullet: 'Company Bullet'        # Bulleted lists adopt the template's own bullet
+  #                                   # glyph, font and colour. Nesting is still shown
+  #                                   # by indent. Omit it and lists use a ●/○/▪ cycle
+  #                                   # that signals depth by glyph as well — better
+  #                                   # for deep flow action trees, less on-brand.
+  #                                   # Name a BULLET style, not a numbered one: a
+  #                                   # numbered style counts continuously across
+  #                                   # every list in the document.
+
+  # Setting BOTH a template and wordTheme is fine — they are not either/or.
+  # The template wins everything it defines: fonts, heading styles, page size,
+  # margins, headers and footers. wordTheme then supplies only what a Word
+  # template cannot express — the code-chip colour and the table font size —
+  # plus table colours if you did not name a table style above.
+  #
+  # With a template in use, anything wordTheme would otherwise *derive* from
+  # accentColor goes neutral grey instead, so our default brand colour cannot
+  # bleed into a document carrying yours. Colours you set explicitly are always
+  # honoured; it is only the derived fallbacks that change.
+
+  # ---------------------------------------------------------------------------
   # WORD THEME (optional)
   # Styling for the Word document. Omit this whole block for the built-in
   # default theme — it is already styled and needs no configuration.

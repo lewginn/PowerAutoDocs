@@ -23,7 +23,7 @@
 // while every derived value stays individually overridable for the minority
 // who need exact control.
 
-import type { WordThemeConfig } from '../config/schema.js';
+import type { WordThemeConfig, WordTemplateStyles } from '../config/schema.js';
 
 // -----------------------------------------------
 // Resolved theme — what the serializer consumes
@@ -75,11 +75,45 @@ export interface WordTheme {
   code: WordCodeTheme;
   /** Footer text colour */
   footerColor: string;
+  /**
+   * Named table style from the company template. Undefined without one, which
+   * is what keeps the no-template path unchanged: consumers treat absence as
+   * "paint it yourself from the theme", exactly as before.
+   *
+   * This lives on the resolved theme rather than being threaded as an extra
+   * parameter because it is a styling decision like every other field here,
+   * and the theme already reaches every serializer function that needs one.
+   */
+  tableStyle?: string;
+  /**
+   * True when the document is being rendered into a company template.
+   *
+   * Bullets are the only thing that has to know. Word's native list numbering
+   * is a *reference* into numbering.xml, and under a template that file is the
+   * template's — so a native bullet silently resolves to whatever list the
+   * template happens to define at that id. See bulletItems in DocxSerializer.
+   */
+  usingTemplate: boolean;
+  /**
+   * Named bullet paragraph style from the company template, when one is set.
+   * Only meaningful alongside `usingTemplate`.
+   */
+  bulletStyle?: string;
 }
 
 // -----------------------------------------------
 // Colour handling
 // -----------------------------------------------
+
+/** Brand-agnostic rule colour used when a company template owns the styling. */
+const NEUTRAL_RULE = '808080';
+
+/**
+ * Stands in for the accent when a template owns the branding, so every colour
+ * we still derive (code text, and table fills when no table style is named)
+ * lands on neutral grey rather than on our blue.
+ */
+const NEUTRAL_BRAND = '595959';
 
 const HEX_RE = /^#?([0-9a-fA-F]{6})$/;
 
@@ -227,10 +261,37 @@ function halfPoints(pt: number): number {
  *   banding       → a very light tint of the accent, which ties the tables to
  *                   the brand without the stripe fighting the text on top of it
  */
-export function resolveWordTheme(config?: WordThemeConfig): WordTheme {
+/**
+ * The company template's contribution to the resolved theme.
+ *
+ * `inUse` is deliberately separate from `styles`: a template can be configured
+ * without naming any styles, and bullets still have to change behaviour in
+ * that case.
+ */
+export interface WordTemplateContext {
+  inUse: boolean;
+  styles?: WordTemplateStyles;
+}
+
+export function resolveWordTheme(
+  config?: WordThemeConfig,
+  template?: WordTemplateContext,
+): WordTheme {
   const cfg = config ?? {};
 
   const accent = normaliseHex(cfg.accentColor, DEFAULT_ACCENT, 'accentColor');
+
+  // What *derived* colours are built from. Under a company template this goes
+  // neutral, so our brand never seeps into a document meant to carry theirs.
+  //
+  // The distinction is derived-vs-explicit, not on-vs-off. Anything the client
+  // actually wrote in `wordTheme` still wins below — they asked for it, and a
+  // template cannot express things like code-chip colour anyway. What changes
+  // is the *fallback*: with no wordTheme block at all, accentColor defaults to
+  // our blue, and a real run against a purple template produced 1,226 runs of
+  // navy code text. Nobody chose that colour; it was simply the default
+  // leaking through a gap the template has no way to fill.
+  const brand = template?.inUse ? NEUTRAL_BRAND : accent;
   const bodyColor = normaliseHex(cfg.bodyColor, INK, 'bodyColor');
 
   const headingColor = cfg.headingColor !== undefined
@@ -238,8 +299,8 @@ export function resolveWordTheme(config?: WordThemeConfig): WordTheme {
     : accent;
 
   const tableHeaderFill = cfg.tableHeaderFill !== undefined
-    ? normaliseHex(cfg.tableHeaderFill, accent, 'tableHeaderFill')
-    : accent;
+    ? normaliseHex(cfg.tableHeaderFill, brand, 'tableHeaderFill')
+    : brand;
 
   const tableHeaderColor = cfg.tableHeaderColor !== undefined
     ? normaliseHex(cfg.tableHeaderColor, readableTextOn(tableHeaderFill), 'tableHeaderColor')
@@ -248,8 +309,8 @@ export function resolveWordTheme(config?: WordThemeConfig): WordTheme {
   // 0.92 towards white: present enough to guide the eye across a wide row,
   // faint enough that body text on top keeps its contrast.
   const bandFill = cfg.tableBandFill !== undefined
-    ? normaliseHex(cfg.tableBandFill, tint(accent, 0.92), 'tableBandFill')
-    : tint(accent, 0.92);
+    ? normaliseHex(cfg.tableBandFill, tint(brand, 0.92), 'tableBandFill')
+    : tint(brand, 0.92);
 
   const bodySizePt = cfg.bodyFontSize ?? DEFAULT_BODY_SIZE_PT;
 
@@ -270,7 +331,15 @@ export function resolveWordTheme(config?: WordThemeConfig): WordTheme {
       3: halfPoints(HEADING_SIZES_PT[3]),
       4: halfPoints(HEADING_SIZES_PT[4]),
     },
-    ruleColor: accent,
+    // Under a template this reaches exactly one thing: the blockquote's left
+    // bar. (Its other consumer, the H1 underline in buildStyles, is not called
+    // in template mode — the template's own heading styles are.) The accent is
+    // *our* brand colour, so leaving it here painted a blue bar into an
+    // otherwise fully templated document, which is the one leak a real run
+    // turned up. Neutral grey asserts a colour the template did not choose,
+    // which is the least wrong thing available: docx borders take no
+    // themeColor, so there is no way to ask the template what it would use.
+    ruleColor: template?.inUse ? NEUTRAL_RULE : accent,
     headingRule: cfg.headingRule ?? true,
     table: {
       headerFill: tableHeaderFill,
@@ -278,8 +347,8 @@ export function resolveWordTheme(config?: WordThemeConfig): WordTheme {
       bandFill,
       rowFill: 'FFFFFF',
       borderColor: cfg.tableBorderColor !== undefined
-        ? normaliseHex(cfg.tableBorderColor, tint(accent, 0.7), 'tableBorderColor')
-        : tint(accent, 0.7),
+        ? normaliseHex(cfg.tableBorderColor, tint(brand, 0.7), 'tableBorderColor')
+        : tint(brand, 0.7),
       color: bodyColor,
       banded: cfg.tableBanding ?? true,
       fontSizePt: cfg.tableFontSize ?? DEFAULT_TABLE_SIZE_PT,
@@ -287,9 +356,15 @@ export function resolveWordTheme(config?: WordThemeConfig): WordTheme {
     code: {
       font: cfg.codeFont ?? DEFAULT_CODE_FONT,
       fill: normaliseHex(cfg.codeFill, 'F2F2F2', 'codeFill'),
-      color: normaliseHex(cfg.codeColor, shade(accent, 0.35), 'codeColor'),
+      color: normaliseHex(cfg.codeColor, shade(brand, 0.35), 'codeColor'),
     },
     footerColor: '767676',
+    // Trimmed to undefined so an empty string in config reads as "not set"
+    // rather than as a style named '' — Word would silently ignore the
+    // reference and the table would come out with no borders at all.
+    tableStyle: template?.styles?.table?.trim() || undefined,
+    usingTemplate: template?.inUse ?? false,
+    bulletStyle: template?.styles?.bullet?.trim() || undefined,
   };
 }
 

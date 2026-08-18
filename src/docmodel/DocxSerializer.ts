@@ -7,9 +7,10 @@ import {
   Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
   HeadingLevel, AlignmentType, WidthType, ShadingType, TableLayoutType,
   Footer, PageNumber, convertInchesToTwip, TableOfContents, ImageRun,
-  BorderStyle,
+  BorderStyle, patchDocument, patchDetector, PatchType,
 } from 'docx';
 import type { DocNode, InlineNode, BulletItem } from './nodes.js';
+import { editPart } from './docxZip.js';
 import { DEFAULT_WORD_THEME } from './wordTheme.js';
 import type { WordTheme } from './wordTheme.js';
 
@@ -362,6 +363,12 @@ function serializeTable(headers: string[], rows: InlineNode[][][], theme: WordTh
   // Word regardless of what colour it is.
   const headerless = headers.every(h => !h.trim());
 
+  // Layout tables are deliberately excluded from the template's table style.
+  // modelDrivenAppRenderer uses table(['', '', ''], ...) purely to lay names
+  // out in columns; a bordered corporate style would draw a visible box around
+  // what is meant to be invisible scaffolding.
+  const styled = theme.tableStyle !== undefined && !headerless;
+
   const headerRow = new TableRow({
     // Repeats the header on every page a long table spills onto. Without this
     // a 200-row column table's headers vanish after page one and the rest of
@@ -373,10 +380,17 @@ function serializeTable(headers: string[], rows: InlineNode[][][], theme: WordTh
         width: { size: colWidths[i], type: WidthType.DXA },
         margins,
         children: [new Paragraph({
-          children: [new TextRun({ text: h, bold: true, color: theme.table.headerColor, size: cellSize })],
+          // Under a template table style the bold/colour of the header row is
+          // the style's firstRow conditional formatting to decide. Setting
+          // them here would be direct formatting, which beats the style and
+          // would repaint the template's header in our theme's colour — the
+          // exact thing using the template is meant to avoid.
+          children: [new TextRun(styled
+            ? { text: h, size: cellSize }
+            : { text: h, bold: true, color: theme.table.headerColor, size: cellSize })],
           spacing: { before: 60, after: 60 },
         })],
-        shading: { type: ShadingType.SOLID, color: 'auto', fill: theme.table.headerFill },
+        ...(styled ? {} : { shading: { type: ShadingType.SOLID, color: 'auto', fill: theme.table.headerFill } }),
       })
     ),
   });
@@ -394,7 +408,7 @@ function serializeTable(headers: string[], rows: InlineNode[][][], theme: WordTh
         new TableCell({
           width: { size: colWidths[i], type: WidthType.DXA },
           margins,
-          shading: { type: ShadingType.SOLID, color: 'auto', fill },
+          ...(styled ? {} : { shading: { type: ShadingType.SOLID, color: 'auto', fill } }),
           children: [new Paragraph({
             children: inlineRuns(cell, theme, cellSize),
             spacing: { before: 60, after: 60 },
@@ -405,9 +419,17 @@ function serializeTable(headers: string[], rows: InlineNode[][][], theme: WordTh
   });
 
   return new Table({
-    // Explicit borders replace the built-in 'TableGrid' style, which hardcodes
-    // a black grid the theme has no way to reach.
-    borders: tableBorders(theme),
+    // A template table style owns borders, fills and banding; ours are direct
+    // formatting and would override it. Without one, explicit borders replace
+    // the built-in 'TableGrid' style, which hardcodes a black grid the theme
+    // has no way to reach.
+    //
+    // Geometry is not styling and is kept either way: column widths are
+    // measured against the rendered font size, so handing width control to a
+    // style would make the measurement and the render disagree and cells wrap.
+    ...(styled
+      ? { style: theme.tableStyle }
+      : { borders: tableBorders(theme) }),
     layout: TableLayoutType.FIXED,
     width: { size: PAGE_WIDTH_TWIPS, type: WidthType.DXA },
     columnWidths: colWidths,
@@ -433,7 +455,70 @@ function serializeTable(headers: string[], rows: InlineNode[][][], theme: WordTh
 //
 // Spacing is deliberately tight (no `before`) so a long action tree reads as
 // one dense block, like the wiki's list, instead of a sparse page of stripes.
+// Word's list indent step, matched so a templated document and a themed one
+// produce the same staircase.
+const BULLET_INDENT_TWIPS = 360;
+
+/**
+ * Glyphs used for bullets under a company template, cycling by depth to mirror
+ * the ●/○/▪ of Word's native multilevel list.
+ *
+ * Native lists cannot be used here, and this is not a style preference. A
+ * `bullet` in the docx library emits `<w:numId>`, a *reference* into
+ * numbering.xml — and when patching into a template, numbering.xml is the
+ * template's file, untouched. The reference therefore resolves to whatever
+ * list that template happens to define at that id, which is not necessarily a
+ * bullet at all: verified against a real company template whose numId 1 is a
+ * decimal multilevel list, so every bulleted flow action came out numbered
+ * 1, 1.1, 1.1.1.
+ *
+ * Writing the glyph directly is immune to that, because it references nothing.
+ * It is the one place this serializer gives up list semantics, and it buys
+ * being correct against a template we have never seen.
+ *
+ * The obvious alternative — applying the template's own bullet *style* — was
+ * tried and rejected: the docx library already attaches ListParagraph to
+ * bulleted paragraphs, so adding another style emits two `<w:pStyle>` elements
+ * in one `<w:pPr>`, which is invalid. Using the style *instead* of the bullet
+ * drops back to a single level and flattens every nested action tree.
+ */
+const TEMPLATE_BULLET_GLYPHS = ['\u25CF', '\u25CB', '\u25AA'];
+
 function bulletItems(items: BulletItem[], theme: WordTheme): Paragraph[] {
+  // Under a company template, native lists are not an option — see
+  // TEMPLATE_BULLET_GLYPHS below for why, and what replaces them.
+  if (theme.usingTemplate) {
+    // With a named bullet style the glyph comes from that style's own
+    // numbering definition, so lists carry the company's bullet rather than
+    // ours. Writing a literal glyph as well would render two.
+    //
+    // This is only possible because template-mode bullets stopped using the
+    // docx library's `bullet` option: that option attaches ListParagraph
+    // itself, and a second style emits two <w:pStyle> in one <w:pPr>, which is
+    // invalid. Hand-rolling the list to dodge the numbering collision happens
+    // to have freed the style slot.
+    const styled = theme.bulletStyle !== undefined;
+    return items.map(item =>
+      new Paragraph({
+        ...(styled ? { style: theme.bulletStyle } : {}),
+        children: [
+          ...(styled ? [] : [new TextRun({
+            text: `${TEMPLATE_BULLET_GLYPHS[item.depth % TEMPLATE_BULLET_GLYPHS.length]}\t`,
+          })]),
+          ...inlineRuns(item.inlines, theme),
+        ],
+        // Matches what Word's own list indents produce, so a templated document
+        // and a themed one line up identically. The hanging indent is what
+        // makes wrapped text align under the text rather than the glyph.
+        indent: {
+          left: BULLET_INDENT_TWIPS * (item.depth + 1),
+          hanging: BULLET_INDENT_TWIPS,
+        },
+        spacing: { after: 40 },
+      })
+    );
+  }
+
   return items.map(item =>
     new Paragraph({
       children: inlineRuns(item.inlines, theme),
@@ -738,4 +823,137 @@ export function buildDocument(
 
 export async function toBuffer(doc: Document): Promise<Buffer> {
   return Packer.toBuffer(doc);
+}
+
+// -----------------------------------------------
+// Company template output
+// -----------------------------------------------
+
+/**
+ * The placeholder marking where the generated body goes. Written `{{content}}`
+ * in the template; the braces are the patcher's delimiters, so only the bare
+ * name appears here.
+ */
+export const TEMPLATE_CONTENT_PLACEHOLDER = 'content';
+
+const PLACEHOLDER_PARAGRAPH =
+  `<w:p><w:r><w:t>{{${TEMPLATE_CONTENT_PLACEHOLDER}}}</w:t></w:r></w:p>`;
+
+/**
+ * Replaces a template's body with the placeholder, keeping its section
+ * properties.
+ *
+ * This is what removes the manual preparation step. Requiring someone to open
+ * the template in Word and type `{{content}}` was the original design, and it
+ * failed twice in the first ten minutes of real use — the prepared and
+ * unprepared files are indistinguishable by name, and the wrong one silently
+ * looks right. A step people reliably get wrong is a step worth deleting.
+ *
+ * The sectPr is preserved rather than regenerated because it carries the
+ * header and footer references, page size, margins and titlePg — everything
+ * that makes the template's furniture appear. Rebuilding it correctly is
+ * strictly harder than keeping it.
+ *
+ * Multi-section templates are refused rather than mangled: a second sectPr
+ * means section breaks the body cannot be flattened without losing, and a
+ * template that elaborate has a layout worth respecting. The explicit
+ * placeholder is the answer there, since it lets the author choose the spot.
+ */
+function substitutePlaceholder(xml: string): string {
+  const sectPrs = xml.match(/<w:sectPr[\s\S]*?<\/w:sectPr>/g) ?? [];
+  if (sectPrs.length > 1) {
+    throw new Error(
+      `The Word template has ${sectPrs.length} sections and no ` +
+      `{{${TEMPLATE_CONTENT_PLACEHOLDER}}} placeholder, so its body cannot be replaced ` +
+      `automatically without losing its section layout. Open the template in Word and add ` +
+      `the text {{${TEMPLATE_CONTENT_PLACEHOLDER}}} on its own line where the documentation ` +
+      `should begin.`
+    );
+  }
+
+  const start = xml.indexOf('<w:body>');
+  const end = xml.lastIndexOf('</w:body>');
+  if (start === -1 || end === -1) {
+    throw new Error('The Word template has no document body — it may not be a valid .docx.');
+  }
+
+  const sectPr = sectPrs[0] ?? '';
+  return xml.slice(0, start + '<w:body>'.length) + PLACEHOLDER_PARAGRAPH + sectPr + xml.slice(end);
+}
+
+/**
+ * Makes Word refresh fields when the document opens, so the table of contents
+ * arrives populated rather than blank.
+ *
+ * `buildDocument` gets this from `features: { updateFields: true }`, but that
+ * writes settings.xml — and under a template settings.xml is the template's
+ * file, copied through untouched. The setting therefore has to be applied to
+ * the finished document. Placed before `<w:compat>` to match where the docx
+ * library itself puts it, since the settings element is a schema sequence
+ * rather than a bag.
+ */
+function enableFieldUpdateOnOpen(docx: Buffer): Buffer {
+  return editPart(docx, 'word/settings.xml', xml => {
+    if (/<w:updateFields\b/.test(xml)) {
+      return xml.replace(/<w:updateFields\b[^>]*\/>|<w:updateFields\b[^>]*>[\s\S]*?<\/w:updateFields>/,
+        '<w:updateFields w:val="true"/>');
+    }
+    const tag = '<w:updateFields w:val="true"/>';
+    return xml.includes('<w:compat')
+      ? xml.replace('<w:compat', `${tag}<w:compat`)
+      : xml.replace('</w:settings>', `${tag}</w:settings>`);
+  });
+}
+
+/**
+ * Renders the document *into* a company-branded template instead of building
+ * one from scratch.
+ *
+ * The inversion is the whole point. `buildDocument` decides fonts, heading
+ * styles, page size, margins and footers; here the template already decided
+ * all of them and we contribute only the body. Our headings emit
+ * `pStyle="Heading1"` with no font of their own, so they resolve through
+ * whatever the template's stylesheet says those styles look like — and
+ * `Heading1`-`Heading9` are OOXML built-ins present in every Word template
+ * regardless of its design or UI language, which is what makes this work
+ * against an arbitrary template rather than one we prepared.
+ *
+ * A template carrying `{{content}}` keeps everything around it: a cover page
+ * ahead of the placeholder, a back page after it, headers and footers with
+ * their logo assets, page geometry, numbering and theme parts. Without the
+ * placeholder the body is replaced and `onNotice` says so, because the
+ * alternative — failing the run — made every client hand-prepare a file, and
+ * that step is the one thing here people reliably get wrong.
+ */
+export async function buildTemplateDocument(
+  blocks: (Paragraph | Table)[],
+  templateData: Buffer,
+  onNotice?: (message: string) => void,
+): Promise<Buffer> {
+  const placeholders = await patchDetector({ data: templateData });
+
+  let template = templateData;
+  if (!placeholders.includes(TEMPLATE_CONTENT_PLACEHOLDER)) {
+    template = editPart(templateData, 'word/document.xml', substitutePlaceholder);
+    onNotice?.(
+      `Template has no {{${TEMPLATE_CONTENT_PLACEHOLDER}}} placeholder — its body was replaced ` +
+      `by the generated documentation. Its styles, headers, footers and page setup are ` +
+      `unaffected. To keep template content such as a cover page, add ` +
+      `{{${TEMPLATE_CONTENT_PLACEHOLDER}}} where the documentation should begin.`
+    );
+  }
+
+  const patched = await patchDocument({
+    outputType: 'nodebuffer',
+    data: template,
+    // Without this the patched-in runs adopt the formatting of the placeholder
+    // paragraph they replaced, so every heading and table would inherit
+    // whatever the template author happened to have typed {{content}} in.
+    keepOriginalStyles: true,
+    patches: {
+      [TEMPLATE_CONTENT_PLACEHOLDER]: { type: PatchType.DOCUMENT, children: blocks },
+    },
+  });
+
+  return enableFieldUpdateOnOpen(Buffer.from(patched));
 }

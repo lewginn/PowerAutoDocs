@@ -44,6 +44,17 @@ Thumbs.db
 #yml config file, required for client project, but should not be committed to source control as it may contain environment-specific settings
 *doc-gen.config.yml
 
+# Company Word templates (output.wordTemplate). A branded .docx carries the
+# company's logo and brand assets, and THIS repo is public — a template dropped
+# next to doc-gen.config.yml for a local run is otherwise perfectly committable.
+# Nothing in this repo needs a committed .docx: test fixtures build their
+# templates in code precisely so no binary has to be trusted here.
+#
+# In a *client's* repo the opposite applies — they commit their own template
+# alongside their config, the same split as the AI cache note below.
+*.docx
+*.dotx
+
 # AI summary + rendered-diagram cache (cache.dir, default .powerautodocs-cache/) —
 # local/per-client artifact (contains real component names, AI-generated
 # summaries, and rendered diagrams from the client's solution). Regenerates

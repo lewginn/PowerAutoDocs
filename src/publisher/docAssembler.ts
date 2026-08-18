@@ -12,7 +12,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import type { DocGenConfig } from '../config/index.js';
-import { resolveCacheDir } from '../config/index.js';
+import { resolveCacheDir, resolveWordTemplatePath } from '../config/index.js';
 import type {
   SolutionModel, FlowModel, PluginAssemblyModel, WebResourceModel,
   SecurityRoleModel, ClassicWorkflowModel, BusinessRuleModel, EnvironmentVariableModel,
@@ -22,7 +22,9 @@ import type {
 import { generateERDiagram } from '../enrichment/erdGenerator.js';
 import { resolveFlowTableDependencies } from '../enrichment/dependencyResolver.js';
 import { renderDiagramPng, closeMermaidBrowser, resolveChromeExecutable } from '../enrichment/mermaidRenderer.js';
-import { serializeBlocks, buildDocument, buildToc, toBuffer } from '../docmodel/DocxSerializer.js';
+import {
+  serializeBlocks, buildDocument, buildToc, toBuffer, buildTemplateDocument,
+} from '../docmodel/DocxSerializer.js';
 import type { MermaidRenderer, PageBreakState } from '../docmodel/DocxSerializer.js';
 import { resolveWordTheme } from '../docmodel/wordTheme.js';
 import type { WordTheme } from '../docmodel/wordTheme.js';
@@ -74,6 +76,22 @@ async function push(
   blocks.push(...(await serializeBlocks(prepared, offset, renderMermaid, theme, pageBreakState)));
 }
 
+/**
+ * Reads the configured template, failing with the resolved absolute path
+ * rather than the relative one from the config. A wrong `wordTemplate` is a
+ * config typo, and './template.docx' in an error message tells a client
+ * nothing about which directory it was looked for in.
+ */
+function readWordTemplate(templatePath: string): Buffer {
+  if (!fs.existsSync(templatePath)) {
+    throw new Error(
+      `Word template not found at ${templatePath}. ` +
+      `output.wordTemplate is resolved relative to the folder holding doc-gen.config.yml.`
+    );
+  }
+  return fs.readFileSync(templatePath);
+}
+
 export async function buildWordDocument(
   config: DocGenConfig,
   configDir: string,
@@ -100,7 +118,11 @@ export async function buildWordDocument(
   // renderMermaid below. The docmodel layer never sees DocGenConfig; it takes
   // a fully-resolved WordTheme, so config shape stays a concern of this layer
   // and the serializer stays a pure DocNode → docx function.
-  const theme: WordTheme = resolveWordTheme(config.output.wordTheme);
+  const templatePath = resolveWordTemplatePath(config, configDir);
+  const theme: WordTheme = resolveWordTheme(config.output.wordTheme, {
+    inUse: templatePath !== undefined,
+    styles: config.output.wordTemplateStyles,
+  });
 
   // Diagram rendering needs a local Chrome/Edge (see mermaidRenderer.ts) —
   // checked once up front (no browser launch), same fail-fast-then-degrade
@@ -282,8 +304,21 @@ export async function buildWordDocument(
   await closeMermaidBrowser();
 
   // ---- Write to disk ----
-  const doc    = buildDocument(blocks, theme);
-  const buffer = await toBuffer(doc);
+  //
+  // Two routes to the same buffer. With a company template the template owns
+  // fonts, page geometry and furniture and we inject only the body; without
+  // one we build the whole document from the theme, exactly as before.
+  const buffer = templatePath !== undefined
+    ? await buildTemplateDocument(
+        blocks,
+        readWordTemplate(templatePath),
+        // Surfaced rather than silent: replacing a template's body is the one
+        // thing here that discards something the client authored, so it says
+        // so even though it is the expected path for a plain template.
+        message => console.warn(`  ⚠ ${message}`),
+      )
+    : await toBuffer(buildDocument(blocks, theme));
+
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, buffer);
 }
