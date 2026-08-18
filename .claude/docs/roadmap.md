@@ -45,6 +45,13 @@ happened to get picked up next.
 | Phase 6 | Automation, Copilot & Integration Surfaces | 🔲 Planned | #57, #61, #97, #115, #116, #118 |
 | Backlog | Presentation, Tooling & Long-tail | 🔲 Planned / deprioritised | #53, #60, #63, #64, #65, #66, #70, #90, #117 |
 
+**#147 Company Word template — ✅ Shipped** (2026-08-18): `output.wordTemplate` renders the
+Word document into a client's own branded `.docx` via `patchDocument`, at a `{{content}}`
+placeholder. `src/docmodel/DocxSerializer.ts` (`buildTemplateDocument`),
+`src/config/loader.ts` (`resolveWordTemplatePath`), `output.wordTemplateStyles.table`. No new
+dependency. Known gap: `updateFields` lives in the template's `settings.xml`, so a TOC needs
+Ctrl+A then F9 — fixing it needs a runtime zip writer, which is a dependency decision.
+
 **#62 Power Pages — ✅ Shipped** (2026-07-19): `ir/powerPages.ts`, `parsers/powerPagesParser.ts`,
 `renderers/powerPagesRenderer.ts`, wired into all three assemblers; config `components.powerPages`
 (defaults off — D2). See [components.md](components.md) for the built matrix.
