@@ -104,6 +104,23 @@ export function resolveCacheDir(config: DocGenConfig, configDir: string): string
 }
 
 /**
+ * Resolves the company Word template path, relative to the config file's
+ * directory for the same reason as the cache above — a client commits a
+ * relative path alongside their config and the pipeline runs from wherever
+ * the agent happens to check out.
+ *
+ * Returns undefined when no template is configured, which is the signal to
+ * build the document from scratch with the built-in theme.
+ */
+export function resolveWordTemplatePath(
+  config: DocGenConfig,
+  configDir: string,
+): string | undefined {
+  const configured = config.output.wordTemplate?.trim();
+  return configured ? path.resolve(configDir, configured) : undefined;
+}
+
+/**
  * Deep merge — right side wins, arrays are replaced not concatenated.
  * Keeps all defaults for any keys not present in the loaded file.
  */

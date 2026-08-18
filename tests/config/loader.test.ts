@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { loadConfig, CONFIG_DEFAULTS } from '../../src/config/loader.js';
+import { loadConfig, CONFIG_DEFAULTS, resolveWordTemplatePath } from '../../src/config/loader.js';
 
 // The config file cannot be a committed fixture: .gitignore line 38 ignores
 // *doc-gen.config.yml precisely so no client's real config is ever committed.
@@ -217,5 +217,34 @@ describe('loadConfig — aiEnrichment validation', () => {
     expect(err).toContain('apiVersion is required');
     expect(err).toContain('no components are opted in');
     expect(err).toContain('set aiEnrichment.enabled: false');
+  });
+});
+
+describe('resolveWordTemplatePath', () => {
+  const withTemplate = (wordTemplate?: string) =>
+    ({ ...CONFIG_DEFAULTS, output: { ...CONFIG_DEFAULTS.output, wordTemplate } });
+
+  it('resolves relative to the config directory, not the working directory', () => {
+    // A client commits './template.docx' next to their config; the ADO agent
+    // runs from wherever it checked out. Resolving against cwd would find the
+    // template on a dev machine and miss it in the pipeline.
+    expect(resolveWordTemplatePath(withTemplate('./brand.docx'), '/srv/client'))
+      .toBe(path.join('/srv/client', 'brand.docx'));
+  });
+
+  it('leaves an absolute path alone', () => {
+    expect(resolveWordTemplatePath(withTemplate('/opt/brand.docx'), '/srv/client'))
+      .toBe('/opt/brand.docx');
+  });
+
+  it('returns undefined when no template is configured', () => {
+    // The signal to build from scratch with the built-in theme.
+    expect(resolveWordTemplatePath(withTemplate(undefined), '/srv/client')).toBeUndefined();
+  });
+
+  it('treats a blank template path as no template rather than as the config dir', () => {
+    // path.resolve(dir, '') returns dir — a directory, which would then fail
+    // with a confusing "not found" naming a folder.
+    expect(resolveWordTemplatePath(withTemplate('   '), '/srv/client')).toBeUndefined();
   });
 });

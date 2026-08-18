@@ -155,6 +155,32 @@ export interface WordThemeConfig {
   codeColor?: string;
 }
 
+/**
+ * Named styles to borrow from `output.wordTemplate` — `output.wordTemplateStyles`.
+ *
+ * These are style *names as defined in the template*, not values. The point is
+ * that branding lives in the template file and this config only says which of
+ * its styles to use, so a rebrand is a new .docx rather than a code change.
+ *
+ * Optional. Omitting a style leaves that element styled by `wordTheme` exactly
+ * as it is without a template, so a template can be adopted for headings and
+ * furniture alone.
+ *
+ * Only meaningful alongside `wordTemplate`; ignored without one.
+ */
+export interface WordTemplateStyles {
+  /**
+   * Table style name, e.g. 'Velrada' or the Word built-in 'Table Grid'.
+   *
+   * When set, data tables reference this style instead of painting their own
+   * borders and row shading, so they inherit the template's table look. Layout
+   * tables (those with a blank header row — see serializeTable) deliberately
+   * do not take it: they are invisible scaffolding, and a bordered style would
+   * draw a box around what is meant to be plain columns.
+   */
+  table?: string;
+}
+
 export interface DocGenConfig {
   solutions: SolutionEntry[];
 
@@ -179,6 +205,27 @@ export interface DocGenConfig {
      * is found — never fails the run.
      */
     wordDiagrams?: boolean;
+    /**
+     * Path to a company-branded Word template (.docx) to render the document
+     * into, relative to the config file. When set, the template owns every
+     * visual decision: fonts, heading styles, page size, margins, and the
+     * headers and footers carrying the logo. `wordTheme` is bypassed for
+     * everything the template defines.
+     *
+     * The template must contain the placeholder text `{{content}}` marking
+     * where the generated document body goes. Everything else in the template
+     * — a cover page before it, a back page after it — is preserved exactly.
+     * A template without the placeholder fails the run with an explicit error
+     * rather than silently emitting an unbranded document.
+     *
+     * Omit for the built-in theme (the default, and unchanged behaviour).
+     */
+    wordTemplate?: string;
+    /**
+     * Which of the template's named styles to apply to generated content.
+     * Only meaningful with `wordTemplate`.
+     */
+    wordTemplateStyles?: WordTemplateStyles;
     /**
      * Visual theme for the Word document — fonts, brand colour, table styling.
      * Omit entirely for the built-in default theme.

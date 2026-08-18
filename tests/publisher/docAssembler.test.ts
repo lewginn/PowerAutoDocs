@@ -745,3 +745,73 @@ describe('buildWordDocument — content reaches the document', () => {
     expect(headingTexts(xml)).toContain('Widget — Columns');
   });
 });
+
+// -----------------------------------------------
+// Company template
+// -----------------------------------------------
+
+describe('buildWordDocument — company template', () => {
+  /**
+   * A fictional template, built in code. A real company template must never be
+   * committed here: this repo is public and the template carries the logo.
+   */
+  async function writeTemplate(fileName: string, withPlaceholder = true): Promise<string> {
+    const { Document, Packer, Paragraph, Header } = await import('docx');
+    const children = [new Paragraph('COVER PAGE')];
+    if (withPlaceholder) children.push(new Paragraph('{{content}}'));
+    const buf = await Packer.toBuffer(new Document({
+      styles: { default: { heading1: { run: { font: 'Fictional Display', color: 'C8102E' } } } },
+      sections: [{
+        headers: { default: new Header({ children: [new Paragraph('FICTIONAL CO')] }) },
+        children,
+      }],
+    }));
+    const file = path.join(dir, fileName);
+    fs.writeFileSync(file, buf);
+    return file;
+  }
+
+  it('renders into the template, keeping its branding and its cover page', async () => {
+    await writeTemplate('brand.docx');
+    const zip = openDocx(await build({
+      config: aConfig({ output: { wordDiagrams: false, wordTemplate: './brand.docx' } }),
+      configDir: dir,
+    }));
+    expect(zip.readAsText('word/header1.xml')).toContain('FICTIONAL CO');
+    expect(zip.readAsText('word/styles.xml')).toContain('Fictional Display');
+    expect(zip.readAsText('word/document.xml')).toContain('COVER PAGE');
+  });
+
+  it('resolves the template relative to the config dir, not the working dir', async () => {
+    // The pipeline case: the agent's cwd is not the client's config folder.
+    await writeTemplate('brand.docx');
+    const zip = openDocx(await build({
+      config: aConfig({ output: { wordDiagrams: false, wordTemplate: './brand.docx' } }),
+      configDir: dir,
+    }));
+    expect(zip.readAsText('word/document.xml')).toContain('COVER PAGE');
+  });
+
+  it('fails with the resolved absolute path when the template is missing', async () => {
+    // './brand.docx' in an error tells a client nothing about where it looked.
+    await expect(build({
+      config: aConfig({ output: { wordDiagrams: false, wordTemplate: './nope.docx' } }),
+      configDir: dir,
+    })).rejects.toThrow(path.join(dir, 'nope.docx'));
+  });
+
+  it('fails rather than silently emitting a template with no documentation in it', async () => {
+    await writeTemplate('noplaceholder.docx', false);
+    await expect(build({
+      config: aConfig({ output: { wordDiagrams: false, wordTemplate: './noplaceholder.docx' } }),
+      configDir: dir,
+    })).rejects.toThrow(/no \{\{content\}\} placeholder/);
+  });
+
+  it('builds from the theme, with no template parts, when none is configured', async () => {
+    // The regression guard: the default path must be untouched by all of this.
+    const zip = openDocx(await build());
+    expect(zip.readAsText('word/document.xml')).not.toContain('COVER PAGE');
+    expect(zip.getEntries().map(e => e.entryName)).toContain('word/document.xml');
+  });
+});

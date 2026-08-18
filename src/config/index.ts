@@ -1,5 +1,7 @@
-export type { DocGenConfig, WordThemeConfig } from './schema.js';
-export { loadConfig, CONFIG_DEFAULTS, DEFAULT_CACHE_DIR, resolveCacheDir } from './loader.js';
+export type { DocGenConfig, WordThemeConfig, WordTemplateStyles } from './schema.js';
+export {
+  loadConfig, CONFIG_DEFAULTS, DEFAULT_CACHE_DIR, resolveCacheDir, resolveWordTemplatePath,
+} from './loader.js';
 export type { WikiConfig } from './schema.js';
 
 // Keep these exports for any code that references them directly

@@ -23,7 +23,7 @@
 // while every derived value stays individually overridable for the minority
 // who need exact control.
 
-import type { WordThemeConfig } from '../config/schema.js';
+import type { WordThemeConfig, WordTemplateStyles } from '../config/schema.js';
 
 // -----------------------------------------------
 // Resolved theme — what the serializer consumes
@@ -75,6 +75,25 @@ export interface WordTheme {
   code: WordCodeTheme;
   /** Footer text colour */
   footerColor: string;
+  /**
+   * Named table style from the company template. Undefined without one, which
+   * is what keeps the no-template path unchanged: consumers treat absence as
+   * "paint it yourself from the theme", exactly as before.
+   *
+   * This lives on the resolved theme rather than being threaded as an extra
+   * parameter because it is a styling decision like every other field here,
+   * and the theme already reaches every serializer function that needs one.
+   */
+  tableStyle?: string;
+  /**
+   * True when the document is being rendered into a company template.
+   *
+   * Bullets are the only thing that has to know. Word's native list numbering
+   * is a *reference* into numbering.xml, and under a template that file is the
+   * template's — so a native bullet silently resolves to whatever list the
+   * template happens to define at that id. See bulletItems in DocxSerializer.
+   */
+  usingTemplate: boolean;
 }
 
 // -----------------------------------------------
@@ -227,7 +246,22 @@ function halfPoints(pt: number): number {
  *   banding       → a very light tint of the accent, which ties the tables to
  *                   the brand without the stripe fighting the text on top of it
  */
-export function resolveWordTheme(config?: WordThemeConfig): WordTheme {
+/**
+ * The company template's contribution to the resolved theme.
+ *
+ * `inUse` is deliberately separate from `styles`: a template can be configured
+ * without naming any styles, and bullets still have to change behaviour in
+ * that case.
+ */
+export interface WordTemplateContext {
+  inUse: boolean;
+  styles?: WordTemplateStyles;
+}
+
+export function resolveWordTheme(
+  config?: WordThemeConfig,
+  template?: WordTemplateContext,
+): WordTheme {
   const cfg = config ?? {};
 
   const accent = normaliseHex(cfg.accentColor, DEFAULT_ACCENT, 'accentColor');
@@ -290,6 +324,11 @@ export function resolveWordTheme(config?: WordThemeConfig): WordTheme {
       color: normaliseHex(cfg.codeColor, shade(accent, 0.35), 'codeColor'),
     },
     footerColor: '767676',
+    // Trimmed to undefined so an empty string in config reads as "not set"
+    // rather than as a style named '' — Word would silently ignore the
+    // reference and the table would come out with no borders at all.
+    tableStyle: template?.styles?.table?.trim() || undefined,
+    usingTemplate: template?.inUse ?? false,
   };
 }
 
