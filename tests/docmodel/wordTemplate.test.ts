@@ -93,21 +93,69 @@ const aTable = () => table(['Logical Name', 'Type'], [[ct('acme_name'), ct('Text
 // Placeholder contract
 // -----------------------------------------------
 
-describe('buildTemplateDocument — placeholder contract', () => {
-  it('fails with an actionable error when the template has no placeholder', async () => {
-    // The failure mode this guards against is silent: the patcher finds nothing
-    // to replace and returns the template unchanged, which is a perfectly valid
-    // .docx containing the cover page and none of the documentation. That looks
-    // like a successful run to a pipeline.
-    const blocks = await serializeBlocks([h(1, 'Data Model')], 0, undefined, templated());
-    await expect(buildTemplateDocument(blocks, await aTemplate({ placeholder: null })))
-      .rejects.toThrow(/no \{\{content\}\} placeholder/);
+describe('buildTemplateDocument — unprepared templates', () => {
+  it('replaces the body when there is no placeholder, rather than failing', async () => {
+    // The manual "open it in Word and type {{content}}" step failed twice in
+    // the first ten minutes of real use: prepared and unprepared files are
+    // indistinguishable by name and the wrong one silently looks right. A step
+    // people reliably get wrong is a step worth deleting.
+    const zip = await patch([h(1, 'Data Model')], await aTemplate({
+      coverText: 'SAMPLE BODY', placeholder: null,
+    }));
+    const text = textOf(xmlOf(zip));
+    expect(text).toContain('Data Model');
+    expect(text).not.toContain('SAMPLE BODY');
   });
 
-  it('names the placeholders it did find, so a typo is self-diagnosing', async () => {
+  it('says so when it replaces a body, because that discards authored content', async () => {
     const blocks = await serializeBlocks([h(1, 'Data Model')], 0, undefined, templated());
-    await expect(buildTemplateDocument(blocks, await aTemplate({ placeholder: '{{contnet}}' })))
-      .rejects.toThrow(/\{\{contnet\}\}/);
+    const notices: string[] = [];
+    await buildTemplateDocument(blocks, await aTemplate({ placeholder: null }), m => notices.push(m));
+    expect(notices.join(' ')).toMatch(/body was replaced/);
+  });
+
+  it('stays silent when a placeholder is present, since nothing was discarded', async () => {
+    const blocks = await serializeBlocks([h(1, 'Data Model')], 0, undefined, templated());
+    const notices: string[] = [];
+    await buildTemplateDocument(blocks, await aTemplate(), m => notices.push(m));
+    expect(notices).toEqual([]);
+  });
+
+  it('keeps the styles, headers and footers when it replaces a body', async () => {
+    // Replacing the body must not cost the branding — that is the whole point.
+    const zip = await patch([h(1, 'Data Model')], await aTemplate({ placeholder: null }));
+    expect(zip.readAsText('word/styles.xml')).toContain('Fictional Display');
+    expect(zip.readAsText('word/header1.xml')).toContain('FICTIONAL CO HEADER');
+  });
+
+  it('refuses a multi-section template rather than flattening its layout', async () => {
+    // A second sectPr means section breaks that cannot be dropped without
+    // losing the layout. The explicit placeholder is the answer there, since it
+    // lets the author choose the spot.
+    const multi = await Packer.toBuffer(new Document({
+      sections: [
+        { children: [new Paragraph('Section one')] },
+        { children: [new Paragraph('Section two')] },
+      ],
+    }));
+    const blocks = await serializeBlocks([h(1, 'Data Model')], 0, undefined, templated());
+    await expect(buildTemplateDocument(blocks, multi)).rejects.toThrow(/2 sections/);
+  });
+});
+
+describe('buildTemplateDocument — table of contents', () => {
+  it('sets updateFields, so Word populates the TOC on open', async () => {
+    // buildDocument gets this from features: { updateFields: true }, but that
+    // writes settings.xml — which under a template is the template's own file.
+    // Without this the contents page reads blank until the reader presses F9.
+    const zip = await patch([h(1, 'Data Model')], await aTemplate());
+    expect(zip.readAsText('word/settings.xml')).toContain('<w:updateFields w:val="true"/>');
+  });
+
+  it('does not duplicate the setting when the template already has one', async () => {
+    const zip = await patch([h(1, 'Data Model')], await aTemplate());
+    const settings = zip.readAsText('word/settings.xml');
+    expect(settings.match(/<w:updateFields/g)?.length).toBe(1);
   });
 });
 

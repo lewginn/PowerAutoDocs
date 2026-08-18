@@ -47,10 +47,11 @@ happened to get picked up next.
 
 **#147 Company Word template — ✅ Shipped** (2026-08-18): `output.wordTemplate` renders the
 Word document into a client's own branded `.docx` via `patchDocument`, at a `{{content}}`
-placeholder. `src/docmodel/DocxSerializer.ts` (`buildTemplateDocument`),
-`src/config/loader.ts` (`resolveWordTemplatePath`), `output.wordTemplateStyles.table`. No new
-dependency. Known gap: `updateFields` lives in the template's `settings.xml`, so a TOC needs
-Ctrl+A then F9 — fixing it needs a runtime zip writer, which is a dependency decision.
+placeholder, or by replacing an unprepared template's body while keeping its `sectPr`.
+`src/docmodel/DocxSerializer.ts` (`buildTemplateDocument`), `src/docmodel/docxZip.ts`
+(hand-rolled ZIP read/write on `node:zlib`, so no new dependency),
+`src/config/loader.ts` (`resolveWordTemplatePath`), `output.wordTemplateStyles.table`.
+TOC populates on open — `updateFields` is written into the template's `settings.xml`.
 
 **#62 Power Pages — ✅ Shipped** (2026-07-19): `ir/powerPages.ts`, `parsers/powerPagesParser.ts`,
 `renderers/powerPagesRenderer.ts`, wired into all three assemblers; config `components.powerPages`

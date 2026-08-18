@@ -212,11 +212,12 @@ export interface DocGenConfig {
      * headers and footers carrying the logo. `wordTheme` is bypassed for
      * everything the template defines.
      *
-     * The template must contain the placeholder text `{{content}}` marking
-     * where the generated document body goes. Everything else in the template
-     * — a cover page before it, a back page after it — is preserved exactly.
-     * A template without the placeholder fails the run with an explicit error
-     * rather than silently emitting an unbranded document.
+     * Needs no preparation: an ordinary company template works as-is, its own
+     * sample body replaced by the generated documentation. Add the placeholder
+     * text `{{content}}` to the template to control placement instead, in
+     * which case everything around it — a cover page before, a back page
+     * after — is preserved exactly. Multi-section templates require the
+     * placeholder and are refused without it, rather than being flattened.
      *
      * Omit for the built-in theme (the default, and unchanged behaviour).
      */

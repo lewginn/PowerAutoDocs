@@ -53,16 +53,16 @@ output:
   # your logo. `wordTheme` below is bypassed for everything the template
   # defines, so you do not need both.
   #
-  # Preparing the template — a one-off, done in Word:
-  #   1. Open your company .docx (or save your .dotx as .docx).
-  #   2. Type  {{content}}  on its own line where the documentation should go.
-  #   3. Delete any sample body text you do not want in every document.
-  #      Anything you leave stays: a cover page before {{content}} and a back
-  #      page after it are preserved exactly as they are.
-  #   4. Save it next to this config file.
+  # No preparation needed. Point this at your company .docx (or a .dotx saved
+  # as .docx) and run — the template's own sample body is replaced by the
+  # generated documentation, and its styles, headers, footers and page setup
+  # are left alone. The run logs a note saying the body was replaced.
   #
-  # A template without {{content}} fails the run with an explicit error rather
-  # than quietly producing a branded document with no documentation in it.
+  # To keep something from the template — a cover page, a back page — type
+  # {{content}} in it, on its own line, where the documentation should begin.
+  # Everything around the placeholder is then preserved exactly. This is also
+  # required for templates with more than one section, which are refused rather
+  # than flattened.
   #
   # Path is relative to this config file.
   # ---------------------------------------------------------------------------
@@ -75,11 +75,6 @@ output:
   #   table: 'Company Table'          # Data tables reference this style instead of
   #                                   # painting their own borders and row shading.
   #                                   # Layout tables are deliberately left alone.
-  #
-  # Known gap: Word populates a table of contents from a field, and the setting
-  # that refreshes it on open lives inside the template. With a template in use
-  # the contents page reads as empty until you press Ctrl+A then F9. Printing
-  # or exporting to PDF from Word refreshes it too.
 
   # ---------------------------------------------------------------------------
   # WORD THEME (optional)

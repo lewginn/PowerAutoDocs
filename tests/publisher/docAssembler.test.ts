@@ -800,12 +800,26 @@ describe('buildWordDocument — company template', () => {
     })).rejects.toThrow(path.join(dir, 'nope.docx'));
   });
 
-  it('fails rather than silently emitting a template with no documentation in it', async () => {
+  it('renders into a template that was never prepared, replacing its body', async () => {
+    // No manual "type {{content}} in Word" step: the common case is a template
+    // that has never been touched, and it must just work.
     await writeTemplate('noplaceholder.docx', false);
-    await expect(build({
+    const zip = openDocx(await build({
       config: aConfig({ output: { wordDiagrams: false, wordTemplate: './noplaceholder.docx' } }),
       configDir: dir,
-    })).rejects.toThrow(/no \{\{content\}\} placeholder/);
+    }));
+    const xml = zip.readAsText('word/document.xml');
+    expect(xml).not.toContain('COVER PAGE');          // the template's sample body is gone
+    expect(zip.readAsText('word/header1.xml')).toContain('FICTIONAL CO');  // branding is not
+  });
+
+  it('sets updateFields so the table of contents is not blank on open', async () => {
+    await writeTemplate('brand.docx');
+    const zip = openDocx(await build({
+      config: aConfig({ output: { wordDiagrams: false, wordTemplate: './brand.docx' } }),
+      configDir: dir,
+    }));
+    expect(zip.readAsText('word/settings.xml')).toContain('<w:updateFields w:val="true"/>');
   });
 
   it('builds from the theme, with no template parts, when none is configured', async () => {

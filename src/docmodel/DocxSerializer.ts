@@ -10,6 +10,7 @@ import {
   BorderStyle, patchDocument, patchDetector, PatchType,
 } from 'docx';
 import type { DocNode, InlineNode, BulletItem } from './nodes.js';
+import { editPart } from './docxZip.js';
 import { DEFAULT_WORD_THEME } from './wordTheme.js';
 import type { WordTheme } from './wordTheme.js';
 
@@ -818,11 +819,80 @@ export async function toBuffer(doc: Document): Promise<Buffer> {
 // -----------------------------------------------
 
 /**
- * The placeholder a company template must contain to mark where the generated
- * body goes. Written `{{content}}` in the template; the braces are the
- * patcher's delimiters, so only the bare name appears here.
+ * The placeholder marking where the generated body goes. Written `{{content}}`
+ * in the template; the braces are the patcher's delimiters, so only the bare
+ * name appears here.
  */
 export const TEMPLATE_CONTENT_PLACEHOLDER = 'content';
+
+const PLACEHOLDER_PARAGRAPH =
+  `<w:p><w:r><w:t>{{${TEMPLATE_CONTENT_PLACEHOLDER}}}</w:t></w:r></w:p>`;
+
+/**
+ * Replaces a template's body with the placeholder, keeping its section
+ * properties.
+ *
+ * This is what removes the manual preparation step. Requiring someone to open
+ * the template in Word and type `{{content}}` was the original design, and it
+ * failed twice in the first ten minutes of real use — the prepared and
+ * unprepared files are indistinguishable by name, and the wrong one silently
+ * looks right. A step people reliably get wrong is a step worth deleting.
+ *
+ * The sectPr is preserved rather than regenerated because it carries the
+ * header and footer references, page size, margins and titlePg — everything
+ * that makes the template's furniture appear. Rebuilding it correctly is
+ * strictly harder than keeping it.
+ *
+ * Multi-section templates are refused rather than mangled: a second sectPr
+ * means section breaks the body cannot be flattened without losing, and a
+ * template that elaborate has a layout worth respecting. The explicit
+ * placeholder is the answer there, since it lets the author choose the spot.
+ */
+function substitutePlaceholder(xml: string): string {
+  const sectPrs = xml.match(/<w:sectPr[\s\S]*?<\/w:sectPr>/g) ?? [];
+  if (sectPrs.length > 1) {
+    throw new Error(
+      `The Word template has ${sectPrs.length} sections and no ` +
+      `{{${TEMPLATE_CONTENT_PLACEHOLDER}}} placeholder, so its body cannot be replaced ` +
+      `automatically without losing its section layout. Open the template in Word and add ` +
+      `the text {{${TEMPLATE_CONTENT_PLACEHOLDER}}} on its own line where the documentation ` +
+      `should begin.`
+    );
+  }
+
+  const start = xml.indexOf('<w:body>');
+  const end = xml.lastIndexOf('</w:body>');
+  if (start === -1 || end === -1) {
+    throw new Error('The Word template has no document body — it may not be a valid .docx.');
+  }
+
+  const sectPr = sectPrs[0] ?? '';
+  return xml.slice(0, start + '<w:body>'.length) + PLACEHOLDER_PARAGRAPH + sectPr + xml.slice(end);
+}
+
+/**
+ * Makes Word refresh fields when the document opens, so the table of contents
+ * arrives populated rather than blank.
+ *
+ * `buildDocument` gets this from `features: { updateFields: true }`, but that
+ * writes settings.xml — and under a template settings.xml is the template's
+ * file, copied through untouched. The setting therefore has to be applied to
+ * the finished document. Placed before `<w:compat>` to match where the docx
+ * library itself puts it, since the settings element is a schema sequence
+ * rather than a bag.
+ */
+function enableFieldUpdateOnOpen(docx: Buffer): Buffer {
+  return editPart(docx, 'word/settings.xml', xml => {
+    if (/<w:updateFields\b/.test(xml)) {
+      return xml.replace(/<w:updateFields\b[^>]*\/>|<w:updateFields\b[^>]*>[\s\S]*?<\/w:updateFields>/,
+        '<w:updateFields w:val="true"/>');
+    }
+    const tag = '<w:updateFields w:val="true"/>';
+    return xml.includes('<w:compat')
+      ? xml.replace('<w:compat', `${tag}<w:compat`)
+      : xml.replace('</w:settings>', `${tag}</w:settings>`);
+  });
+}
 
 /**
  * Renders the document *into* a company-branded template instead of building
@@ -837,44 +907,34 @@ export const TEMPLATE_CONTENT_PLACEHOLDER = 'content';
  * regardless of its design or UI language, which is what makes this work
  * against an arbitrary template rather than one we prepared.
  *
- * Everything the template already contains survives: a cover page ahead of the
- * placeholder, a back page after it, headers and footers with their logo
- * assets, page geometry, numbering and theme parts. That is why content is
- * injected at a placeholder rather than by replacing the body wholesale —
- * replacing it would strip a real cover page, and would have to reconstruct
- * the section properties that carry the header and footer references.
- *
- * Known gap: `features: { updateFields: true }`, which `buildDocument` sets to
- * make Word populate the table of contents on open, lives in `settings.xml`
- * and therefore comes from the template. We cannot set it without rewriting a
- * part inside the .docx zip, which needs a zip writer we deliberately do not
- * have (see the dependency constraint). A TOC therefore renders empty until
- * the reader refreshes fields with Ctrl+A then F9. Tracked separately.
+ * A template carrying `{{content}}` keeps everything around it: a cover page
+ * ahead of the placeholder, a back page after it, headers and footers with
+ * their logo assets, page geometry, numbering and theme parts. Without the
+ * placeholder the body is replaced and `onNotice` says so, because the
+ * alternative — failing the run — made every client hand-prepare a file, and
+ * that step is the one thing here people reliably get wrong.
  */
 export async function buildTemplateDocument(
   blocks: (Paragraph | Table)[],
   templateData: Buffer,
+  onNotice?: (message: string) => void,
 ): Promise<Buffer> {
-  // Checked up front so a template missing the placeholder fails loudly.
-  // Without this the patcher simply finds nothing to replace and returns the
-  // template unchanged — a valid .docx containing the company's cover page and
-  // none of the documentation, which looks like a successful run.
   const placeholders = await patchDetector({ data: templateData });
+
+  let template = templateData;
   if (!placeholders.includes(TEMPLATE_CONTENT_PLACEHOLDER)) {
-    const found = placeholders.length > 0
-      ? `Placeholders found in the template: ${placeholders.map(p => `{{${p}}}`).join(', ')}.`
-      : 'No placeholders were found in the template at all.';
-    throw new Error(
-      `The Word template has no {{${TEMPLATE_CONTENT_PLACEHOLDER}}} placeholder, so there is ` +
-      `nowhere to put the generated documentation. Add the text ` +
-      `{{${TEMPLATE_CONTENT_PLACEHOLDER}}} to the template on its own line, where the content ` +
-      `should begin. ${found}`
+    template = editPart(templateData, 'word/document.xml', substitutePlaceholder);
+    onNotice?.(
+      `Template has no {{${TEMPLATE_CONTENT_PLACEHOLDER}}} placeholder — its body was replaced ` +
+      `by the generated documentation. Its styles, headers, footers and page setup are ` +
+      `unaffected. To keep template content such as a cover page, add ` +
+      `{{${TEMPLATE_CONTENT_PLACEHOLDER}}} where the documentation should begin.`
     );
   }
 
-  return await patchDocument({
+  const patched = await patchDocument({
     outputType: 'nodebuffer',
-    data: templateData,
+    data: template,
     // Without this the patched-in runs adopt the formatting of the placeholder
     // paragraph they replaced, so every heading and table would inherit
     // whatever the template author happened to have typed {{content}} in.
@@ -883,4 +943,6 @@ export async function buildTemplateDocument(
       [TEMPLATE_CONTENT_PLACEHOLDER]: { type: PatchType.DOCUMENT, children: blocks },
     },
   });
+
+  return enableFieldUpdateOnOpen(Buffer.from(patched));
 }

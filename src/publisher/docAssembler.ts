@@ -309,7 +309,14 @@ export async function buildWordDocument(
   // fonts, page geometry and furniture and we inject only the body; without
   // one we build the whole document from the theme, exactly as before.
   const buffer = templatePath !== undefined
-    ? await buildTemplateDocument(blocks, readWordTemplate(templatePath))
+    ? await buildTemplateDocument(
+        blocks,
+        readWordTemplate(templatePath),
+        // Surfaced rather than silent: replacing a template's body is the one
+        // thing here that discards something the client authored, so it says
+        // so even though it is the expected path for a plain template.
+        message => console.warn(`  ⚠ ${message}`),
+      )
     : await toBuffer(buildDocument(blocks, theme));
 
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
