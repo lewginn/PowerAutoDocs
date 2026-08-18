@@ -100,6 +100,9 @@ export interface WordTheme {
 // Colour handling
 // -----------------------------------------------
 
+/** Brand-agnostic rule colour used when a company template owns the styling. */
+const NEUTRAL_RULE = '808080';
+
 const HEX_RE = /^#?([0-9a-fA-F]{6})$/;
 
 /**
@@ -304,7 +307,15 @@ export function resolveWordTheme(
       3: halfPoints(HEADING_SIZES_PT[3]),
       4: halfPoints(HEADING_SIZES_PT[4]),
     },
-    ruleColor: accent,
+    // Under a template this reaches exactly one thing: the blockquote's left
+    // bar. (Its other consumer, the H1 underline in buildStyles, is not called
+    // in template mode — the template's own heading styles are.) The accent is
+    // *our* brand colour, so leaving it here painted a blue bar into an
+    // otherwise fully templated document, which is the one leak a real run
+    // turned up. Neutral grey asserts a colour the template did not choose,
+    // which is the least wrong thing available: docx borders take no
+    // themeColor, so there is no way to ask the template what it would use.
+    ruleColor: template?.inUse ? NEUTRAL_RULE : accent,
     headingRule: cfg.headingRule ?? true,
     table: {
       headerFill: tableHeaderFill,
