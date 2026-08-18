@@ -94,6 +94,11 @@ export interface WordTheme {
    * template happens to define at that id. See bulletItems in DocxSerializer.
    */
   usingTemplate: boolean;
+  /**
+   * Named bullet paragraph style from the company template, when one is set.
+   * Only meaningful alongside `usingTemplate`.
+   */
+  bulletStyle?: string;
 }
 
 // -----------------------------------------------
@@ -359,6 +364,7 @@ export function resolveWordTheme(
     // reference and the table would come out with no borders at all.
     tableStyle: template?.styles?.table?.trim() || undefined,
     usingTemplate: template?.inUse ?? false,
+    bulletStyle: template?.styles?.bullet?.trim() || undefined,
   };
 }
 

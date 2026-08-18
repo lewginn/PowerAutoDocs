@@ -179,6 +179,25 @@ export interface WordTemplateStyles {
    * draw a box around what is meant to be plain columns.
    */
   table?: string;
+  /**
+   * Paragraph style name for bulleted lists, e.g. 'VBullet'.
+   *
+   * Name a style and bulleted content adopts the template's own bullet: the
+   * glyph, font and colour all come from the style's numbering definition, so
+   * lists look like the rest of the company's documents. Nesting is still
+   * carried by an explicit indent per level, since a template style defines a
+   * single level rather than nine.
+   *
+   * The trade-off, and the reason this is opt-in: one glyph is used at every
+   * depth, where the built-in default cycles ●/○/▪ to signal level. Deep
+   * action trees read more clearly with the cycle; shallow lists look more
+   * on-brand with the style.
+   *
+   * Name a *bullet* style, not a numbered one. A numbered style would share
+   * one numbering instance across every list in the document and count
+   * continuously from the first item to the last.
+   */
+  bullet?: string;
 }
 
 export interface DocGenConfig {

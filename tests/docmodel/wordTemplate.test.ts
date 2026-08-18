@@ -84,7 +84,7 @@ function textOf(xml: string): string[] {
 }
 
 /** Theme as it resolves when a template is in use, optionally naming styles. */
-const templated = (styles?: { table?: string }): WordTheme =>
+const templated = (styles?: { table?: string; bullet?: string }): WordTheme =>
   resolveWordTheme(undefined, { inUse: true, styles });
 
 const aTable = () => table(['Logical Name', 'Type'], [[ct('acme_name'), ct('Text')]]);
@@ -266,5 +266,45 @@ describe('bulletItems — bullets under a template', () => {
       .readAsText('word/document.xml');
     expect(xml).toContain('<w:numId');
     expect(xml).toContain('<w:ilvl w:val="1"/>');
+  });
+});
+
+describe('bulletItems — a named template bullet style', () => {
+  const list = () => bulletList([bullet(0, t('Top')), bullet(1, t('Nested'))]);
+
+  it('takes the glyph from the template style instead of writing its own', async () => {
+    // Two glyphs would render if we kept ours as well: the style carries its
+    // own numbering definition, which is what draws the company's bullet.
+    const xml = xmlOf(await patch([list()], await aTemplate(), templated({ bullet: 'FictionalBullet' })));
+    expect(xml).toContain('<w:pStyle w:val="FictionalBullet"/>');
+    expect(xml).not.toMatch(/[\u25CF\u25CB\u25AA]/);
+  });
+
+  it('emits exactly one pStyle per bullet, which is what makes this legal at all', async () => {
+    // The original blocker: the docx library's `bullet` option attaches
+    // ListParagraph itself, so adding a style produced two <w:pStyle> in one
+    // <w:pPr>. Hand-rolling the list freed the slot.
+    const xml = xmlOf(await patch([list()], await aTemplate(), templated({ bullet: 'FictionalBullet' })));
+    const firstPara = xml.slice(xml.indexOf('<w:p>'), xml.indexOf('</w:p>'));
+    expect(firstPara.match(/<w:pStyle/g)?.length).toBe(1);
+  });
+
+  it('writes no direct numbering, so the style is free to supply it', async () => {
+    const xml = xmlOf(await patch([list()], await aTemplate(), templated({ bullet: 'FictionalBullet' })));
+    expect(xml).not.toContain('<w:numId');
+  });
+
+  it('still indents by depth, since a template style defines one level', async () => {
+    const xml = xmlOf(await patch([list()], await aTemplate(), templated({ bullet: 'FictionalBullet' })));
+    expect(xml).toContain('w:left="360"');
+    expect(xml).toContain('w:left="720"');
+  });
+
+  it('keeps the cycling glyphs when no bullet style is named', async () => {
+    // Unchanged default: the ●/○/▪ cycle signals depth, which deep action
+    // trees read better with.
+    const xml = xmlOf(await patch([list()], await aTemplate()));
+    expect(xml).toMatch(/[\u25CF\u25CB]/);
+    expect(xml).not.toContain('<w:pStyle w:val="FictionalBullet"/>');
   });
 });

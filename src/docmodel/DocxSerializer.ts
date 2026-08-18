@@ -488,12 +488,23 @@ function bulletItems(items: BulletItem[], theme: WordTheme): Paragraph[] {
   // Under a company template, native lists are not an option — see
   // TEMPLATE_BULLET_GLYPHS below for why, and what replaces them.
   if (theme.usingTemplate) {
+    // With a named bullet style the glyph comes from that style's own
+    // numbering definition, so lists carry the company's bullet rather than
+    // ours. Writing a literal glyph as well would render two.
+    //
+    // This is only possible because template-mode bullets stopped using the
+    // docx library's `bullet` option: that option attaches ListParagraph
+    // itself, and a second style emits two <w:pStyle> in one <w:pPr>, which is
+    // invalid. Hand-rolling the list to dodge the numbering collision happens
+    // to have freed the style slot.
+    const styled = theme.bulletStyle !== undefined;
     return items.map(item =>
       new Paragraph({
+        ...(styled ? { style: theme.bulletStyle } : {}),
         children: [
-          new TextRun({
+          ...(styled ? [] : [new TextRun({
             text: `${TEMPLATE_BULLET_GLYPHS[item.depth % TEMPLATE_BULLET_GLYPHS.length]}\t`,
-          }),
+          })]),
           ...inlineRuns(item.inlines, theme),
         ],
         // Matches what Word's own list indents produce, so a templated document

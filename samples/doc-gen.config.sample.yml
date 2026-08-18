@@ -75,6 +75,14 @@ output:
   #   table: 'Company Table'          # Data tables reference this style instead of
   #                                   # painting their own borders and row shading.
   #                                   # Layout tables are deliberately left alone.
+  #   bullet: 'Company Bullet'        # Bulleted lists adopt the template's own bullet
+  #                                   # glyph, font and colour. Nesting is still shown
+  #                                   # by indent. Omit it and lists use a ●/○/▪ cycle
+  #                                   # that signals depth by glyph as well — better
+  #                                   # for deep flow action trees, less on-brand.
+  #                                   # Name a BULLET style, not a numbered one: a
+  #                                   # numbered style counts continuously across
+  #                                   # every list in the document.
 
   # Setting BOTH a template and wordTheme is fine — they are not either/or.
   # The template wins everything it defines: fonts, heading styles, page size,
