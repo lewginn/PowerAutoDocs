@@ -42,10 +42,36 @@ Configurable independently:
 | Format | Description |
 | --- | --- |
 | **ADO Wiki** | Structured, cross-linked pages published to Azure DevOps Wiki via REST API. Includes Mermaid ER diagrams and per-flow flowcharts. |
-| **Word (.docx)** | Single self-contained document mirroring the wiki structure. A4, proportional column tables, auto-populated TOC, Mermaid diagrams embedded as images. |
+| **Word (.docx)** | Single self-contained document mirroring the wiki structure. A4, proportional column tables, auto-populated TOC, Mermaid diagrams embedded as images. Renders into your own company template when you supply one — see [Company Word template](#company-word-template). |
 | **PDF** *(deprecated — planned removal)* | Same structure as Word but generated via pdfmake, which lags Word on theming and formatting fidelity and omits Mermaid diagrams. Local output only — not published to ADO Wiki. If you need a PDF, use Word's own **Export to PDF** on the `.docx` output instead. |
 
 Mermaid diagrams are embedded as images in both the ADO Wiki and Word output. PDF output (deprecated) omits them.
+
+### Company Word template
+
+Point `output.wordTemplate` at your organisation's Word template and the documentation is
+rendered *into* it, rather than into a lookalike of it:
+
+```yaml
+output:
+  word: true
+  wordTemplate: ./company-template.dotx    # .docx or .dotx
+  wordTemplateStyles:
+    table: 'Company Table'                 # a table style defined in the template
+    bullet: 'Company Bullet'               # a list paragraph style defined in the template
+```
+
+The template keeps every visual decision it already makes — fonts, heading styles, page size,
+margins, and the headers and footers carrying the logo. `wordTheme` is bypassed for everything
+the template defines.
+
+No preparation needed: an ordinary company template works as-is, its sample body replaced by
+the generated documentation. Add the text `{{content}}` to the template to control placement
+instead, in which case everything around it — a cover page before, a back page after — is
+preserved exactly.
+
+`wordTemplate` is resolved relative to the folder holding `doc-gen.config.yml`, unlike
+`solutions[].path`, which resolves against the working directory.
 
 ### Wiki structure
 

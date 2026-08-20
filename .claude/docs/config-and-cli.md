@@ -69,6 +69,31 @@ Array of `SolutionEntry` (schema.ts:6). Each is parsed independently and merged 
 | `pdfFilename` | string? | `solution-documentation.pdf` | |
 | `wordDiagrams` | boolean? | `true` | Embed Mermaid diagrams as PNGs in the Word doc. **Word-scoped only** — there is no PDF equivalent; `PdfSerializer` skips Mermaid by design. Degrades to a console warning (not a failure) when no browser is found — see [Chrome resolution](#puppeteerrccjs-and-chrome-resolution). |
 | `wordTheme` | object? | *(absent — see below)* | Visual theme for the `.docx`. **Word-scoped only** — the PDF is pdfmake and unthemed. See [`output.wordTheme`](#outputwordtheme). |
+| `wordTemplate` | string? | *(absent)* | Company template to render into. `.docx` or `.dotx`. **The only output path resolved against the config dir**, not cwd (`resolveWordTemplatePath`, loader.ts:115). A missing file throws with the resolved absolute path (docAssembler.ts:85). See [`output.wordTemplate`](#outputwordtemplate). |
+| `wordTemplateStyles` | object? | *(absent)* | `{ table?, bullet? }` — named styles to borrow from the template. Ignored without `wordTemplate`. A name that does not exist in the template **fails silently**: the content renders, unstyled. |
+
+#### `output.wordTemplate`
+
+Inverts who decides the styling. Without a template, `buildDocument` picks fonts, heading
+styles, page size, margins and footers; with one, the template has already decided all of
+them and we contribute only the body. Generated headings emit `pStyle="Heading1"` with no
+font of their own, so they resolve through the template's own stylesheet — and
+`Heading1`–`Heading9` are OOXML built-ins present in every Word template regardless of its
+design or UI language, which is what makes this work against an arbitrary template.
+
+- **`.docx` or `.dotx`.** A `.dotx` is the same package with its main part declared as a
+  template; `normaliseTemplatePackage` (DocxSerializer.ts) rewrites that declaration on the
+  way in, so the generated file is a document rather than a template. Without it, patching a
+  `.dotx` produced a file named `.docx` whose package declared itself a template — invisible
+  in `document.xml`, visible only in `[Content_Types].xml`.
+- **No preparation required.** With no `{{content}}` placeholder the template's body is
+  replaced and a notice says so. With one, everything around it survives — cover page, back
+  page, headers, footers, page geometry, numbering, theme parts.
+- **Multi-section templates require the placeholder** and are refused without it, rather than
+  being flattened.
+- **`wordTheme` still resolves** underneath, but under a template the brand colour is
+  deliberately swapped for a neutral one so our blue does not leak into someone else's
+  document — see `NEUTRAL_BRAND` in `wordTheme.ts`.
 
 #### `output.wordTheme`
 
@@ -372,7 +397,7 @@ All four `dev*` scripts redirect stdout **and** stderr into `dev.log` (gitignore
 | `doc-gen.config.yml` | local config, **live PAT** | gitignored |
 | `dist/` | build output | gitignored |
 
-`npm test` (Vitest, 1134 tests) covers all 17 parsers, all 14 renderers, `MarkdownSerializer`, `DocxSerializer`, `wordTheme`, `erdGenerator`, `config/loader`, all four `publisher/*` modules, `logger`, `main()`, and the enrichment layer including the AI providers — see [roadmap.md](roadmap.md#open-work-outside-the-phase-plan). It does **not** touch `PdfSerializer`/`pdfAssembler` (deprecated, see the `output.pdf` row above) or a real-browser Mermaid launch — so no test exercises actual PDF byte output or a cold Puppeteer render. Passing tests are not a verified change. For what verification actually means here — including how to inspect the generated `.docx`/`.pdf` — see [process.md](process.md).
+`npm test` (Vitest, 1187 tests as of 2026-08-20) covers all 17 parsers, all 14 renderers, `MarkdownSerializer`, `DocxSerializer`, `wordTheme`, `erdGenerator`, `config/loader`, all four `publisher/*` modules, `logger`, `main()`, and the enrichment layer including the AI providers — see [roadmap.md](roadmap.md#open-work-outside-the-phase-plan). It does **not** touch `PdfSerializer`/`pdfAssembler` (deprecated, see the `output.pdf` row above) or a real-browser Mermaid launch — so no test exercises actual PDF byte output or a cold Puppeteer render. Passing tests are not a verified change. For what verification actually means here — including how to inspect the generated `.docx`/`.pdf` — see [process.md](process.md).
 
 ---
 
@@ -381,7 +406,7 @@ All four `dev*` scripts redirect stdout **and** stderr into `dev.log` (gitignore
 | | |
 |---|---|
 | Name | `powerautodocs` (renamed from `powerautodoc` after a client-data exposure) |
-| Version | `1.5.0` (package.json:3) — goes stale; check the file |
+| Version | See `package.json:3`. Deliberately not repeated here — every copy of it in this repo has been wrong at some point. |
 | `bin` | `powerautodocs` → `dist/index.js` (package.json:6-8) |
 | `files` | `dist` only |
 | `type` | `module` |

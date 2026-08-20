@@ -302,7 +302,7 @@ The full chain, for context when diagnosing "the publish didn't happen":
 2. **Lewis** tags and creates a GitHub Release. Tags are `v`-prefixed (`v1.2.0`, `v1.3.0`, `v1.4.0`); releases are titled descriptively — "v1.4.0 — PDF output", "v1.3.0 - AI Enrichment".
 3. **GitHub Actions** publishes. `.github/workflows/npm-publish.yml`: Node 24, `npm ci` → `npm run typecheck` → `npm test` → `npm run build` → `npm publish`, with `NODE_AUTH_TOKEN: secrets.NPM_TOKEN`. The typecheck and test steps duplicate `ci.yml` deliberately — a release can be cut from any ref, `workflow_dispatch` has no PR behind it, and npm forbids republishing a version, so the last gate before an irreversible step doesn't get to assume an earlier one ran.
 
-Current version: **1.5.0**. (Expect this line to be stale — trust `package.json`.)
+Current version: whatever `package.json:3` says. A number here is a number that rots — it read **1.5.0** for three releases.
 
 ### Two npm-publish trigger incidents, so you don't re-derive them
 
