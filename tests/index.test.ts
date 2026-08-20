@@ -197,7 +197,11 @@ describe('module import', () => {
     // tsx runs src directly, so this needs no build step and cannot go stale against
     // a dist/ someone forgot to rebuild. argv[1] is whatever path was typed — the
     // symlink — while import.meta.url resolves through it, reproducing the npx shape.
-    const tsx = path.join(HERE, '..', 'node_modules', '.bin', 'tsx');
+    // tsx's own JS entry, not node_modules/.bin/tsx: on Windows that shim is a
+    // #!/bin/sh script (the real Windows shims are tsx.cmd/tsx.ps1), so handing it
+    // to node.exe dies on a parse error before main() is ever reached. dist/cli.mjs
+    // is the same program on every platform.
+    const tsx = path.join(HERE, '..', 'node_modules', 'tsx', 'dist', 'cli.mjs');
     const binDir = path.join(dir, 'bin');
     fs.mkdirSync(binDir, { recursive: true });
     const link = path.join(binDir, 'powerautodocs');
@@ -225,7 +229,13 @@ describe('module import', () => {
     expect(output).toContain('Processing:');
     expect(output).toContain('Run Summary');
     expect(res.status).toBe(1);
-  });
+
+    // 60s, not the 5s default: this is the one test that spawns a real node
+    // subprocess and lets tsx compile src/ from cold. On Linux that lands well
+    // inside the default; on a Windows dev box with on-access AV scanning it
+    // took ~16s and timed out. The timeout is a machine-speed allowance, not a
+    // hint that the test is flaky — it either runs main() or it does not.
+  }, 60_000);
 });
 
 // -----------------------------------------------

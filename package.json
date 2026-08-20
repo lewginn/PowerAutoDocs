@@ -48,7 +48,7 @@
     "dev:wiki": "tsx src/index.ts --wiki > dev.log 2>&1",
     "dev:both": "tsx src/index.ts --word --wiki > dev.log 2>&1",
     "build": "tsc",
-    "postbuild": "node scripts/addShebang.mjs && chmod +x dist/index.js",
+    "postbuild": "node scripts/addShebang.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.test.json",
     "test": "vitest run",
     "test:watch": "vitest",
