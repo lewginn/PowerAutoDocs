@@ -23,19 +23,30 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
 
     # Both live LTS lines, so engines.node ">=22" is a tested floor rather than an
     # assertion. It was ">=18" for a long time with nothing exercising 18 — and 18
     # (Apr 2025) and 20 (Apr 2026) are both now end-of-life.
     # 22 is the floor and 24 is what the sample pipeline ships; when 22 goes EOL
     # (Apr 2027), drop it here and raise engines in the same PR.
+    #
+    # One Windows job, not a full 2x2. Every dev machine here but one runs macOS,
+    # so Windows is the platform that rots unnoticed: three tests and the build
+    # script had all quietly assumed POSIX, and nothing in CI would ever have said
+    # so. A single job on the version the sample pipeline ships catches that class
+    # of drift; the node floor is what the version matrix is for, and that is
+    # orthogonal to the OS.
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest]
         node-version: [22, 24]
+        include:
+          - os: windows-latest
+            node-version: 24
 
-    name: build (node ${{ matrix.node-version }})
+    name: build (node ${{ matrix.node-version }}, ${{ matrix.os }})
 
     steps:
       - uses: actions/checkout@v7

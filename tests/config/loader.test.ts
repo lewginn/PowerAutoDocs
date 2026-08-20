@@ -228,13 +228,17 @@ describe('resolveWordTemplatePath', () => {
     // A client commits './template.docx' next to their config; the ADO agent
     // runs from wherever it checked out. Resolving against cwd would find the
     // template on a dev machine and miss it in the pipeline.
+    // path.resolve on BOTH sides, not path.join: on Windows a leading '/' is
+    // drive-relative, so the function under test returns a drive-qualified path
+    // while join() leaves the drive off — this failed on Windows only. Resolving
+    // the expectation the same way asserts the behaviour, not its POSIX spelling.
     expect(resolveWordTemplatePath(withTemplate('./brand.docx'), '/srv/client'))
-      .toBe(path.join('/srv/client', 'brand.docx'));
+      .toBe(path.resolve('/srv/client', 'brand.docx'));
   });
 
   it('leaves an absolute path alone', () => {
     expect(resolveWordTemplatePath(withTemplate('/opt/brand.docx'), '/srv/client'))
-      .toBe('/opt/brand.docx');
+      .toBe(path.resolve('/opt/brand.docx'));
   });
 
   it('returns undefined when no template is configured', () => {
