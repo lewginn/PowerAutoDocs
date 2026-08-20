@@ -66,7 +66,7 @@ output:
   #
   # Path is relative to this config file.
   # ---------------------------------------------------------------------------
-  # wordTemplate: ./company-template.docx
+  # wordTemplate: ./company-template.docx    # .docx or .dotx; resolved relative to this file
   #
   # Which of the template's own named styles to apply to generated content.
   # Find the name in Word under Home > Styles (right-click > Modify shows it).

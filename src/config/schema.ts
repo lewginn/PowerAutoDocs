@@ -238,6 +238,10 @@ export interface DocGenConfig {
      * after — is preserved exactly. Multi-section templates require the
      * placeholder and are refused without it, rather than being flattened.
      *
+     * Accepts a .docx or a .dotx. A .dotx is the same package with its main
+     * part declared as a template; that declaration is rewritten on the way in
+     * so the generated file is a document, not a template.
+     *
      * Omit for the built-in theme (the default, and unchanged behaviour).
      */
     wordTemplate?: string;
