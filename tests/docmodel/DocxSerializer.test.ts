@@ -144,6 +144,21 @@ describe('DocxSerializer — inline runs', () => {
     expect(xml).toContain(`<w:rFonts w:ascii="${DEFAULT_WORD_THEME.code.font}"`);
   });
 
+  it('shades the code chip with a clear pattern, so the fill is what shows', async () => {
+    // Regression: this was w:val="solid" with w:color="auto". Solid paints the
+    // shading in the FOREGROUND colour and hides w:fill completely, and auto
+    // resolves to black — so every logical name in a real client document came
+    // out as a black box with the code colour printed on it. Asserting the fill
+    // alone did not catch it: w:fill was present and correct all along, just
+    // never rendered. The pattern is the thing that has to be asserted.
+    const xml = await docxXml([{
+      type: 'paragraph',
+      inlines: [{ type: 'code', value: 'contoso_widget' }],
+    }]);
+    expect(xml).toContain('w:val="clear"');
+    expect(xml).not.toContain('w:val="solid"');
+  });
+
   it('renders a link as plain text, not a hyperlink', async () => {
     // The Word document is self-contained — a wiki subpage link has nothing to
     // point at, so the text is kept and the link dropped.

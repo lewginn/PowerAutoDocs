@@ -21,6 +21,7 @@ import {
   TEMPLATE_CONTENT_PLACEHOLDER,
 } from '../../src/docmodel/DocxSerializer.js';
 import { resolveWordTheme } from '../../src/docmodel/wordTheme.js';
+import { editPart } from '../../src/docmodel/docxZip.js';
 import type { WordTheme } from '../../src/docmodel/wordTheme.js';
 import { h, t, table, ct, bulletList, bullet } from '../../src/docmodel/nodes.js';
 import type { DocNode } from '../../src/docmodel/nodes.js';
@@ -306,5 +307,59 @@ describe('bulletItems — a named template bullet style', () => {
     const xml = xmlOf(await patch([list()], await aTemplate()));
     expect(xml).toMatch(/[\u25CF\u25CB]/);
     expect(xml).not.toContain('<w:pStyle w:val="FictionalBullet"/>');
+  });
+});
+
+// -----------------------------------------------
+// .dotx templates
+// -----------------------------------------------
+
+/**
+ * A .dotx package. Word saves company templates as .dotx far more often than
+ * .docx, so this is what a client is most likely to point wordTemplate at.
+ * The only difference from the .docx the helper above builds is the content
+ * type declared for the main part.
+ */
+const TEMPLATE_MAIN_CT =
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.template.main+xml';
+const DOCUMENT_MAIN_CT =
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml';
+
+async function aDotxTemplate(opts: TemplateOpts = {}): Promise<Buffer> {
+  const docx = await aTemplate(opts);
+  return editPart(docx, '[Content_Types].xml', xml =>
+    xml.split(DOCUMENT_MAIN_CT).join(TEMPLATE_MAIN_CT));
+}
+
+describe('DocxSerializer — .dotx templates', () => {
+  it('patches content into a .dotx exactly as into a .docx', async () => {
+    const zip = await patch([h(1, 'Data Model'), aTable()], await aDotxTemplate());
+    expect(textOf(xmlOf(zip))).toContain('Data Model');
+  });
+
+  it('rewrites the main part content type, so the output is a document not a template', async () => {
+    // The failure this guards is entirely invisible in document.xml: patching a
+    // .dotx works, and the output inherits its template content type. Word is
+    // then handed a file named .docx whose package declares itself a template.
+    const zip = await patch([h(1, 'Data Model')], await aDotxTemplate());
+    const contentTypes = zip.readAsText('[Content_Types].xml');
+    expect(contentTypes).toContain(DOCUMENT_MAIN_CT);
+    expect(contentTypes).not.toContain(TEMPLATE_MAIN_CT);
+  });
+
+  it('keeps a .dotx cover page ahead of the placeholder', async () => {
+    // Same placeholder contract as .docx — the conversion must not cost the
+    // template furniture that is the whole reason for using one.
+    const zip = await patch([h(1, 'Data Model')], await aDotxTemplate({ coverText: 'COVER PAGE' }));
+    const text = textOf(xmlOf(zip));
+    expect(text).toContain('COVER PAGE');
+    expect(text.indexOf('COVER PAGE')).toBeLessThan(text.indexOf('Data Model'));
+  });
+
+  it('leaves an ordinary .docx package untouched', async () => {
+    const zip = await patch([h(1, 'Data Model')], await aTemplate());
+    const contentTypes = zip.readAsText('[Content_Types].xml');
+    expect(contentTypes).toContain(DOCUMENT_MAIN_CT);
+    expect(contentTypes).not.toContain(TEMPLATE_MAIN_CT);
   });
 });

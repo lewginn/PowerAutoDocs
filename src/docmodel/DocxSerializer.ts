@@ -62,13 +62,21 @@ function inlineRuns(inlines: InlineNode[], theme: WordTheme, sizeHalfPoints?: nu
         // Code runs are the one place the theme's font/size is applied to the
         // run rather than left to the document default, because they are
         // deliberately deviating from it.
+        //
+        // CLEAR, not SOLID. In OOXML w:val="solid" paints the shading in the
+        // *foreground* colour (w:color) and hides w:fill behind it entirely —
+        // and w:color="auto" resolves to black. That shipped a solid black
+        // chip with the code colour printed on top of it: unreadable, and
+        // reported from a real client run against a company template. w:val=
+        // "clear" means no pattern, which is what lets w:fill actually show
+        // and is what Word's own shading UI emits.
         return new TextRun({
           text: node.value,
           font: theme.code.font,
           size: codeSize,
           color: theme.code.color,
           italics: false,
-          shading: { type: ShadingType.SOLID, color: 'auto', fill: theme.code.fill },
+          shading: { type: ShadingType.CLEAR, color: 'auto', fill: theme.code.fill },
         });
       case 'bold':
         return new TextRun({ text: node.value, bold: true, italics: false, size: sizeHalfPoints });
@@ -390,7 +398,7 @@ function serializeTable(headers: string[], rows: InlineNode[][][], theme: WordTh
             : { text: h, bold: true, color: theme.table.headerColor, size: cellSize })],
           spacing: { before: 60, after: 60 },
         })],
-        ...(styled ? {} : { shading: { type: ShadingType.SOLID, color: 'auto', fill: theme.table.headerFill } }),
+        ...(styled ? {} : { shading: { type: ShadingType.CLEAR, color: 'auto', fill: theme.table.headerFill } }),
       })
     ),
   });
@@ -408,7 +416,7 @@ function serializeTable(headers: string[], rows: InlineNode[][][], theme: WordTh
         new TableCell({
           width: { size: colWidths[i], type: WidthType.DXA },
           margins,
-          ...(styled ? {} : { shading: { type: ShadingType.SOLID, color: 'auto', fill } }),
+          ...(styled ? {} : { shading: { type: ShadingType.CLEAR, color: 'auto', fill } }),
           children: [new Paragraph({
             children: inlineRuns(cell, theme, cellSize),
             spacing: { before: 60, after: 60 },
@@ -671,7 +679,7 @@ export async function serializeBlock(
             color: theme.code.color,
             italics: false,
           })],
-          shading: { type: ShadingType.SOLID, color: 'auto', fill: theme.code.fill },
+          shading: { type: ShadingType.CLEAR, color: 'auto', fill: theme.code.fill },
           indent: { left: convertInchesToTwip(0.15), right: convertInchesToTwip(0.15) },
           spacing: { after: idx === lines.length - 1 ? 120 : 0 },
         })
@@ -906,6 +914,38 @@ function enableFieldUpdateOnOpen(docx: Buffer): Buffer {
 }
 
 /**
+ * OOXML content types for the main document part. A .dotx package is byte-for-byte
+ * a .docx in every respect that matters here — same word/document.xml, same styles,
+ * numbering, headers, footers and theme parts — and differs in exactly one place:
+ * this override in [Content_Types].xml.
+ */
+const TEMPLATE_MAIN_CONTENT_TYPE =
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.template.main+xml';
+const DOCUMENT_MAIN_CONTENT_TYPE =
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml';
+
+/**
+ * Converts a .dotx package to a .docx one.
+ *
+ * Accepting a .dotx as output.wordTemplate is the natural thing for a client to
+ * try — a company template genuinely is a .dotx more often than a .docx, because
+ * that is what Word produces when you save one. Patching content into it works
+ * unchanged; what does not work is the output, which inherits the template content
+ * type and hands the user a file named .docx that declares itself a template.
+ *
+ * Rewriting the override is the entire conversion. Doing it on the way in rather
+ * than on the way out means everything downstream — the placeholder patch, the
+ * settings.xml edit — operates on an ordinary document package.
+ */
+function normaliseTemplatePackage(data: Buffer): Buffer {
+  return editPart(data, '[Content_Types].xml', xml =>
+    xml.includes(TEMPLATE_MAIN_CONTENT_TYPE)
+      ? xml.split(TEMPLATE_MAIN_CONTENT_TYPE).join(DOCUMENT_MAIN_CONTENT_TYPE)
+      : xml
+  );
+}
+
+/**
  * Renders the document *into* a company-branded template instead of building
  * one from scratch.
  *
@@ -930,11 +970,14 @@ export async function buildTemplateDocument(
   templateData: Buffer,
   onNotice?: (message: string) => void,
 ): Promise<Buffer> {
-  const placeholders = await patchDetector({ data: templateData });
+  // A .dotx arrives here as a template package; normalise it before anything
+  // reads or patches it, so the rest of this function has one shape to handle.
+  const normalised = normaliseTemplatePackage(templateData);
+  const placeholders = await patchDetector({ data: normalised });
 
-  let template = templateData;
+  let template = normalised;
   if (!placeholders.includes(TEMPLATE_CONTENT_PLACEHOLDER)) {
-    template = editPart(templateData, 'word/document.xml', substitutePlaceholder);
+    template = editPart(normalised, 'word/document.xml', substitutePlaceholder);
     onNotice?.(
       `Template has no {{${TEMPLATE_CONTENT_PLACEHOLDER}}} placeholder — its body was replaced ` +
       `by the generated documentation. Its styles, headers, footers and page setup are ` +
